@@ -1,0 +1,24 @@
+name: fozminesproof-core
+version: '${version}'
+main: org.phantam.fozminesproofCore.FozmineSproofCore
+description: A fakeplayer plugin
+author: phantam
+
+commands:
+  sproof:
+    description: Lệnh điều khiển chính của plugin FozmineSproof.
+    aliases:
+      - fsproof
+      - fakeplayers
+      - fp
+      - sproof
+      - fplayer
+      - fakeplayer
+      - fozminesproof
+    permission: fozminesproof.admin
+    usage: /<command> [spawn|remove] <tên>
+
+permissions:
+  fozminesproof.admin:
+    description: Cho phép sử dụng toàn bộ hệ thống lệnh của FozmineSproof.
+    default: op
