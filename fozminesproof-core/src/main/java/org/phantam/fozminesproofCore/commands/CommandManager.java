@@ -5,10 +5,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.phantam.fozminesproofCore.FozmineSproofCore;
-import org.phantam.fozminesproofCore.commands.subs.ReloadCommand;
-import org.phantam.fozminesproofCore.commands.subs.RemoveCommand;
-import org.phantam.fozminesproofCore.commands.subs.SpawnCommand;
-import org.phantam.fozminesproofCore.commands.subs.SubCommand;
+import org.phantam.fozminesproofCore.commands.subs.*;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -24,6 +21,10 @@ public class CommandManager implements CommandExecutor, TabCompleter {
         subCommands.add(new SpawnCommand(plugin));
         subCommands.add(new RemoveCommand(plugin));
         subCommands.add(new ReloadCommand(plugin));
+        subCommands.add(new DespawnCommand(plugin));
+        subCommands.add(new AddCommand(plugin));
+        subCommands.add(new ListCommand(plugin));
+        subCommands.add(new InfoCommand(plugin));
     }
 
     @Override

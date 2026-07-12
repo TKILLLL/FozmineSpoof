@@ -1,3 +1,11 @@
+Database:
+  name: "skyblock"
+  database: "s4433_fakeplayer"
+  host: "database.gamehosting.vn"
+  port: 3306
+  user: "u4433_zipOQrOkke"
+  password: "65h^TRd^IL4aPmQq@+2jFVBD"
+
 # Danh sách các biến PAPI gốc muốn đánh lừa (%fake_<biến_gốc>%)
 parse-papi:
   - "server_online"

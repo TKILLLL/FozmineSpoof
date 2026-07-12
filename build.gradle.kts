@@ -24,6 +24,8 @@ subprojects {
 
     dependencies {
         compileOnly("me.clip:placeholderapi:2.12.3")
+
+        implementation("com.zaxxer:HikariCP:7.1.0")
     }
 
     java {

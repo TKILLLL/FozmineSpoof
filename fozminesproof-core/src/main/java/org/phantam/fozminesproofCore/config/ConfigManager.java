@@ -34,4 +34,30 @@ public class ConfigManager {
     public boolean isTargetPlaceholder(String placeholder) {
         return this.targetPlaceholders != null && this.targetPlaceholders.contains(placeholder);
     }
+
+    /**
+     * Lấy tên bảng SQL động từ cấu hình Database.name công khai
+     * Loại bỏ các ký tự đặc biệt để phòng tránh lỗ hổng SQL Injection cho tên bảng
+     */
+    public String getTableName() {
+        FileConfiguration config = plugin.getConfig();
+        String name = config.getString("Database.name", "lobby");
+        return name.replaceAll("[^a-zA-Z0-9_]", "");
+    }
+
+    /**
+     * Lấy thông tin chứng thực kết nối cơ sở dữ liệu MySQL
+     */
+    public DatabaseCredentials getDatabaseCredentials() {
+        FileConfiguration config = plugin.getConfig();
+        return new DatabaseCredentials(
+                config.getString("Database.host"),
+                config.getInt("Database.port"),
+                config.getString("Database.database"),
+                config.getString("Database.user"),
+                config.getString("Database.password")
+        );
+    }
+
+    public static record DatabaseCredentials(String host, int port, String database, String user, String password) {}
 }
