@@ -1,8 +1,14 @@
 name: fozminesproof-core
-version: '${version}'
+version: '@version@'
 main: org.phantam.fozminesproofCore.FozmineSproofCore
 description: A fakeplayer plugin
 author: phantam
+
+dependencies:
+  server:
+    PlaceholderAPI:
+      load: BEFORE
+      required: false
 
 commands:
   sproof:

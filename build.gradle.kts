@@ -11,7 +11,19 @@ subprojects {
     repositories {
         mavenCentral()
 
-        maven("https://repo.papermc.io/repository/maven-public/")
+        maven {
+            name = "PlaceholderAPI"
+            url = uri("https://repo.helpch.at/releases")
+        }
+
+        maven {
+            name = "PaperMC"
+            url = uri("https://repo.papermc.io/repository/maven-public/")
+        }
+    }
+
+    dependencies {
+        compileOnly("me.clip:placeholderapi:2.12.3")
     }
 
     java {

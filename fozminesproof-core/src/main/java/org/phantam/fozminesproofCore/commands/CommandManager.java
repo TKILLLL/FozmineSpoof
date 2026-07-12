@@ -5,6 +5,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.phantam.fozminesproofCore.FozmineSproofCore;
+import org.phantam.fozminesproofCore.commands.subs.ReloadCommand;
 import org.phantam.fozminesproofCore.commands.subs.RemoveCommand;
 import org.phantam.fozminesproofCore.commands.subs.SpawnCommand;
 import org.phantam.fozminesproofCore.commands.subs.SubCommand;
@@ -22,6 +23,7 @@ public class CommandManager implements CommandExecutor, TabCompleter {
         // Đăng ký các lệnh con vào hệ thống quản lý
         subCommands.add(new SpawnCommand(plugin));
         subCommands.add(new RemoveCommand(plugin));
+        subCommands.add(new ReloadCommand(plugin));
     }
 
     @Override
@@ -31,7 +33,6 @@ public class CommandManager implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        // Tìm lệnh con tương ứng (Ví dụ: "spawn" hoặc "remove")
         SubCommand sub = subCommands.stream()
                 .filter(s -> s.getName().equalsIgnoreCase(args[0]))
                 .findFirst()

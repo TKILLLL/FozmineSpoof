@@ -1,3 +1,5 @@
+import org.apache.tools.ant.filters.ReplaceTokens
+
 plugins {
     id("java-library")
     id("xyz.jpenilla.run-paper") version "3.0.2"
@@ -29,9 +31,11 @@ tasks {
     }
 
     processResources {
-        val props = mapOf("version" to project.version)
+        val props = mapOf("version" to project.version.toString())
+        inputs.properties(props)
+
         filesMatching("plugin.yml") {
-            expand(props)
+            filter<ReplaceTokens>("tokens" to props)
         }
     }
 

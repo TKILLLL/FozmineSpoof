@@ -66,4 +66,9 @@ public class NMSBridge_v1_19_4 implements FozminesproofApi {
 
         packetSender.sendSpawnPackets(fakePlayer);
     }
+
+    @Override
+    public int getFakePlayersCount() {
+        return this.activeFakePlayers.size();
+    }
 }

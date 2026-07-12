@@ -1,68 +1,108 @@
 package org.phantam.fozminesproofCore;
 
+import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.phantam.fozminesproofApi.FozminesproofApi;
 import org.phantam.fozminesproofCore.commands.CommandManager;
-
-import java.lang.reflect.InvocationTargetException;
+import org.phantam.fozminesproofCore.config.ConfigManager;
+import org.phantam.fozminesproofCore.papi.FakePlayerPapiExpansion;
 
 public class FozmineSproofCore extends JavaPlugin {
 
+    private ConfigManager configManager;
     private FozminesproofApi bridge;
 
     @Override
     public void onEnable() {
-        if (!setupBridge()) {
-            this.getLogger().severe("Không tìm thấy Module NMS tương thích với phiên bản Server hiện tại!");
-            this.getLogger().severe("Plugin sẽ tự động tắt để tránh gây lỗi dữ liệu.");
-            this.getServer().getPluginManager().disablePlugin(this);
+        // 1. Khởi tạo cấu hình hệ thống
+        this.saveDefaultConfig();
+        this.configManager = new ConfigManager(this);
+
+        // 2. Khởi tạo kết nối NMS (Bridge)
+        if (!this.setupBridge()) {
+            this.disablePluginDueToError("Không tìm thấy Module NMS tương thích với phiên bản Server hiện tại!");
             return;
         }
         this.getLogger().info("FozmineSproof đã kích hoạt Bridge NMS thành công!");
 
-        if (this.getCommand("sproof") != null) {
-            this.getCommand("sproof").setExecutor(new CommandManager(this));
-        }
+        // 3. Đăng ký Hook hệ thống mở rộng (PlaceholderAPI)
+        this.registerPlaceholderAPI();
+
+        // 4. Đăng ký Hệ thống Lệnh (Commands)
+        this.registerCommands();
     }
 
+    /**
+     * Tự động quét và nạp động lớp NMS tương thích thông qua kỹ thuật Reflection
+     */
     private boolean setupBridge() {
-        // Lấy phiên bản Minecraft thô của server (Ví dụ: "1.20.2", "1.20.4", "1.19.4")
         String rawVersion = this.getServer().getMinecraftVersion();
-        String targetVersionKey;
-
-        // CƠ CHẾ GOM CỤM PHIÊN BẢN: Giúp tương thích ngược trong cùng một nhánh lớn
-        if (rawVersion.startsWith("1.19")) {
-            // Định hướng toàn bộ nhánh 1.19.x (nếu có) về module xử lý ổn định nhất là 1.19.4
-            targetVersionKey = "1_19_4";
-        } else if (rawVersion.startsWith("1.20")) {
-            // Định hướng toàn bộ nhánh 1.20.x (1.20.1, 1.20.4...) về module chung 1.20.2 của bạn
-            targetVersionKey = "1_20_2";
-        } else {
-            targetVersionKey = rawVersion.replace('.', '_');
-        }
-
+        String targetVersionKey = this.resolveVersionKey(rawVersion);
         String className = "org.phantam.fozminesproofV" + targetVersionKey + ".NMSBridge_v" + targetVersionKey;
 
         try {
             Class<?> clazz = Class.forName(className);
             this.bridge = (FozminesproofApi) clazz.getConstructor().newInstance();
             return this.bridge != null;
-
         } catch (ClassNotFoundException e) {
             this.getLogger().warning("Không tìm thấy lớp xử lý hệ thống cho phiên bản thực tế: " + rawVersion);
             this.getLogger().warning("Đường dẫn tìm kiếm thất bại: " + className);
-            return false;
-        } catch (NoSuchMethodException e) {
-            this.getLogger().severe("Không tìm thấy hàm khởi tạo trống (No-args constructor) trong lớp: " + className);
-            return false;
-        } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
+        } catch (Exception e) {
             this.getLogger().severe("Lỗi nghiêm trọng khi khởi tạo module NMS Bridge qua kỹ thuật Reflection!");
             e.printStackTrace();
-            return false;
+        }
+        return false;
+    }
+
+    /**
+     * Định hướng và gom cụm các phiên bản Minecraft về nhánh Module tương thích ổn định nhất
+     */
+    private String resolveVersionKey(String rawVersion) {
+        if (rawVersion.startsWith("1.19")) {
+            return "1_19_4";
+        }
+        if (rawVersion.startsWith("1.20")) {
+            return "1_20_2";
+        }
+        return rawVersion.replace('.', '_');
+    }
+
+    /**
+     * Đăng ký tính năng đánh lừa PlaceholderAPI thông qua ConfigManager tập trung
+     */
+    private void registerPlaceholderAPI() {
+        if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") == null) {
+            return;
+        }
+        new FakePlayerPapiExpansion(this, this.configManager, this.bridge).register();
+        this.getLogger().info("Hệ thống tự động đếm Fake Player và đánh lừa PAPI đã sẵn sàng!");
+    }
+
+    /**
+     * Đăng ký bộ xử lý lệnh chính cho Plugin
+     */
+    private void registerCommands() {
+        if (this.getCommand("sproof") != null) {
+            this.getCommand("sproof").setExecutor(new CommandManager(this));
         }
     }
 
-    public FozminesproofApi getBridge() { // Đổi kiểu trả về của hàm Getter
+    /**
+     * Tắt plugin an toàn khi xảy ra lỗi khởi tạo nghiêm trọng
+     */
+    private void disablePluginDueToError(String reason) {
+        this.getLogger().severe(reason);
+        this.getLogger().severe("Plugin sẽ tự động tắt để tránh gây lỗi dữ liệu.");
+        this.getServer().getPluginManager().disablePlugin(this);
+    }
+
+    // --- GETTERS (OOP Encapsulation) ---
+
+    public FozminesproofApi getBridge() {
         return this.bridge;
+    }
+
+    public ConfigManager getConfigManager() {
+        return this.configManager;
     }
 }

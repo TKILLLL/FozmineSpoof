@@ -33,4 +33,9 @@ public interface FozminesproofApi {
      * Cập nhật skin cho NPC dựa vào giá trị texture thô lấy từ Mojang API
      */
     void updatePlayerSkin(UUID uuid, String texture, String signature);
+
+    /**
+     * @return Số lượng Fake Player thực tế đang hoạt động trên Server
+     */
+    int getFakePlayersCount();
 }

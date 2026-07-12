@@ -1,0 +1,4 @@
+# Danh sách các biến PAPI gốc muốn đánh lừa (%fake_<biến_gốc>%)
+parse-papi:
+  - "server_online"
+  - "bungee_skyblock"
