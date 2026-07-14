@@ -1,9 +1,6 @@
 package org.phantam.fozminesproofCore.commands.subs;
 
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.Location;
-import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.phantam.fozminesproofCore.FozmineSproofCore;
 import org.phantam.fozminesproofApi.database.FakePlayerData;
@@ -59,31 +56,21 @@ public class SpawnCommand implements SubCommand {
             return;
         }
 
-        FakePlayerData data = botDataOpt.get();
-        World world = Bukkit.getWorld(data.getWorld());
+        // 3. Thực hiện kích hoạt qua Manager.
+        // Hàm này nội bộ sẽ kiểm tra World Void, gọi NMS Bridge gửi packet và phát tin nhắn Join tùy chỉnh qua Config.
+        boolean success = plugin.getFakePlayerManager().spawnBot(targetName);
 
-        if (world == null) {
-            sender.sendMessage(ChatColor.RED + "Thế giới '" + data.getWorld() + "' lưu trong dữ liệu của bot hiện không được nạp (Unloaded/Missing)!");
-            return;
+        if (success) {
+            sender.sendMessage(ChatColor.GREEN + "Đã gọi NMS kích hoạt hiển thị thành công Fake Player: " + ChatColor.YELLOW + targetName);
+        } else {
+            sender.sendMessage(ChatColor.RED + "Kích hoạt thất bại! Vui lòng kiểm tra lại cấu hình thế giới Void hoặc log hệ thống.");
         }
-
-        // 3. Kích hoạt trạng thái hoạt động trong Manager (Cập nhật cột is_active = true xuống SQL)
-        plugin.getFakePlayerManager().spawnBot(targetName);
-
-        // 4. Khởi tạo đối tượng Location từ dữ liệu thô SQL
-        Location spawnLoc = new Location(world, data.getX(), data.getY(), data.getZ(), data.getYaw(), data.getPitch());
-
-        // 5. Gọi NMS Bridge thông qua API của bạn với đúng 3 tham số thiết kế rời rạc công khai
-        plugin.getBridge().spawnPlayer(data.getName(), data.getUuid(), spawnLoc);
-
-        sender.sendMessage(ChatColor.GREEN + "Đã gọi NMS kích hoạt hiển thị thành công Fake Player: " + ChatColor.YELLOW + data.getName());
     }
 
     @Override
     public List<String> tabComplete(CommandSender sender, String[] args) {
         if (args.length == 2) {
             String input = args[1].toLowerCase();
-            // Tự động gợi ý những bot có trong Database nhưng hiện tại đang OFFLINE (chờ spawn)
             return plugin.getFakePlayerManager().getAllDatabaseBots().stream()
                     .map(FakePlayerData::getName)
                     .filter(name -> !plugin.getFakePlayerManager().isBotOnline(name))

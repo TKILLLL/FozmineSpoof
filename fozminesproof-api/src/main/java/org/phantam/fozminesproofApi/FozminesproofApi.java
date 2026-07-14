@@ -38,4 +38,10 @@ public interface FozminesproofApi {
      * @return Số lượng Fake Player thực tế đang hoạt động trên Server
      */
     int getFakePlayersCount();
+
+    /**
+     * Gửi lại chuỗi gói tin hiển thị (Tablist và Mô hình) cho toàn bộ Bot đang hoạt động.
+     * Hàm này được gọi định kỳ bởi Bukkit Runnable để sửa lỗi Bot biến mất khi Player re-log/di chuyển.
+     */
+    void sendKeepAlivePackets();
 }

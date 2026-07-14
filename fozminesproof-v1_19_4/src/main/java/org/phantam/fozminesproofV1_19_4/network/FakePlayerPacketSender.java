@@ -21,30 +21,37 @@ public class FakePlayerPacketSender {
     }
 
     /**
-     * Phát chuỗi gói tin hiển thị NPC ra toàn Server (Dành riêng cho 1.19.4)
+     * Phát chuỗi gói tin hiển thị NPC ra toàn Server và ép hiển thị trên Tablist (Dành riêng cho 1.19.4)
      */
     public void sendSpawnPackets(ServerPlayer fakePlayer) {
-        // 1. Tạo gói tin cập nhật Tablist (Đặc trưng 1.19.4 cho phép đưa thẳng thực thể vào List)
+        // Cấu hình đầy đủ tổ hợp 4 hành động mạng bắt buộc để kích hoạt hiển thị Tablist trên Client 1.19.4
+        // Bản 1.19.4 cho phép truyền trực tiếp đối tượng thực thể fakePlayer vào danh sách xử lý
         ClientboundPlayerInfoUpdatePacket tabPacket = new ClientboundPlayerInfoUpdatePacket(
-                EnumSet.of(ClientboundPlayerInfoUpdatePacket.Action.ADD_PLAYER, ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LISTED),
+                EnumSet.of(
+                        ClientboundPlayerInfoUpdatePacket.Action.ADD_PLAYER,
+                        ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LISTED,
+                        ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LATENCY,
+                        ClientboundPlayerInfoUpdatePacket.Action.UPDATE_GAME_MODE
+                ),
                 List.of(fakePlayer)
         );
 
-        // 2. Tạo gói tin xuất hiện mô hình thực thể 3D thế mạng cho AddPlayerPacket cũ
+        // Tạo gói tin xuất hiện mô hình thực thể 3D thế mạng cho AddPlayerPacket cũ của Mojang
         ClientboundAddEntityPacket spawnPacket = new ClientboundAddEntityPacket(fakePlayer);
 
-        // 3. Tiến hành đồng bộ hóa
+        // Tiến hành phân phát đồng loạt gói tin mạng tới toàn bộ người chơi thực tế
         broadcastExcept(fakePlayer.getUUID(), tabPacket);
         broadcastExcept(fakePlayer.getUUID(), spawnPacket);
     }
 
     /**
-     * Phát chuỗi gói tin hủy bỏ NPC khỏi thế giới của người chơi khác
+     * Phát chuỗi gói tin hủy bỏ NPC khỏi thế giới và xóa tên khỏi Tablist
      */
     public void sendDespawnPackets(UUID uuid, int entityId) {
         ClientboundRemoveEntitiesPacket destroyPacket = new ClientboundRemoveEntitiesPacket(entityId);
         ClientboundPlayerInfoRemovePacket removeTabPacket = new ClientboundPlayerInfoRemovePacket(List.of(uuid));
 
+        // Giải phóng mô hình thực thể 3D trước, sau đó xóa tên khỏi danh sách Tablist
         broadcastExcept(uuid, destroyPacket);
         broadcastExcept(uuid, removeTabPacket);
     }

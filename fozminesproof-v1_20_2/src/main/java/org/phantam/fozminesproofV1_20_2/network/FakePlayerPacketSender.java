@@ -23,40 +23,47 @@ public class FakePlayerPacketSender {
     }
 
     /**
-     * Phát chuỗi gói tin hiển thị NPC ra toàn Server
+     * Phát chuỗi gói tin hiển thị NPC ra toàn Server và ép hiển thị trên Tablist
      */
     public void sendSpawnPackets(ServerPlayer fakePlayer, String name) {
-        // 1. Tạo gói tin Tablist
+        // Tạo một entry chi tiết chứa đầy đủ dữ liệu trạng thái mạng giả lập cho Bot
         ClientboundPlayerInfoUpdatePacket.Entry playerEntry = new ClientboundPlayerInfoUpdatePacket.Entry(
                 fakePlayer.getUUID(),
                 fakePlayer.getGameProfile(),
-                true,
-                0,
-                GameType.SURVIVAL,
-                Component.literal(name),
-                null
+                true,                 // listed = true: Ép buộc hiển thị lên giao diện Tablist công khai
+                0,                    // Latency (Ping) = 0ms
+                GameType.SURVIVAL,    // Chế độ chơi sinh tồn
+                Component.literal(name), // Tên hiển thị trên Tablist
+                null                  // Sửa lỗi hiển thị Chat Session (Không cần thiết cho Bot)
         );
 
+        // Đóng gói tổ hợp 4 hành động bắt buộc của Mojang 1.20.2 để Client vẽ tên Bot lên màn hình Tab
         ClientboundPlayerInfoUpdatePacket tabPacket = new ClientboundPlayerInfoUpdatePacket(
-                EnumSet.of(ClientboundPlayerInfoUpdatePacket.Action.ADD_PLAYER, ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LISTED),
+                EnumSet.of(
+                        ClientboundPlayerInfoUpdatePacket.Action.ADD_PLAYER,
+                        ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LISTED,
+                        ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LATENCY,
+                        ClientboundPlayerInfoUpdatePacket.Action.UPDATE_GAME_MODE
+                ),
                 List.of(playerEntry)
         );
 
-        // 2. Tạo gói tin mô hình thực thể 3D
+        // Tạo gói tin sinh khối mô hình thực thể người chơi 3D
         ClientboundAddEntityPacket spawnPacket = new ClientboundAddEntityPacket(fakePlayer);
 
-        // 3. Gửi đồng loạt
+        // Gửi đồng loạt chuỗi dữ liệu tới toàn bộ người chơi thực tế đang trực tuyến
         broadcastExcept(fakePlayer.getUUID(), tabPacket);
         broadcastExcept(fakePlayer.getUUID(), spawnPacket);
     }
 
     /**
-     * Phát chuỗi gói tin hủy bỏ NPC khỏi thế giới của người chơi khác
+     * Phát chuỗi gói tin hủy bỏ NPC khỏi thế giới và xóa tên khỏi Tablist
      */
     public void sendDespawnPackets(UUID uuid, int entityId) {
         ClientboundRemoveEntitiesPacket destroyPacket = new ClientboundRemoveEntitiesPacket(entityId);
         ClientboundPlayerInfoRemovePacket removeTabPacket = new ClientboundPlayerInfoRemovePacket(List.of(uuid));
 
+        // Tiến hành xóa mô hình 3D trước, sau đó gỡ nhãn tên trên Tablist để tránh lỗi ghost name
         broadcastExcept(uuid, destroyPacket);
         broadcastExcept(uuid, removeTabPacket);
     }

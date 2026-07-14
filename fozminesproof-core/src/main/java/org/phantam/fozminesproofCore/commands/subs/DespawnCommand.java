@@ -2,12 +2,11 @@ package org.phantam.fozminesproofCore.commands.subs;
 
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
-import org.phantam.fozminesproofCore.FozmineSproofCore;
 import org.phantam.fozminesproofApi.database.FakePlayerData;
+import org.phantam.fozminesproofCore.FozmineSproofCore;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class DespawnCommand implements SubCommand {
@@ -45,21 +44,14 @@ public class DespawnCommand implements SubCommand {
             return;
         }
 
-        // 2. Lấy thông tin đối tượng bot từ dữ liệu cache của Manager để lấy UUID gốc
-        Optional<FakePlayerData> botDataOpt = plugin.getFakePlayerManager().getAllDatabaseBots().stream()
-                .filter(bot -> bot.getName().equalsIgnoreCase(targetName))
-                .findFirst();
+        // 2. Kích hoạt thu hồi qua Manager.
+        // Hàm này tự xử lý xóa cache RAM, gỡ packet thực thể 3D qua NMS, cập nhật database và phát thông báo Leave cấu hình từ config.
+        boolean success = plugin.getFakePlayerManager().despawnBot(targetName);
 
-        if (botDataOpt.isPresent()) {
-            FakePlayerData data = botDataOpt.get();
-
-            // 3. Gọi API hủy hiển thị thực thể NMS bằng UUID cố định chuẩn cấu trúc Interface của bạn
-            plugin.getBridge().despawnPlayer(data.getUuid());
-
-            // 4. Cập nhật trạng thái xuống Database SQL (Chuyển cờ hoạt động về false)
-            plugin.getFakePlayerManager().despawnBot(targetName);
-
+        if (success) {
             sender.sendMessage(ChatColor.YELLOW + "Đã thu hồi gói tin NMS, hủy hiển thị thành công Fake Player: " + ChatColor.GOLD + targetName);
+        } else {
+            sender.sendMessage(ChatColor.RED + "Có lỗi xảy ra trong quá trình hủy kích hoạt thực thể!");
         }
     }
 
@@ -67,7 +59,6 @@ public class DespawnCommand implements SubCommand {
     public List<String> tabComplete(CommandSender sender, String[] args) {
         if (args.length == 2) {
             String input = args[1].toLowerCase();
-            // Tự động gợi ý chuẩn xác danh sách các bot đang ONLINE trên Server để Despawn nhanh
             return plugin.getFakePlayerManager().getAllDatabaseBots().stream()
                     .map(FakePlayerData::getName)
                     .filter(name -> plugin.getFakePlayerManager().isBotOnline(name))

@@ -5,6 +5,7 @@ import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.phantam.fozminesproofCore.FozmineSproofCore;
+import org.phantam.fozminesproofCore.config.ConfigManager;
 
 import java.util.Collections;
 import java.util.List;
@@ -61,7 +62,13 @@ public class AddCommand implements SubCommand {
         // Gọi Manager để đóng gói dữ liệu thô và đẩy trực tiếp xuống câu lệnh INSERT INTO của SQL
         plugin.getFakePlayerManager().addBot(targetName, loc);
 
+        // Lấy tên thế giới Void thực tế đã được Manager ép buộc gán vào dữ liệu Bot
+        ConfigManager config = plugin.getConfigManager();
+        String assignedWorld = config.getBotWorldName();
+
         player.sendMessage(ChatColor.GREEN + "Đã khởi tạo thành công dữ liệu tĩnh cho bot " + ChatColor.YELLOW + targetName);
+        player.sendMessage(ChatColor.GRAY + "Vị trí lưu trữ cố định: " + ChatColor.AQUA + assignedWorld +
+                " (" + (int)loc.getX() + ", " + (int)loc.getY() + ", " + (int)loc.getZ() + ")");
         player.sendMessage(ChatColor.GRAY + "Dùng lệnh '/sproof spawn " + targetName + "' để kích hoạt mô hình hiển thị 3D.");
     }
 

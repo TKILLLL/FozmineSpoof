@@ -1,12 +1,18 @@
 Database:
-  name: "skyblock"
-  database: "s4433_fakeplayer"
+  name: "test"
+  database: "s3923_fozminesproof"
   host: "database.gamehosting.vn"
   port: 3306
-  user: "u4433_zipOQrOkke"
-  password: "65h^TRd^IL4aPmQq@+2jFVBD"
+  user: "u3923_RDUGGHro8y"
+  password: "avSxGrlLS.myYnN3sL=O+4y3"
+
+Fakeplayer-setting:
+  botworld: botworld
+  join-leave-message-enable: true
+  join-message: "%fakeplayer_name% join the game"
+  leave-message: "%fakeplayer_name% left the game"
 
 # Danh sách các biến PAPI gốc muốn đánh lừa (%fake_<biến_gốc>%)
 parse-papi:
   - "server_online"
-  - "bungee_skyblock"
+  - "bungee_lobby"

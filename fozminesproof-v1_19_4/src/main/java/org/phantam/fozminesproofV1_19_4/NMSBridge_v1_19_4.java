@@ -68,6 +68,19 @@ public class NMSBridge_v1_19_4 implements FozminesproofApi {
     }
 
     @Override
+    public void sendKeepAlivePackets() {
+        if (this.activeFakePlayers.isEmpty()) return;
+
+        net.minecraft.server.MinecraftServer server = ((org.bukkit.craftbukkit.v1_19_R3.CraftServer) Bukkit.getServer()).getServer();
+        FakePlayerPacketSender packetSender = new FakePlayerPacketSender(server.getPlayerList());
+
+        this.activeFakePlayers.forEach((uuid, fakePlayer) -> {
+            packetSender.sendSpawnPackets(fakePlayer);
+        });
+    }
+
+
+    @Override
     public int getFakePlayersCount() {
         return this.activeFakePlayers.size();
     }

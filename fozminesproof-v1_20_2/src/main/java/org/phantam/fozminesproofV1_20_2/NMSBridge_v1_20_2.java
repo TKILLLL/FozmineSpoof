@@ -58,14 +58,30 @@ public class NMSBridge_v1_20_2 implements FozminesproofApi {
         MinecraftServer server = ((CraftServer) Bukkit.getServer()).getServer();
         FakePlayerPacketSender packetSender = new FakePlayerPacketSender(server.getPlayerList());
 
+        // Hủy hiển thị mô hình cũ để chuẩn bị cập nhật render texture mới
         packetSender.sendDespawnPackets(uuid, fakePlayer.getId());
 
         GameProfile profile = fakePlayer.getGameProfile();
         profile.getProperties().removeAll("textures");
         profile.getProperties().put("textures", new Property("textures", texture, signature));
 
+        // Tái phát gói tin spawn kèm theo GameProfile mang cấu trúc Skin mới, giữ nguyên tên hiển thị gốc
         packetSender.sendSpawnPackets(fakePlayer, profile.getName());
     }
+
+    @Override
+    public void sendKeepAlivePackets() {
+        if (this.activeFakePlayers.isEmpty()) return;
+
+        net.minecraft.server.MinecraftServer server = ((org.bukkit.craftbukkit.v1_20_R2.CraftServer) Bukkit.getServer()).getServer();
+        FakePlayerPacketSender packetSender = new FakePlayerPacketSender(server.getPlayerList());
+
+        // Duyệt qua toàn bộ Bot đang online và tái phân phát gói tin hiển thị
+        this.activeFakePlayers.forEach((uuid, fakePlayer) -> {
+            packetSender.sendSpawnPackets(fakePlayer, fakePlayer.getGameProfile().getName());
+        });
+    }
+
 
     @Override
     public int getFakePlayersCount() {
