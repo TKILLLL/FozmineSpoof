@@ -1,6 +1,6 @@
 name: fozminesproof-core
 version: '@version@'
-main: org.phantam.fozminesproofCore.FozmineSproofCore
+main: org.phantam.fozminesproofcore.FozmineSproofCore
 description: A fakeplayer plugin
 author: phantam
 

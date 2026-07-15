@@ -1,18 +1,66 @@
+# ================================================================================= #
+#                       FOZMINESPROOF GLOBAL CONFIGURATION                          #
+#         Hệ thống quản lý FakePlayer tối ưu hiệu năng và chống lag TPS            #
+# ================================================================================= #
+
+# Cấu hình kết nối Cơ sở dữ liệu SQL (HikariCP)
 Database:
+  # Tên bảng dữ liệu động (Tự động lọc bỏ ký tự đặc biệt độc hại)
   name: "test"
+  # Tên cơ sở dữ liệu trên hệ thống hosting
   database: "s3923_fozminesproof"
+  # Địa chỉ IP hoặc Domain kết nối đến máy chủ MySQL
   host: "database.gamehosting.vn"
+  # Cổng kết nối mặc định của MySQL
   port: 3306
+  # Tài khoản và mật khẩu truy cập dữ liệu
   user: "u3923_RDUGGHro8y"
   password: "avSxGrlLS.myYnN3sL=O+4y3"
 
+# Cấu hình hành vi và thuộc tính hiển thị của FakePlayer
 Fakeplayer-setting:
-  botworld: botworld
+  # Tên thế giới Void trống rỗng chuyên dụng để sinh bot ngầm định
+  botworld: "botworld"
+  
+  # Bật/Tắt thông báo tin nhắn Join/Leave toàn hệ thống server khi bot nạp
   join-leave-message-enable: true
-  join-message: "%fakeplayer_name% join the game"
-  leave-message: "%fakeplayer_name% left the game"
+  
+  # Khoảng thời gian giãn cách ngẫu nhiên khi sử dụng lệnh nạp/thu hồi loạt bằng dấu '*'
+  # Định dạng: 'min-max' tính bằng giây (Ví dụ: 0-1 giây)
+  join-quit-interval: "0-1"
+  
+  # Nội dung thông báo hiển thị (Hỗ trợ mã màu & %fakeplayer_name%)
+  join-message: "&e%fakeplayer_name% &7đã kết nối vào trò chơi."
+  leave-message: "&e%fakeplayer_name% &7đã thoát khỏi trò chơi."
 
-# Danh sách các biến PAPI gốc muốn đánh lừa (%fake_<biến_gốc>%)
+# ================================================================================= #
+#                       FAKE PLAYER CHAT SYSTEM CONFIGURATION                       #
+# ================================================================================= #
+chat-system:
+  # Bật/Tắt toàn bộ tính năng tự động phát tin nhắn ngẫu nhiên của FakePlayer
+  enabled: true
+
+  # Cấu hình dịch thuật tự động (Sử dụng mã ngôn ngữ quốc tế ISO 639-1)
+  # Đặt "none" nếu muốn giữ nguyên tiếng Anh gốc trích xuất từ file random-messages.yml
+  translation-target: "vi"
+
+  # Tần suất thực hiện kiểm tra và kích hoạt chu kỳ chat mới
+  # Định dạng: 'min-max' tính bằng phút (Ví dụ: từ 0 đến 1 phút)
+  interval-minutes: "0-1"
+  
+  # Số lượng bot tối đa sẽ được bốc ngẫu nhiên để lên tiếng trong mỗi chu kỳ chat
+  # Định dạng: 'min-max' số lượng bot
+  bots-per-interval: "1-3"
+  
+  # Khoảng trễ ngẫu nhiên so le giữa các bot khi có nhiều bot cùng chat (tính bằng giây)
+  # Giúp phân tách gói tin mạng mạng ảo, ngăn chặn việc 3 bot chat lên màn hình ở cùng 1 mili-giây
+  delay-between-bots-seconds: "3-7"
+
+# ================================================================================= #
+#                       PLACEHOLDERAPI EXTRA EXPANSION                             #
+# ================================================================================= #
+# Danh sách các biến PAPI gốc muốn đánh lừa thông qua cầu nối %fake_<biến_gốc>%
+# Khi người chơi gọi %fake_server_online%, plugin sẽ lấy số người thật cộng dồn với số bot online
 parse-papi:
   - "server_online"
   - "bungee_lobby"

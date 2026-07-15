@@ -1,0 +1,61 @@
+# ================================================================================= #
+#                       FOZMINESPROOF PLUGIN MESSAGES CONFIGURATION                 #
+#        Hỗ trợ màu truyền thống (&a, &b) và hệ màu HEX (&#RRGGBB, #RRGGBB)         #
+# ================================================================================= #
+
+system:
+  prefix: "&#4e73df&l[FozmineSproof] &r"
+  no-permission: "&#e74c3c❌ Bạn không có quyền thực hiện lệnh này!"
+  reload-success: "&#2ecc71✅ Đã nạp lại cấu hình và đồng bộ hệ thống FakePlayer thành công."
+  only-player: "&#e74c3c⚠ Lệnh này chỉ có thể thực hiện bởi người chơi trong game!"
+  unknown-command: "&#e74c3c⚠ Lệnh không hợp lệ. Gõ &#f1c40f/sproof help &r&#e74c3cđể xem danh sách."
+
+commands:
+  help:
+    header: "&#4e73df&m==================&r &#4e73df&lHƯỚNG DẪN LỆNH &r&#4e73df&m=================="
+    format: "&#f1c40f/sproof %syntax% &7- &#ffffff%description%"
+    footer: "&#4e73df&m======================================================"
+    list:
+      add: "add <tên> | Khởi tạo dữ liệu bot tĩnh tại vị trí đứng"
+      spawn: "spawn <tên> | Kích hoạt và hiển thị mô hình 3D của bot"
+      despawn: "despawn <tên> | Ẩn mô hình hiển thị của bot"
+      remove: "remove <tên> | Xóa hoàn toàn bot khỏi bộ nhớ và SQL"
+      list: "list | Hiển thị danh sách bot đang có trên hệ thống"
+      info: "info <tên> | Xem chi tiết tọa độ và trạng thái của bot"
+      reload: "reload | Làm mới toàn bộ cấu hình hệ thống"
+
+bot:
+  # Lỗi chung liên quan đến định danh
+  not-found: "&#e74c3c❌ Không tìm thấy FakePlayer nào có tên là &e%fakeplayer_name%&#e74c3c trong cơ sở dữ liệu!"
+  already-exists: "&#e74c3c❌ FakePlayer có tên &e%fakeplayer_name%&#e74c3c đã tồn tại trước đó!"
+  invalid-name: "&#e74c3c❌ Tên bot không hợp lệ! Chỉ chấp nhận chữ, số và dấu gạch dưới (3-16 ký tự)."
+
+  # Phản hồi từ AddAction
+  add-success: "&#2ecc71✅ Đã khởi tạo thành công bot tĩnh &e%fakeplayer_name% &7(Thế giới: &b%world%&7)."
+
+  # Phản hồi từ SpawnAction
+  spawn-success: "&#2ecc71🚀 Đã kích hoạt hiển thị mô hình 3D cho bot &e%fakeplayer_name%&#2ecc71!"
+  already-spawned: "&#f1c40f⚠ Bot &e%fakeplayer_name%&#f1c40f hiện đã được spawn và đang hoạt động rồi."
+
+  # Phản hồi từ DespawnAction
+  despawn-success: "&#e67e22💤 Đã thu hồi (despawn) mô hình của bot &e%fakeplayer_name%&#e67e22 về trạng thái ngủ."
+  already-despawned: "&#f1c40f⚠ Bot &e%fakeplayer_name%&#f1c40f hiện tại đang ở trạng thái ẩn sẵn rồi."
+
+  # Phản hồi từ RemoveAction
+  remove-success: "&#e74c3c🗑 Đã xóa hoàn toàn dữ liệu của bot &e%fakeplayer_name%&#e74c3c khỏi hệ thống SQL."
+
+  # Phản hồi từ InfoAction
+  info-format:
+    - "&#4e73df&lTHÔNG TIN BOT: &e%fakeplayer_name%"
+    - " &7▪ Trạng thái: %status_formatted%"
+    - " &7▪ UUID: &b%uuid%"
+    - " &7▪ Tọa độ: &fX: %x% | Y: %y% | Z: %z% &7(&f%world%&7)"
+    - " &7▪ Góc nhìn: &fYaw: %yaw% | Pitch: %pitch%"
+  status-online: "&#2ecc71● ĐANG HOẠT ĐỘNG"
+  status-offline: "&#7f8c8d○ ĐANG ẨN"
+
+  # Phản hồi từ ListAction
+  list-header: "&#4e73df&lDANH SÁCH FAKEPLAYERS HỆ THỐNG (%online%/%total%):"
+  list-item-online: " &7- &e%fakeplayer_name% &7[%status_formatted%&7]"
+  list-item-offline: " &7- &7%fakeplayer_name% &7[%status_formatted%&7]"
+  list-empty: "&#f1c40f Hiện tại chưa có FakePlayer nào được tạo trong hệ thống."
