@@ -2,7 +2,6 @@ package org.phantam.fozminesproofv1_19_4;
 
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
-import net.minecraft.network.protocol.game.ServerboundChatPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -10,7 +9,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.craftbukkit.v1_19_R3.CraftServer;
 import org.bukkit.craftbukkit.v1_19_R3.CraftWorld;
-import org.bukkit.craftbukkit.v1_19_R3.entity.CraftPlayer;
+import org.bukkit.craftbukkit.v1_19_R3.util.CraftChatMessage;
 import org.bukkit.entity.Player;
 import org.phantam.fozminesproofapi.FozminesproofApi;
 import org.phantam.fozminesproofv1_19_4.factory.FakePlayerFactory;
@@ -33,17 +32,15 @@ public class NMSBridge_v1_19_4 implements FozminesproofApi {
 
         activeFakePlayers.put(uuid, fakePlayer);
 
-        // --- ĐOẠN ĐĂNG KÝ ĐỒNG BỘ VÀO HỆ THỐNG MÁY CHỦ (1.19.4) ---
-        // Thêm Bot vào danh sách người chơi trực tuyến của Server để Bukkit.getPlayer() nhận diện công khai
+        // --- ĐOẠN ĐĂNG KÝ QUAN TRỌNG VÀO HỆ THỐNG MÁY CHỦ ---
         if (!server.getPlayerList().players.contains(fakePlayer)) {
             server.getPlayerList().players.add(fakePlayer);
         }
-        // Thêm thực thể vào thế giới cấp độ NMS để máy chủ xử lý tick dữ liệu ảo
         level.addNewPlayer(fakePlayer);
-        // ----------------------------------------------------------
+        // ----------------------------------------------------
 
         FakePlayerPacketSender packetSender = new FakePlayerPacketSender(server.getPlayerList());
-        packetSender.sendSpawnPackets(fakePlayer);
+        packetSender.sendSpawnPackets(fakePlayer, name);
 
         return fakePlayer.getBukkitEntity();
     }
@@ -58,8 +55,13 @@ public class NMSBridge_v1_19_4 implements FozminesproofApi {
         FakePlayerPacketSender packetSender = new FakePlayerPacketSender(server.getPlayerList());
         packetSender.sendDespawnPackets(uuid, fakePlayer.getId());
 
-        // --- ĐOẠN XÓA KHỎI HỆ THỐNG MÁY CHỦ (1.19.4) ---
+        // --- ĐOẠN XÓA KHỎI HỆ THỐNG MÁY CHỦ ---
         server.getPlayerList().players.remove(fakePlayer);
+
+        if (fakePlayer.getLevel() instanceof ServerLevel) {
+            ServerLevel level = (ServerLevel) fakePlayer.getLevel();
+            level.removePlayerImmediately(fakePlayer, net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
+        }
         // ------------------------------------
 
         fakePlayer.discard();
@@ -67,59 +69,82 @@ public class NMSBridge_v1_19_4 implements FozminesproofApi {
 
     @Override
     public void updatePlayerSkin(UUID uuid, String texture, String signature) {
-        ServerPlayer fakePlayer = activeFakePlayers.get(uuid);
-        if (fakePlayer == null) return;
+        ServerPlayer oldFakePlayer = activeFakePlayers.get(uuid);
+        if (oldFakePlayer == null) return;
 
         MinecraftServer server = ((CraftServer) Bukkit.getServer()).getServer();
+        ServerLevel level = (ServerLevel) oldFakePlayer.getLevel();
+        Location currentLoc = oldFakePlayer.getBukkitEntity().getLocation();
+        String name = oldFakePlayer.getGameProfile().getName();
+
         FakePlayerPacketSender packetSender = new FakePlayerPacketSender(server.getPlayerList());
 
-        packetSender.sendDespawnPackets(uuid, fakePlayer.getId());
+        // 1. Phát gói tin Despawn gỡ bỏ thực thể cũ ra khỏi màn hình Client người chơi thực tế
+        packetSender.sendDespawnPackets(uuid, oldFakePlayer.getId());
 
-        GameProfile profile = fakePlayer.getGameProfile();
+        // 2. Dọn dẹp triệt để thực thể cũ khỏi danh sách quản lý mạng và ticking của Core Server
+        server.getPlayerList().players.remove(oldFakePlayer);
+        level.removePlayerImmediately(oldFakePlayer, net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
+        oldFakePlayer.discard();
+
+        // 3. Khởi tạo một đối tượng ServerPlayer hoàn toàn mới thông qua Factory để nạp Skin mới sạch sẽ
+        ServerPlayer newFakePlayer = FakePlayerFactory.create(server, level, name, uuid, currentLoc);
+
+        // 4. Inject thủ công chuỗi Skin Texture bản quyền mới vào cấu trúc GameProfile của thực thể mới
+        GameProfile profile = newFakePlayer.getGameProfile();
         profile.getProperties().removeAll("textures");
         profile.getProperties().put("textures", new Property("textures", texture, signature));
 
-        packetSender.sendSpawnPackets(fakePlayer);
+        // 5. Đăng ký lại thực thể mới vào hệ thống máy chủ và map dữ liệu hoạt động
+        activeFakePlayers.put(uuid, newFakePlayer);
+        if (!server.getPlayerList().players.contains(newFakePlayer)) {
+            server.getPlayerList().players.add(newFakePlayer);
+        }
+        level.addNewPlayer(newFakePlayer);
+
+        // 6. Phát lại chuỗi gói tin Spawn để ép buộc Client người chơi cập nhật và vẽ lại Skin mới ngay lập tức
+        packetSender.sendSpawnPackets(newFakePlayer, profile.getName());
     }
 
     @Override
     public void sendKeepAlivePackets() {
         if (this.activeFakePlayers.isEmpty()) return;
 
-        MinecraftServer server = ((CraftServer) Bukkit.getServer()).getServer();
+        MinecraftServer server = ((Bukkit.getServer() instanceof CraftServer) ? ((CraftServer) Bukkit.getServer()).getServer() : null);
+        if (server == null) return;
+
         FakePlayerPacketSender packetSender = new FakePlayerPacketSender(server.getPlayerList());
 
         this.activeFakePlayers.forEach((uuid, fakePlayer) -> {
-            packetSender.sendSpawnPackets(fakePlayer);
+            packetSender.sendSpawnPackets(fakePlayer, fakePlayer.getGameProfile().getName());
         });
     }
 
     @Override
     public void broadcastNMSChat(Player player, String message) {
-        if (player == null || !player.isOnline()) return;
+        if (player == null || message == null || message.trim().isEmpty()) return;
 
         try {
-            // 1. Ép kiểu Bukkit Player sang ServerPlayer của NMS 1.20.2
-            net.minecraft.server.level.ServerPlayer nmsPlayer =
-                    ((CraftPlayer) player).getHandle();
+            // 1. Lấy instance của MinecraftServer
+            net.minecraft.server.MinecraftServer server =
+                    ((org.bukkit.craftbukkit.v1_19_R3.CraftServer) Bukkit.getServer()).getServer();
 
-            // 2. Khởi tạo cấu trúc gói tin chat thô chuẩn Mojang 1.20.2
-            ServerboundChatPacket fakeChatPacket =
-                    new net.minecraft.network.protocol.game.ServerboundChatPacket(
-                            message,
-                            java.time.Instant.now(),
-                            0L,
-                            null,
-                            new net.minecraft.network.chat.LastSeenMessages.Update(
-                                    0,
-                                    new java.util.BitSet() // Khắc phục lỗi: Sử dụng BitSet trống thay thế cho Optional
-                            )
-                    );
+            // 2. Chuyển đổi chuỗi chứa mã màu thành mảng Component Mojang hoàn chỉnh
+            net.minecraft.network.chat.Component[] components = CraftChatMessage.fromString(message);
+            if (components.length == 0) return;
 
-            // 3. Đẩy thẳng vào bộ lắng nghe hệ thống, kích hoạt tự động chuỗi xử lý chat chính quy của Server
-            if (nmsPlayer.connection != null) {
-                nmsPlayer.connection.handleChat(fakeChatPacket);
+            // Khởi tạo một MutableComponent rỗng làm gốc để chứa toàn bộ cấu trúc chat
+            net.minecraft.network.chat.MutableComponent finalComponent = net.minecraft.network.chat.Component.empty();
+
+            // Duyệt qua toàn bộ mảng và nối đuôi liên tục để giữ nguyên vẹn 100% định dạng màu sắc lẫn chữ nội dung
+            for (net.minecraft.network.chat.Component comp : components) {
+                finalComponent.append(comp);
             }
+
+            // 3. Phát tin nhắn đã được hợp nhất ra toàn Server dưới dạng tin nhắn Hệ Thống Mở Rộng
+            // Trên 1.19.4, hàm này nhận 2 tham số: Component và một giá trị boolean (không dùng hệ thống BoundChat như 1.21)
+            server.getPlayerList().broadcastSystemMessage(finalComponent, false);
+
         } catch (Exception e) {
             Bukkit.getLogger().severe("[Fozminesproof] Khong the gui packet chat NMS cho: " + player.getName());
             e.printStackTrace();

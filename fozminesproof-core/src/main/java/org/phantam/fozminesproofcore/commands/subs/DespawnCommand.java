@@ -58,9 +58,9 @@ public class DespawnCommand implements SubCommand {
      * Logic xử lý thu hồi hàng loạt FakePlayer đang trực tuyến
      */
     private void handleDespawnAll(CommandSender sender, MessageManager msgManager) {
-        List<String> onlineBots = plugin.getFakePlayerManager().getAllDatabaseBots().stream()
+        // TỐI ƯU TẠI ĐÂY: Lấy trực tiếp từ Registry (RAM) thay vì truy vấn toàn bộ Database (I/O)
+        List<String> onlineBots = plugin.getFakePlayerManager().getOnlineBotsData().stream()
                 .map(FakePlayerData::getName)
-                .filter(name -> plugin.getFakePlayerManager().isBotOnline(name))
                 .collect(Collectors.toList());
 
         if (onlineBots.isEmpty()) {

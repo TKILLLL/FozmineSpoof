@@ -21,7 +21,7 @@ public class BotSelector {
 
         for (FakePlayerData data : onlineData) {
             Player botPlayer = fakePlayerManager.getOnlineBotEntity(data.getName());
-            if (botPlayer != null && botPlayer.isOnline()) {
+            if (botPlayer != null && botPlayer.isValid()) {
                 availableBots.add(botPlayer);
             }
         }

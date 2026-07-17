@@ -44,7 +44,7 @@ public class SpawnCommand implements SubCommand {
         String targetName = args[1];
 
         // =========================================================================
-        // XỬ LÝ LỆNETH: /sproof spawn * (Xếp hàng đợi nạp toàn bộ)
+        // XỬ LÝ LỆNH: /sproof spawn * (Xếp hàng đợi nạp toàn bộ)
         // =========================================================================
         if (targetName.equals("*")) {
             handleSpawnAll(sender, msgManager);
@@ -52,7 +52,7 @@ public class SpawnCommand implements SubCommand {
         }
 
         // =========================================================================
-        // XỬ LÝ LỆNETH: /sproof spawn <TÊN CỤ THỂ>
+        // XỬ LÝ LỆNH: /sproof spawn <TÊN CỤ THỂ>
         // =========================================================================
         handleSpawnSingle(sender, targetName, msgManager);
     }
@@ -83,7 +83,7 @@ public class SpawnCommand implements SubCommand {
             public void run() {
                 if (spawnQueue.isEmpty() || !plugin.isEnabled()) {
                     sender.sendMessage(msgManager.getOnlyMessage("system.prefix") + "§a| Đã hoàn tất tiến trình nạp toàn bộ bot từ hàng đợi!");
-                    triggerPostSpawnChatTest();
+                    // SỬA TẠI ĐÂY: Đã xoá triggerPostSpawnChatTest() để không ép bot chat nữa
                     this.cancel();
                     return;
                 }
@@ -128,32 +128,7 @@ public class SpawnCommand implements SubCommand {
         }
     }
 
-    /**
-     * Kiểm tra thử nghiệm tính năng trò chuyện an toàn bằng Bridge sau khi nạp xong
-     */
-    private void triggerPostSpawnChatTest() {
-        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            if (plugin.getMessageLoader() == null || plugin.getFakePlayerManager() == null || plugin.getBridge() == null) {
-                return;
-            }
-
-            List<Player> onlineBots = plugin.getFakePlayerManager().getOnlineBotsData().stream()
-                    .map(data -> plugin.getFakePlayerManager().getOnlineBotEntity(data.getName()))
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toList());
-
-            if (!onlineBots.isEmpty()) {
-                Player luckyBot = onlineBots.get(ThreadLocalRandom.current().nextInt(onlineBots.size()));
-                String testMsg = plugin.getMessageLoader().getRandomMessage();
-
-                if (testMsg != null && !testMsg.isEmpty()) {
-                    // TỐI ƯU HÓA AN TOÀN: Đẩy qua NMS Bridge của Core thay vì gọi hàm botEntity.chat() thô của Bukkit
-                    plugin.getBridge().broadcastNMSChat(luckyBot, testMsg);
-                    plugin.getLogger().info("[FozmineSproof] Thử nghiệm thành công đẩy packet Chat tự động cho Bot: " + luckyBot.getName());
-                }
-            }
-        }, 40L); // Trì hoãn 2 giây an toàn sau khi hoàn tất hàng đợi
-    }
+    // SỬA TẠI ĐÂY: Đã xoá hoàn toàn phương thức triggerPostSpawnChatTest
 
     @Override
     public List<String> tabComplete(CommandSender sender, String[] args) {

@@ -1,12 +1,23 @@
-# ================================================================================= #
-#                       FOZMINESPROOF GLOBAL CONFIGURATION                          #
-#         Hệ thống quản lý FakePlayer tối ưu hiệu năng và chống lag TPS            #
-# ================================================================================= #
+########################################################################################
+#                                                                                      #
+#     ______                      _              _____                        ______   #
+#    / ____/___  ____  ____ ___  (_)___  ___    / ___/____  _________  ____  / ____/   #
+#   / /_  / __ \/_  / / __ `__ \/ / __ \/ _ \   \__ \/ __ \/ ___/ __ \/ __ \/ /_       #
+#  / __/ / /_/ / / /_/ / / / / / / / / /  __/  ___/ / /_/ / /  / /_/ / /_/ / __/       #
+# /_/    \____/ /___/_/ /_/ /_/_/_/ /_/\___/  /____/ .___/_/   \____/\____/_/          #
+#                                                 /_/                                  #
+#                                                                                      #
+#                         FOZMINESPROOF GLOBAL CONFIGURATION                           #
+#          Hệ thống quản lý FakePlayer tối ưu hiệu năng và chống lag TPS               #
+#              Dev: phantam                                                            #
+#                                                                                      #
+# ######################################################################################
 
-# Cấu hình kết nối Cơ sở dữ liệu SQL (HikariCP)
+# Cấu hình kết nối Cơ sở dữ liệu SQL
+# LƯU Ý YÊU CẦU PHẢI CÓ DATABASE ĐỂ HOẠT ĐỘNG
 Database:
   # Tên bảng dữ liệu động (Tự động lọc bỏ ký tự đặc biệt độc hại)
-  name: "test"
+  name: "skyblock"
   # Tên cơ sở dữ liệu trên hệ thống hosting
   database: "s3923_fozminesproof"
   # Địa chỉ IP hoặc Domain kết nối đến máy chủ MySQL
@@ -16,6 +27,14 @@ Database:
   # Tài khoản và mật khẩu truy cập dữ liệu
   user: "u3923_RDUGGHro8y"
   password: "avSxGrlLS.myYnN3sL=O+4y3"
+
+  # Cấu hình kết nối với hệ thống Proxy (BungeeCord / Velocity)
+  bridging-setting:
+    # true: Cho phép plugin FozmineSproof-bridge trên Proxy truy cập vào bảng này để lấy dữ liệu bot và cộng dồn.
+    # false: Khóa/Không cho phép Proxy đọc dữ liệu từ bảng này.
+    enable-proxy: false
+    # lấy name bungee
+    bungee_name: "fozminesproof"
 
 # Cấu hình hành vi và thuộc tính hiển thị của FakePlayer
 Fakeplayer-setting:
@@ -27,40 +46,53 @@ Fakeplayer-setting:
   
   # Khoảng thời gian giãn cách ngẫu nhiên khi sử dụng lệnh nạp/thu hồi loạt bằng dấu '*'
   # Định dạng: 'min-max' tính bằng giây (Ví dụ: 0-1 giây)
-  join-quit-interval: "0-1"
+  join-quit-interval: "1-3"
   
   # Nội dung thông báo hiển thị (Hỗ trợ mã màu & %fakeplayer_name%)
-  join-message: "&e%fakeplayer_name% &7đã kết nối vào trò chơi."
-  leave-message: "&e%fakeplayer_name% &7đã thoát khỏi trò chơi."
+  join-message: "&8[&a+&8] &e%fakeplayer_name%"
+  leave-message: "&8[&a+&8] &e%fakeplayer_name%"
 
 # ================================================================================= #
 #                       FAKE PLAYER CHAT SYSTEM CONFIGURATION                       #
 # ================================================================================= #
 chat-system:
   # Bật/Tắt toàn bộ tính năng tự động phát tin nhắn ngẫu nhiên của FakePlayer
-  enabled: true
+  enabled: false
 
   # Cấu hình dịch thuật tự động (Sử dụng mã ngôn ngữ quốc tế ISO 639-1)
   # Đặt "none" nếu muốn giữ nguyên tiếng Anh gốc trích xuất từ file random-messages.yml
-  translation-target: "vi"
+  # Tính năng hiện chưa sd đc
+  translation-target: "none"
 
   # Tần suất thực hiện kiểm tra và kích hoạt chu kỳ chat mới
   # Định dạng: 'min-max' tính bằng phút (Ví dụ: từ 0 đến 1 phút)
-  interval-minutes: "0-1"
+  interval-minutes: "3-8"
   
   # Số lượng bot tối đa sẽ được bốc ngẫu nhiên để lên tiếng trong mỗi chu kỳ chat
   # Định dạng: 'min-max' số lượng bot
-  bots-per-interval: "1-3"
+  bots-per-interval: "1-2"
   
   # Khoảng trễ ngẫu nhiên so le giữa các bot khi có nhiều bot cùng chat (tính bằng giây)
   # Giúp phân tách gói tin mạng mạng ảo, ngăn chặn việc 3 bot chat lên màn hình ở cùng 1 mili-giây
-  delay-between-bots-seconds: "3-7"
+  delay-between-bots-seconds: "4-9"
+
+  # Định dạng chat cho bot
+  # Hỗ trợ PlaceholderAPI
+  # %fakeplayer_name% -> Name bot
+  # %fakeplayer_message% -> Text bot
+  #
+  # Trình a non nên không fake đc real connection =(
+  chat-format: "&f%fakeplayer_name% &8➠ &7%fakeplayer_message%"
+  # Định dạng hiển thị tên của bot trên Tablist (Hỗ trợ PlaceholderAPI qua tiền tố fake_)
+  # %fakeplayer_name% -> Tên của bot
+  tab-format: "%fake_vault_prefix%&f%fakeplayer_name%"
 
 # ================================================================================= #
 #                       PLACEHOLDERAPI EXTRA EXPANSION                             #
 # ================================================================================= #
 # Danh sách các biến PAPI gốc muốn đánh lừa thông qua cầu nối %fake_<biến_gốc>%
 # Khi người chơi gọi %fake_server_online%, plugin sẽ lấy số người thật cộng dồn với số bot online
+# CHỈ SỬ DỤNG KHI BIẾN PAPI KHÔNG TRA VỀ ĐƯỢC GIÁ TRỊ BOT + PLAYER
 parse-papi:
   - "server_online"
   - "bungee_lobby"

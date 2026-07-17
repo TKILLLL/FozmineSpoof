@@ -1,27 +1,31 @@
 package org.phantam.fozminesproofcore.chat;
 
+import me.clip.placeholderapi.PlaceholderAPI;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.phantam.fozminesproofcore.FozmineSproofCore;
 import org.phantam.fozminesproofcore.config.ChatConfig;
+import org.phantam.fozminesproofcore.config.ConfigManager;
 import org.phantam.fozminesproofcore.database.FakePlayerManager;
+import org.phantam.fozminesproofcore.utils.ColorUtils;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class BotChatProcessor {
     private final FozmineSproofCore plugin;
     private final FakePlayerManager fakePlayerManager;
     private final TranslatorService translatorService;
+    private final ConfigManager configManager;
 
-    // OOP DI: Truyền trực tiếp FozmineSproofCore thay vì JavaPlugin thô để loại bỏ ép kiểu lúc Runtime
-    public BotChatProcessor(FozmineSproofCore plugin, FakePlayerManager fakePlayerManager) {
+    public BotChatProcessor(FozmineSproofCore plugin, FakePlayerManager fakePlayerManager, ConfigManager configManager) {
         this.plugin = plugin;
         this.fakePlayerManager = fakePlayerManager;
+        this.configManager = configManager;
         this.translatorService = new TranslatorService();
     }
 
-    /**
-     * Thực hiện chuỗi xử lý dịch thuật Async và đẩy Packet Chat an toàn qua Bridge.
-     * Hàm này bọc lỗi chặt chẽ, bảo vệ TPS máy chủ khỏi các tác vụ chặn luồng (Blocking I/O).
-     */
     public void processChatAsync(Player bot, String rawMessage, ChatConfig chatConfig) {
         if (bot == null || rawMessage == null || rawMessage.trim().isEmpty()) {
             return;
@@ -29,34 +33,75 @@ public class BotChatProcessor {
 
         String botName = bot.getName();
 
-        // 1. Kiểm tra phòng vệ nhanh điều kiện trực tuyến của Bot trên luồng chính trước khi khởi động tác vụ Async
         if (!fakePlayerManager.isBotOnline(botName)) {
             return;
         }
 
-        // 2. Chuyển giao tác vụ sang luồng bất đồng bộ (Async Thread pool) để gọi API dịch của Google
+        // TÍNH NĂNG MỚI: Xử lý thay thế [name] thành một người chơi hoặc bot bất kỳ đang trực tuyến
+        String processedMessage = rawMessage;
+        if (processedMessage.contains("[name]")) {
+            // Gom toàn bộ tên người chơi thực tế và tên của các Bot đang online vào một danh sách chung
+            List<String> poolNames = new ArrayList<>();
+
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                if (p != null) poolNames.add(p.getName());
+            }
+
+            // Vòng lặp thay thế liên tục từng thẻ [name] một để hỗ trợ tin nhắn chứa nhiều thẻ tên khác nhau
+            while (processedMessage.contains("[name]")) {
+                if (poolNames.isEmpty()) {
+                    processedMessage = processedMessage.replaceFirst("\\[name\\]", "");
+                } else {
+                    int randomIndex = ThreadLocalRandom.current().nextInt(poolNames.size());
+                    String selectedName = poolNames.get(randomIndex);
+                    processedMessage = processedMessage.replaceFirst("\\[name\\]", selectedName);
+                }
+            }
+        }
+
+        final String finalRawMessage = processedMessage;
+
+        // TÁC VỤ CHẠY TRÊN LUỒNG BẤT ĐỒNG BỘ (ASYNC THREAD) - AN TOÀN CHO I/O VÀ DATABASE LUCKPERMS
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             try {
-                // Kiểm tra lại trạng thái Bot một lần nữa khi luồng Async vừa chạy (Đề phòng Bot vừa bị despawn)
                 if (!fakePlayerManager.isBotOnline(botName)) {
                     return;
                 }
 
-                // Xác định ngôn ngữ đích an toàn
                 String targetLang = (chatConfig != null && chatConfig.getTranslationTarget() != null)
                         ? chatConfig.getTranslationTarget() : "vi";
 
-                // Thực thi gọi mạng I/O chặn luồng để lấy chuỗi chữ dịch thuật
-                String finalMessage = translatorService.translate(rawMessage, targetLang);
+                String finalMessage = translatorService.translate(finalRawMessage, targetLang);
                 if (finalMessage == null || finalMessage.trim().isEmpty()) {
-                    return; // Bỏ qua nếu nội dung trả về trống
+                    return;
                 }
 
-                // 3. Đồng bộ quay trở lại luồng chính (Main Thread) để tương tác an toàn với API Bukkit và mạng Netty
+                // 1. Lấy khung định dạng chat từ file config.yml
+                String rawFormat = configManager.getChatFormat();
+                boolean hasPapi = Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null;
+
+                // 2. Thay thế các từ khóa cơ bản trước
+                String formattedMessage = rawFormat
+                        .replace("%fakeplayer_name%", bot.getName())
+                        .replace("%fakeplayer_message%", finalMessage);
+
+                // SỬA TẠI ĐÂY (TỐI ƯU LUỒNG): Tiến hành dịch biến %fake_...% ngay trên luồng Async này.
+                // LuckPerms có thể thoải mái đọc Database/File để lấy thông tin Offline Player của Bot mà không bị chặn lỗi ServerThreadLookupException.
+                if (hasPapi) {
+                    formattedMessage = PlaceholderAPI.setPlaceholders(bot, formattedMessage);
+                }
+
+                // Chuyển kết quả chuỗi cuối cùng đã được bóc tách toàn vẹn về luồng chính để vẽ Component và phát Packet mạng
+                final String finalFormattedChat = formattedMessage;
+
                 Bukkit.getScheduler().runTask(plugin, () -> {
-                    // Kiểm tra tối hậu điều kiện Online của Bot trên luồng chính trước khi phát Packet
                     if (fakePlayerManager.isBotOnline(botName) && plugin.getBridge() != null) {
-                        plugin.getBridge().broadcastNMSChat(bot, finalMessage);
+
+                        // Chuyển đổi màu sắc (& và HEX) sang định dạng component
+                        String colorizedMessage = ColorUtils.colorize(finalFormattedChat);
+
+                        // Bắn packet NMS sạch ra toàn server
+                        plugin.getBridge().broadcastNMSChat(bot, colorizedMessage);
                     }
                 });
 

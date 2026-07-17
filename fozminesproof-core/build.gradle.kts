@@ -12,21 +12,24 @@ repositories {
 }
 
 dependencies {
-    compileOnly("io.papermc.paper:paper-api:1.21.1-R0.1-SNAPSHOT")
+    compileOnly("io.papermc.paper:paper-api:1.19.4-R0.1-SNAPSHOT")
 
     implementation(project(":fozminesproof-api"))
 
     implementation(project(path = ":fozminesproof-v1_19_4", configuration = "reobf"))
     implementation(project(path = ":fozminesproof-v1_20_2", configuration = "reobf"))
+    implementation(project(path = ":fozminesproof-v1_20_4", configuration = "reobf"))
+    implementation(project(path = ":fozminesproof-v1_21_4", configuration = "reobf"))
+    implementation(project(path = ":fozminesproof-v1_21_11", configuration = "reobf"))
 }
 
 java {
-    toolchain.languageVersion.set(JavaLanguageVersion.of(21))
+    toolchain.languageVersion.set(JavaLanguageVersion.of(17))
 }
 
 tasks {
     runServer {
-        minecraftVersion("1.21.1")
+        minecraftVersion("1.19.4")
         jvmArgs("-Xms2G", "-Xmx2G")
     }
 

@@ -14,7 +14,10 @@ import org.phantam.fozminesproofcore.database.FakePlayerManager;
 import org.phantam.fozminesproofcore.factory.VoidWorldFactory;
 import org.phantam.fozminesproofcore.papi.FakePlayerPapiExpansion;
 import org.phantam.fozminesproofcore.tasks.KeepAliveTask;
+import org.phantam.fozminesproofcore.tasks.ProxySyncTask;
 import org.phantam.fozminesproofcore.utils.NMSBridgeLoader;
+import org.phantam.fozminesproofcore.utils.ColorUtils; // Thêm import tiện ích mã màu
+import me.clip.placeholderapi.PlaceholderAPI;
 
 public class FozmineSproofCore extends JavaPlugin {
 
@@ -49,9 +52,8 @@ public class FozmineSproofCore extends JavaPlugin {
             this.database.setup();
 
             this.fakePlayerManager = new FakePlayerManager(this, this.database);
-            this.fakePlayerManager.reloadSystem();
 
-            // 4. Gọi Factory dựng thế giới trống (Thay vì để ConfigManager tự làm như trước)
+            // 4. Gọi Factory dựng thế giới trống
             VoidWorldFactory.createVoidWorld(this, configManager.getBotWorldName());
 
             // 5. Khởi chạy Chat và các phân hệ khác...
@@ -59,75 +61,116 @@ public class FozmineSproofCore extends JavaPlugin {
             this.registerExternalExtensions();
             new KeepAliveTask(this).runTaskTimer(this, 100L, 200L);
 
+            // BỔ SUNG TẠI ĐÂY: Kích hoạt bộ lập lịch cập nhật Tablist cho bot tự động mỗi 5 giây (100 ticks)
+            // Quá trình parse được bọc luồng Async, sau đó đẩy text sạch về luồng chính để gán an toàn cho máy chủ
+            this.setupTabUpdateScheduler();
+
+            // --- BỔ SUNG: KÍCH HOẠT HÀNG ĐỢI TỰ ĐỘNG PHỤC HỒI BOT CÓ DELAY THEO CONFIG ---
+            if (this.fakePlayerManager != null) {
+                this.fakePlayerManager.spawnAllOnStartup(this.configManager);
+            }
+
+            // --- BỔ SUNG: KÍCH HOẠT ĐỒNG BỘ PROXY VỚI INTERVAL NGẪU NHIÊN (NẾU BẬT) ---
+            if (this.configManager.isProxyEnable()) {
+                int initialDelaySeconds = this.configManager.getProxyUpdateInterval();
+                new ProxySyncTask(this, this.database, this.configManager)
+                        .runTaskLaterAsynchronously(this, initialDelaySeconds * 20L);
+                this.getLogger().info("Da kich hoat tien trinh dong bo Proxy.");
+            } else {
+                this.getLogger().info("Tinh nang Proxy dang tat. Bo qua dong bo Proxy.");
+            }
+
         } catch (Exception e) {
             e.printStackTrace();
             this.getServer().getPluginManager().disablePlugin(this);
         }
     }
 
-
     @Override
     public void onDisable() {
-        // Hủy vòng lặp chat ngầm một cách an toàn tránh rò rỉ bộ nhớ (Memory Leak)
         if (this.chatScheduler != null) {
-            try {
-                this.chatScheduler.stop();
-            } catch (Exception e) {
-                this.getLogger().warning("Không thể dừng ChatScheduler một cách sạch sẽ: " + e.getMessage());
-            }
+            try { this.chatScheduler.stop(); } catch (Exception ignored) {}
         }
 
-        // Đóng kết nối Database an toàn
-        if (this.database != null) {
+        if (this.fakePlayerManager != null) {
             try {
-                this.database.close();
+                this.fakePlayerManager.despawnAllOnShutdown();
+
+                if (this.database != null) {
+                    try { this.database.close(); } catch (Exception ignored) {}
+                }
+                this.getLogger().info("❌ FozmineSproofCore đã ngừng hoạt động an toàn!");
             } catch (Exception e) {
-                this.getLogger().warning("Lỗi xảy ra khi đóng kết nối cơ sở dữ liệu: " + e.getMessage());
+                this.getLogger().severe("⚠ Lỗi xảy ra khi thu hồi bot lúc tắt máy chủ: " + e.getMessage());
             }
         }
-        this.getLogger().info("❌ FozmineSproofCore đã ngừng hoạt động an toàn!");
     }
 
-    /**
-     * Khởi tạo khung sườn và nạp các tệp tin tin nhắn định kỳ của Bot
-     */
     private void setupChatSystem() {
         this.messageLoader = new MessageLoader(this);
         this.messageLoader.loadMessages();
 
-        this.chatScheduler = new ChatScheduler(this, this.fakePlayerManager, this.messageLoader);
+        this.chatScheduler = new ChatScheduler(this, this.fakePlayerManager, this.messageLoader, this.configManager);
         this.chatScheduler.start(this.configManager.getChatConfig());
     }
 
     /**
-     * Gom cụm đăng ký lệnh và tích hợp với các Plugin API bên thứ ba công khai
+     * Khởi tạo bộ đếm tự động đồng bộ Tablist bất đồng bộ định kỳ cho Bot
      */
+    private void setupTabUpdateScheduler() {
+        new org.bukkit.scheduler.BukkitRunnable() {
+            @Override
+            public void run() {
+                if (fakePlayerManager == null || fakePlayerManager.getOnlineBotsData().isEmpty()) return;
+
+                boolean hasPapi = Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null;
+                String rawTabFormat = configManager.getTabFormat();
+
+                fakePlayerManager.getOnlineBotsData().forEach(botData -> {
+                    String botName = botData.getName();
+                    org.bukkit.entity.Player botEntity = fakePlayerManager.getOnlineBotEntity(botName);
+                    if (botEntity == null) return;
+
+                    // Bước A: Tính toán, gán tên và giải mã các biến %fake_...% trên luồng Async để giải phóng CPU luồng chính
+                    String formattedTab = rawTabFormat.replace("%fakeplayer_name%", botName);
+                    if (hasPapi) {
+                        formattedTab = PlaceholderAPI.setPlaceholders(botEntity, formattedTab);
+                    }
+
+                    final String finalTabName = formattedTab;
+
+                    // Bước B: Đồng bộ về Luồng chính (Main Thread) để ép máy chủ cập nhật giao diện hiển thị danh sách người chơi
+                    Bukkit.getScheduler().runTask(FozmineSproofCore.this, () -> {
+                        if (fakePlayerManager.isBotOnline(botName)) {
+                            String coloredTabName = ColorUtils.colorize(finalTabName);
+                            botEntity.setPlayerListName(coloredTabName);
+                        }
+                    });
+                });
+            }
+        }.runTaskTimerAsynchronously(this, 100L, 100L); // Lặp định kỳ mỗi 5 giây
+        this.getLogger().info("✅ Hệ thống tự động đồng bộ Tablist cho Fake Player đã kích hoạt!");
+    }
+
     private void registerExternalExtensions() {
-        // Đăng ký hệ thống xử lý tập lệnh Lệnh
         if (this.getCommand("sproof") != null) {
             CommandManager commandManager = new CommandManager(this);
             this.getCommand("sproof").setExecutor(commandManager);
             this.getCommand("sproof").setTabCompleter(commandManager);
         }
 
-        // Tích hợp hệ thống biến mở rộng với PlaceholderAPI
         if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
-            // CẬP NHẬT: Truyền trực tiếp fakePlayerManager thay vì truyền bridge cũ
             new FakePlayerPapiExpansion(this, this.configManager, this.fakePlayerManager).register();
             this.getLogger().info("🔗 Đã liên kết và đồng bộ hóa thành công với PlaceholderAPI!");
         }
     }
 
-    /**
-     * Hàm ngắt hoạt động Plugin khẩn cấp khi gặp lỗi logic chí mạng để bảo vệ dữ liệu SQL
-     */
     private void disablePluginDueToError(String reason) {
         this.getLogger().severe("❌ " + reason);
         this.getLogger().severe("🛡 Hệ thống tự động ngắt hoạt động plugin để bảo vệ an toàn dữ liệu.");
         this.getServer().getPluginManager().disablePlugin(this);
     }
 
-    // --- GETTERS (OOP Encapsulation & Read-Only Access) ---
     public FozminesproofApi getBridge() { return this.bridge; }
     public ConfigManager getConfigManager() { return this.configManager; }
     public IFakePlayerDatabase getFakePlayerDatabase() { return this.database; }

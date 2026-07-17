@@ -2,7 +2,6 @@ package org.phantam.fozminesproofv1_20_2;
 
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
-import net.minecraft.network.protocol.game.ServerboundChatPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -10,6 +9,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.craftbukkit.v1_20_R2.CraftServer;
 import org.bukkit.craftbukkit.v1_20_R2.CraftWorld;
+import org.bukkit.craftbukkit.v1_20_R2.util.CraftChatMessage;
 import org.bukkit.entity.Player;
 import org.phantam.fozminesproofapi.FozminesproofApi;
 import org.phantam.fozminesproofv1_20_2.factory.FakePlayerFactory;
@@ -122,30 +122,29 @@ public class NMSBridge_v1_20_2 implements FozminesproofApi {
 
     @Override
     public void broadcastNMSChat(Player player, String message) {
-        if (player == null || !player.isOnline()) return;
+        if (player == null || message == null || message.trim().isEmpty()) return;
 
         try {
-            // 1. Ép kiểu Bukkit Player sang ServerPlayer của NMS 1.20.2
-            net.minecraft.server.level.ServerPlayer nmsPlayer =
-                    ((org.bukkit.craftbukkit.v1_20_R2.entity.CraftPlayer) player).getHandle();
+            // 1. Lấy instance của MinecraftServer
+            net.minecraft.server.MinecraftServer server =
+                    ((org.bukkit.craftbukkit.v1_20_R2.CraftServer) Bukkit.getServer()).getServer();
 
-            // 2. Khởi tạo cấu trúc gói tin chat thô chuẩn Mojang 1.20.2
-            ServerboundChatPacket fakeChatPacket =
-                    new net.minecraft.network.protocol.game.ServerboundChatPacket(
-                            message,
-                            java.time.Instant.now(),
-                            0L,
-                            null,
-                            new net.minecraft.network.chat.LastSeenMessages.Update(
-                                    0,
-                                    new java.util.BitSet()
-                            )
-                    );
+            // 2. Chuyển đổi chuỗi chứa mã màu thành mảng Component Mojang hoàn chỉnh
+            net.minecraft.network.chat.Component[] components = CraftChatMessage.fromString(message);
+            if (components.length == 0) return;
 
-            // 3. Đẩy thẳng vào bộ lắng nghe hệ thống, kích hoạt tự động chuỗi xử lý chat chính quy của Server
-            if (nmsPlayer.connection != null) {
-                nmsPlayer.connection.handleChat(fakeChatPacket);
+            // SỬA TẠI ĐÂY: Khởi tạo một MutableComponent rỗng làm gốc để chứa toàn bộ cấu trúc chat
+            net.minecraft.network.chat.MutableComponent finalComponent = net.minecraft.network.chat.Component.empty();
+
+            // Duyệt qua toàn bộ mảng và nối đuôi liên tục để giữ nguyên vẹn 100% định dạng màu sắc lẫn chữ nội dung
+            for (net.minecraft.network.chat.Component comp : components) {
+                finalComponent.append(comp);
             }
+
+            // 3. Phát tin nhắn đã được hợp nhất ra toàn Server dưới dạng tin nhắn Hệ Thống Mở Rộng
+            // GIỮ NGUYÊN 100% chuỗi chat-format của bạn và XÓA HOÀN TOÀN dấu < > mặc định
+            server.getPlayerList().broadcastSystemMessage(finalComponent, false);
+
         } catch (Exception e) {
             Bukkit.getLogger().severe("[Fozminesproof] Khong the gui packet chat NMS cho: " + player.getName());
             e.printStackTrace();

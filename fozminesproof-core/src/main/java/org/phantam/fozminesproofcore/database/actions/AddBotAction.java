@@ -4,6 +4,7 @@ import org.bukkit.Location;
 import org.phantam.fozminesproofapi.model.FakePlayerData;
 import org.phantam.fozminesproofapi.database.IFakePlayerDatabase;
 import org.phantam.fozminesproofcore.FozmineSproofCore;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 public class AddBotAction implements org.phantam.fozminesproofapi.action.IBotAction<AddBotAction.Request, Void> {
@@ -19,8 +20,11 @@ public class AddBotAction implements org.phantam.fozminesproofapi.action.IBotAct
     public Void execute(Request req) {
         String targetWorld = plugin.getConfigManager().getBotWorldName();
 
+        // SỬA TẠI ĐÂY: Thay thế UUID.randomUUID() bằng thuật toán sinh UUID chuẩn Offline-mode theo tên của Mojang/Spigot
+        UUID offlineUuid = UUID.nameUUIDFromBytes(("OfflinePlayer:" + req.name).getBytes(StandardCharsets.UTF_8));
+
         FakePlayerData data = new FakePlayerData(
-                req.name, UUID.randomUUID(), targetWorld,
+                req.name, offlineUuid, targetWorld,
                 0.0, 64.0, 0.0, // Ép trục tọa độ cố định của thế giới trống
                 0.0f, 0.0f, false
         );

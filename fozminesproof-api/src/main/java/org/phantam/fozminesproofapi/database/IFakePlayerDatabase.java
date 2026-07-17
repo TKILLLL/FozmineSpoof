@@ -12,4 +12,7 @@ public interface IFakePlayerDatabase {
     Optional<FakePlayerData> loadFakePlayer(String name);
     Collection<FakePlayerData> loadAllPlayers();
     void deleteFakePlayer(String name);
+    int getActiveBotCount();
+    int getDeactiveBotCount();
+    void sendProxySyncData(String bungee_name, String name, int activeBot, int deactiveBot);
 }

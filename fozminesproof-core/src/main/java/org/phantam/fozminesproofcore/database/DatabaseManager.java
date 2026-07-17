@@ -83,7 +83,9 @@ public class DatabaseManager implements IFakePlayerDatabase {
     }
 
     /**
-     * Lưu dữ liệu Bot. Tối ưu: Đóng gói chạy bất đồng bộ Async bảo vệ TPS của server hoàn hảo
+     * Lưu dữ liệu Bot.
+     * Tối ưu thông minh: Tự động chạy Async khi server đang vận hành để bảo vệ TPS,
+     * và tự động chuyển sang Đồng bộ (Sync) khi tắt plugin để tránh lỗi sập kết nối Hikari.
      */
     @Override
     public void saveFakePlayer(FakePlayerData data) {
@@ -91,7 +93,8 @@ public class DatabaseManager implements IFakePlayerDatabase {
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE " +
                 "world=?, x=?, y=?, z=?, yaw=?, pitch=?, is_active=?;";
 
-        CompletableFuture.runAsync(() -> {
+        // Đóng gói toàn bộ logic truy vấn SQL vào một khối thực thi độc lập (Runnable)
+        Runnable saveTask = () -> {
             try (Connection con = this.getConnection(); PreparedStatement ps = con.prepareStatement(query)) {
                 ps.setString(1, data.getName());
                 ps.setString(2, data.getUuid().toString());
@@ -113,9 +116,22 @@ public class DatabaseManager implements IFakePlayerDatabase {
 
                 ps.executeUpdate();
             } catch (SQLException e) {
-                Bukkit.getLogger().warning("⚠ Lỗi Async khi lưu dữ liệu FakePlayer '" + data.getName() + "': " + e.getMessage());
+                // Đổi sang log nghiêm trọng nếu hệ thống đang tắt để dễ quản lý
+                Bukkit.getLogger().severe("⚠ Lỗi ghi dữ liệu FakePlayer '" + data.getName() + "': " + e.getMessage());
             }
-        });
+        };
+
+        // KIỂM TRA TRẠNG THÁI: Lấy instance của plugin để check xem có đang bị tắt (onDisable) hay không
+        org.bukkit.plugin.Plugin currentPlugin = Bukkit.getPluginManager().getPlugin("fozminesproof-core");
+
+        if (currentPlugin == null || !currentPlugin.isEnabled()) {
+            // NẾU PLUGIN ĐANG TẮT/RELOAD: Ép chạy đồng bộ lập tức trên luồng chính của Bukkit.
+            // Điều này ép Server phải đợi lưu xong dữ liệu của bot này rồi mới chạy xuống lệnh database.close()
+            saveTask.run();
+        } else {
+            // NẾU PLUGIN ĐANG CHẠY BÌNH THƯỜNG: Tiếp tục đẩy vào hàng đợi Async để không gây gián đoạn TPS
+            CompletableFuture.runAsync(saveTask);
+        }
     }
 
     @Override
@@ -152,21 +168,24 @@ public class DatabaseManager implements IFakePlayerDatabase {
         return Collections.unmodifiableList(list);
     }
 
-    /**
-     * Xóa Bot. Tối ưu: Đóng gói chạy Async ngầm cô lập
-     */
     @Override
     public void deleteFakePlayer(String name) {
         String query = "DELETE FROM " + tableName + " WHERE name = ?;";
-
-        CompletableFuture.runAsync(() -> {
+        Runnable deleteTask = () -> {
             try (Connection con = this.getConnection(); PreparedStatement ps = con.prepareStatement(query)) {
                 ps.setString(1, name);
                 ps.executeUpdate();
             } catch (SQLException e) {
-                Bukkit.getLogger().warning("⚠ Lỗi Async khi xóa dữ liệu bot '" + name + "': " + e.getMessage());
+                Bukkit.getLogger().warning("⚠ Lỗi khi xóa dữ liệu bot '" + name + "': " + e.getMessage());
             }
-        });
+        };
+
+        org.bukkit.plugin.Plugin currentPlugin = Bukkit.getPluginManager().getPlugin("fozminesproof-core");
+        if (currentPlugin == null || !currentPlugin.isEnabled()) {
+            deleteTask.run(); // Chạy đồng bộ khi tắt plugin
+        } else {
+            CompletableFuture.runAsync(deleteTask); // Chạy async khi vận hành
+        }
     }
 
     /**
@@ -195,4 +214,84 @@ public class DatabaseManager implements IFakePlayerDatabase {
                 rs.getBoolean("is_active")
         );
     }
+
+    /**
+     * Đếm tổng số lượng bot đang hoạt động (is_active = true)
+     * @return Số lượng bot đang active (int)
+     */
+    @Override
+    public int getActiveBotCount() {
+        String sql = "SELECT COUNT(*) FROM " + tableName + " WHERE is_active = TRUE;";
+
+        try (Connection con = dataSource.getConnection();
+             PreparedStatement pstmt = con.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
+        } catch (SQLException e) {
+            Bukkit.getLogger().severe("❌ Lỗi khi đếm số lượng Active Bot từ bảng '" + tableName + "': " + e.getMessage());
+            e.printStackTrace();
+        }
+        return 0;
+    }
+
+    /**
+     * Đếm tổng số lượng bot đang dừng hoạt động (is_active = false)
+     * @return Số lượng bot đang deactive (int)
+     */
+    @Override
+    public int getDeactiveBotCount() {
+        String sql = "SELECT COUNT(*) FROM " + tableName + " WHERE is_active = FALSE;";
+
+        try (Connection con = dataSource.getConnection();
+             PreparedStatement pstmt = con.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
+        } catch (SQLException e) {
+            Bukkit.getLogger().severe("❌ Lỗi khi đếm số lượng Deactive Bot từ bảng '" + tableName + "': " + e.getMessage());
+            e.printStackTrace();
+        }
+        return 0;
+    }
+
+    /**
+     * Gửi và đồng bộ dữ liệu số lượng bot của Proxy lên cơ sở dữ liệu
+     *
+     * @param bungee_name Tên bảng lưu trữ thông tin proxy
+     * @param name        Tên của Proxy/Bungee cần đồng bộ
+     * @param activeBot   Số lượng bot đang hoạt động
+     * @param deactiveBot Số lượng bot đang dừng hoạt động
+     */
+    @Override
+    public void sendProxySyncData(String bungee_name, String name, int activeBot, int deactiveBot) {
+        // Sử dụng câu lệnh UPSERT (Insert hoặc Update nếu đã tồn tại khóa chính 'name')
+        String sql = "INSERT INTO " + bungee_name + " (name, active_bot, deactive_bot) " +
+                "VALUES (?, ?, ?) " +
+                "ON DUPLICATE KEY UPDATE active_bot = ?, deactive_bot = ?;";
+
+        try (Connection con = dataSource.getConnection();
+             PreparedStatement pstmt = con.prepareStatement(sql)) {
+
+            // Các tham số cho phần INSERT
+            pstmt.setString(1, name);
+            pstmt.setInt(2, activeBot);
+            pstmt.setInt(3, deactiveBot);
+
+            // Các tham số cho phần UPDATE (nếu trùng khóa chính 'name')
+            pstmt.setInt(4, activeBot);
+            pstmt.setInt(5, deactiveBot);
+
+            pstmt.executeUpdate();
+
+        } catch (SQLException e) {
+            Bukkit.getLogger().severe("❌ Lỗi khi đồng bộ dữ liệu Proxy lên bảng '" + bungee_name + "': " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
 }

@@ -53,7 +53,7 @@ public class MessageLoader {
                 messagePool.addAll(validMessages);
             }
 
-            plugin.getLogger().info("✅ Đã nạp thành công " + messagePool.size() + " tin nhắn chat ngẫu nhiên vào bộ nhớ RAM.");
+            plugin.getLogger().info("✅ Đã nạp thành công " + messagePool.size() + " tin nhắn chat");
 
         } catch (Exception e) {
             plugin.getLogger().severe("🚨 Lỗi nghiêm trọng khi nạp tệp chats/random-messages.yml: " + e.getMessage());

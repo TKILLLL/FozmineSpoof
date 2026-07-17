@@ -3,6 +3,7 @@ package org.phantam.fozminesproofcore.chat;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.phantam.fozminesproofcore.FozmineSproofCore;
 import org.phantam.fozminesproofcore.config.ChatConfig;
+import org.phantam.fozminesproofcore.config.ConfigManager;
 import org.phantam.fozminesproofcore.database.FakePlayerManager;
 import org.phantam.fozminesproofcore.tasks.ChatTickerTask;
 
@@ -11,17 +12,19 @@ public class ChatScheduler {
     private final MessageLoader messageLoader;
     private final BotSelector botSelector;
     private final BotChatProcessor chatProcessor;
+    private final ConfigManager configManager;
 
     private ChatConfig chatConfig;
     private ChatTickerTask tickerTask;
 
-    public ChatScheduler(FozmineSproofCore plugin, FakePlayerManager fakePlayerManager, MessageLoader messageLoader) {
+    public ChatScheduler(FozmineSproofCore plugin, FakePlayerManager fakePlayerManager, MessageLoader messageLoader, ConfigManager configManager) {
         this.plugin = plugin;
         this.messageLoader = messageLoader;
+        this.configManager = configManager;
 
         // Khởi tạo các phân hệ con (Dependency Injection cục bộ) - Khớp kiểu dữ liệu 100%
         this.botSelector = new BotSelector(fakePlayerManager);
-        this.chatProcessor = new BotChatProcessor(plugin, fakePlayerManager);
+        this.chatProcessor = new BotChatProcessor(plugin, fakePlayerManager, configManager);
     }
 
     /**

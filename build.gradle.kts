@@ -2,7 +2,7 @@ plugins {
     java
     id("com.gradleup.shadow") version "9.4.2" apply false
     id("xyz.jpenilla.run-paper") version "3.0.2" apply false
-    id("io.papermc.paperweight.userdev") version "1.7.5" apply false
+    id("io.papermc.paperweight.userdev") version "2.0.0-beta.21" apply false
 }
 
 subprojects {
@@ -10,12 +10,10 @@ subprojects {
 
     repositories {
         mavenCentral()
-
         maven {
             name = "PlaceholderAPI"
             url = uri("https://repo.helpch.at/releases")
         }
-
         maven {
             name = "PaperMC"
             url = uri("https://repo.papermc.io/repository/maven-public/")
@@ -24,7 +22,6 @@ subprojects {
 
     dependencies {
         compileOnly("me.clip:placeholderapi:2.12.3")
-
         implementation("com.zaxxer:HikariCP:7.1.0")
     }
 
