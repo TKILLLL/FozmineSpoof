@@ -22,6 +22,7 @@ public class ConfigManager {
     private boolean joinLeaveMessageEnable;
     private String joinMessage;
     private String leaveMessage;
+    private String fakePluginName;
 
     // Chat system
     private ChatConfig chatConfig;
@@ -60,6 +61,8 @@ public class ConfigManager {
             this.joinLeaveMessageEnable = config.getBoolean("Fakeplayer-setting.join-leave-message-enable", true);
             this.joinMessage = config.getString("Fakeplayer-setting.join-message", "%fakeplayer_name% join the game");
             this.leaveMessage = config.getString("Fakeplayer-setting.leave-message", "%fakeplayer_name% left the game");
+
+            this.fakePluginName = config.getString("Fakeplayer-setting.fake-plugin-name", "FozmineSpawner");
 
             // Chat format settings
             this.messageFormatEnable = config.getBoolean("chat-system.message-format.enable", false);
@@ -158,6 +161,10 @@ public class ConfigManager {
 
     public ChatConfig getChatConfig() {
         return this.chatConfig;
+    }
+
+    public String getFakePluginName() {
+        return this.fakePluginName;
     }
 
     /**

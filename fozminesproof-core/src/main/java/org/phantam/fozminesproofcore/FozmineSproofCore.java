@@ -166,6 +166,12 @@ public class FozmineSproofCore extends JavaPlugin {
             getLogger().log(Level.INFO,
                     "[FozmineSproofCore] Linked with PlaceholderAPI successfully.");
         }
+
+        // Register Listner
+        getServer().getPluginManager().registerEvents(
+                new org.phantam.fozminesproofcore.listener.PluginListInterceptor(configManager, this),
+                this
+        );
     }
 
     /**
