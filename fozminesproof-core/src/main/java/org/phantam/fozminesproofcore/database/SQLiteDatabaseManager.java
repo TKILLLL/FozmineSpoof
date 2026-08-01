@@ -3,6 +3,7 @@ package org.phantam.fozminesproofcore.database;
 import org.bukkit.Bukkit;
 import org.phantam.fozminesproofapi.database.IFakePlayerDatabase;
 import org.phantam.fozminesproofapi.model.FakePlayerData;
+import org.phantam.fozminesproofcore.utils.DebugLogger;
 
 import java.sql.*;
 import java.util.*;
@@ -21,17 +22,23 @@ public class SQLiteDatabaseManager implements IFakePlayerDatabase {
     public SQLiteDatabaseManager(String dbPath, String tableName) {
         this.dbPath = dbPath;
         this.tableName = tableName;
+        DebugLogger.log(Bukkit.getLogger(), "SQLiteDatabaseManager: initialized with table '%s', path='%s'",
+                tableName, dbPath);
     }
 
     @Override
     public void setup() {
+        DebugLogger.log(Bukkit.getLogger(), "SQLiteDatabaseManager: setting up SQLite connection...");
         try {
             Class.forName("org.sqlite.JDBC");
             this.connection = DriverManager.getConnection("jdbc:sqlite:" + dbPath);
             createTable();
+
+            DebugLogger.log(Bukkit.getLogger(), "SQLiteDatabaseManager: SQLite connection established.");
             Bukkit.getLogger().log(Level.INFO,
                     "[SQLiteDatabaseManager] SQLite connection established.");
         } catch (Exception e) {
+            DebugLogger.log(Bukkit.getLogger(), "SQLiteDatabaseManager: failed to initialize: %s", e.getMessage());
             Bukkit.getLogger().log(Level.SEVERE,
                     "[SQLiteDatabaseManager] Failed to initialize SQLite: " + e.getMessage(), e);
         }
@@ -49,10 +56,15 @@ public class SQLiteDatabaseManager implements IFakePlayerDatabase {
                 "pitch REAL NOT NULL, " +
                 "is_active INTEGER DEFAULT 0" +
                 ");";
+
+        DebugLogger.logFine(Bukkit.getLogger(), "SQLiteDatabaseManager: creating table with SQL: %s", sql);
+
         try (Statement stmt = connection.createStatement()) {
             stmt.execute(sql);
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_active ON " + tableName + " (is_active);");
+            DebugLogger.logFine(Bukkit.getLogger(), "SQLiteDatabaseManager: table '%s' created/verified", tableName);
         } catch (SQLException e) {
+            DebugLogger.log(Bukkit.getLogger(), "SQLiteDatabaseManager: failed to create table: %s", e.getMessage());
             Bukkit.getLogger().log(Level.SEVERE,
                     "[SQLiteDatabaseManager] Failed to create table: " + e.getMessage(), e);
         }
@@ -60,13 +72,16 @@ public class SQLiteDatabaseManager implements IFakePlayerDatabase {
 
     @Override
     public void close() {
+        DebugLogger.log(Bukkit.getLogger(), "SQLiteDatabaseManager: closing connection...");
         try {
             if (connection != null && !connection.isClosed()) {
                 connection.close();
                 Bukkit.getLogger().log(Level.INFO,
                         "[SQLiteDatabaseManager] SQLite connection closed.");
+                DebugLogger.log(Bukkit.getLogger(), "SQLiteDatabaseManager: connection closed.");
             }
         } catch (SQLException e) {
+            DebugLogger.log(Bukkit.getLogger(), "SQLiteDatabaseManager: error closing: %s", e.getMessage());
             Bukkit.getLogger().log(Level.WARNING,
                     "[SQLiteDatabaseManager] Error closing connection: " + e.getMessage(), e);
         }
@@ -74,6 +89,8 @@ public class SQLiteDatabaseManager implements IFakePlayerDatabase {
 
     @Override
     public void saveFakePlayer(FakePlayerData data) {
+        DebugLogger.logFine(Bukkit.getLogger(), "SQLiteDatabaseManager: saving bot '%s'", data.getName());
+
         String query = "INSERT OR REPLACE INTO " + tableName +
                 " (name, uuid, world, x, y, z, yaw, pitch, is_active) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);";
@@ -88,7 +105,11 @@ public class SQLiteDatabaseManager implements IFakePlayerDatabase {
             ps.setDouble(8, data.getPitch());
             ps.setInt(9, data.isActive() ? 1 : 0);
             ps.executeUpdate();
+            DebugLogger.logFine(Bukkit.getLogger(), "SQLiteDatabaseManager: saved '%s'", data.getName());
+
         } catch (SQLException e) {
+            DebugLogger.log(Bukkit.getLogger(), "SQLiteDatabaseManager: error saving '%s': %s",
+                    data.getName(), e.getMessage());
             Bukkit.getLogger().log(Level.SEVERE,
                     "[SQLiteDatabaseManager] Error saving bot '" + data.getName() + "': " + e.getMessage(), e);
         }
@@ -96,15 +117,22 @@ public class SQLiteDatabaseManager implements IFakePlayerDatabase {
 
     @Override
     public Optional<FakePlayerData> loadFakePlayer(String name) {
+        DebugLogger.logFine(Bukkit.getLogger(), "SQLiteDatabaseManager: loading bot '%s'", name);
+
         String query = "SELECT * FROM " + tableName + " WHERE name = ?;";
         try (PreparedStatement ps = connection.prepareStatement(query)) {
             ps.setString(1, name);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    return Optional.of(mapResultSet(rs));
+                    FakePlayerData data = mapResultSet(rs);
+                    DebugLogger.logFine(Bukkit.getLogger(), "SQLiteDatabaseManager: loaded '%s' (active=%s)",
+                            name, data.isActive());
+                    return Optional.of(data);
                 }
             }
         } catch (SQLException e) {
+            DebugLogger.log(Bukkit.getLogger(), "SQLiteDatabaseManager: error loading '%s': %s",
+                    name, e.getMessage());
             Bukkit.getLogger().log(Level.WARNING,
                     "[SQLiteDatabaseManager] Error loading bot '" + name + "': " + e.getMessage(), e);
         }
@@ -113,6 +141,8 @@ public class SQLiteDatabaseManager implements IFakePlayerDatabase {
 
     @Override
     public Collection<FakePlayerData> loadAllPlayers() {
+        DebugLogger.log(Bukkit.getLogger(), "SQLiteDatabaseManager: loading all players from table '%s'", tableName);
+
         List<FakePlayerData> list = new ArrayList<>();
         String query = "SELECT * FROM " + tableName + ";";
         try (Statement stmt = connection.createStatement();
@@ -120,7 +150,10 @@ public class SQLiteDatabaseManager implements IFakePlayerDatabase {
             while (rs.next()) {
                 list.add(mapResultSet(rs));
             }
+            DebugLogger.log(Bukkit.getLogger(), "SQLiteDatabaseManager: loaded %d players", list.size());
+
         } catch (SQLException e) {
+            DebugLogger.log(Bukkit.getLogger(), "SQLiteDatabaseManager: error loading all players: %s", e.getMessage());
             Bukkit.getLogger().log(Level.WARNING,
                     "[SQLiteDatabaseManager] Error loading all bots: " + e.getMessage(), e);
         }
@@ -129,11 +162,17 @@ public class SQLiteDatabaseManager implements IFakePlayerDatabase {
 
     @Override
     public void deleteFakePlayer(String name) {
+        DebugLogger.log(Bukkit.getLogger(), "SQLiteDatabaseManager: deleting bot '%s'", name);
+
         String query = "DELETE FROM " + tableName + " WHERE name = ?;";
         try (PreparedStatement ps = connection.prepareStatement(query)) {
             ps.setString(1, name);
-            ps.executeUpdate();
+            int rows = ps.executeUpdate();
+            DebugLogger.logFine(Bukkit.getLogger(), "SQLiteDatabaseManager: deleted '%s', rows affected: %d",
+                    name, rows);
         } catch (SQLException e) {
+            DebugLogger.log(Bukkit.getLogger(), "SQLiteDatabaseManager: error deleting '%s': %s",
+                    name, e.getMessage());
             Bukkit.getLogger().log(Level.WARNING,
                     "[SQLiteDatabaseManager] Error deleting bot '" + name + "': " + e.getMessage(), e);
         }
@@ -141,16 +180,23 @@ public class SQLiteDatabaseManager implements IFakePlayerDatabase {
 
     @Override
     public int getActiveBotCount() {
-        return countBots(true);
+        int count = countBots(true);
+        DebugLogger.logFine(Bukkit.getLogger(), "SQLiteDatabaseManager: active bot count = %d", count);
+        return count;
     }
 
     @Override
     public int getInactiveBotCount() {
-        return countBots(false);
+        int count = countBots(false);
+        DebugLogger.logFine(Bukkit.getLogger(), "SQLiteDatabaseManager: inactive bot count = %d", count);
+        return count;
     }
 
     @Override
     public void sendProxySyncData(String bungeeName, String name, int activeCount, int inactiveCount) {
+        DebugLogger.log(Bukkit.getLogger(), "SQLiteDatabaseManager: sync proxy data: bungee=%s, name=%s, active=%d, inactive=%d",
+                bungeeName, name, activeCount, inactiveCount);
+
         String sql = "INSERT OR REPLACE INTO " + bungeeName +
                 " (name, active_bot, deactive_bot) VALUES (?, ?, ?);";
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
@@ -158,7 +204,9 @@ public class SQLiteDatabaseManager implements IFakePlayerDatabase {
             ps.setInt(2, activeCount);
             ps.setInt(3, inactiveCount);
             ps.executeUpdate();
+            DebugLogger.logFine(Bukkit.getLogger(), "SQLiteDatabaseManager: proxy sync data sent");
         } catch (SQLException e) {
+            DebugLogger.log(Bukkit.getLogger(), "SQLiteDatabaseManager: error syncing proxy data: %s", e.getMessage());
             Bukkit.getLogger().log(Level.SEVERE,
                     "[SQLiteDatabaseManager] Error syncing proxy data: " + e.getMessage(), e);
         }
@@ -185,6 +233,8 @@ public class SQLiteDatabaseManager implements IFakePlayerDatabase {
                 }
             }
         } catch (SQLException e) {
+            DebugLogger.log(Bukkit.getLogger(), "SQLiteDatabaseManager: error counting %s bots: %s",
+                    active ? "active" : "inactive", e.getMessage());
             Bukkit.getLogger().log(Level.SEVERE,
                     "[SQLiteDatabaseManager] Error counting " + (active ? "active" : "inactive") + " bots: " + e.getMessage(), e);
         }

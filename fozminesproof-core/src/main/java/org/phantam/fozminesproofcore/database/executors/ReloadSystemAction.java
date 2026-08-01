@@ -5,6 +5,7 @@ import org.phantam.fozminesproofapi.model.FakePlayerData;
 import org.phantam.fozminesproofapi.database.IFakePlayerDatabase;
 import org.phantam.fozminesproofcore.FozmineSproofCore;
 import org.phantam.fozminesproofcore.manager.FakePlayerRegistry;
+import org.phantam.fozminesproofcore.utils.DebugLogger;
 
 import java.util.Optional;
 import java.util.logging.Level;
@@ -28,6 +29,9 @@ public class ReloadSystemAction implements org.phantam.fozminesproofapi.action.I
 
     @Override
     public Void execute(Void unused) {
+        DebugLogger.log(plugin.getLogger(), "ReloadSystemAction: starting system reload");
+
+        int refreshed = 0;
         for (String botName : registry.getOnlineNames()) {
             Optional<FakePlayerData> freshData = database.loadFakePlayer(botName);
 
@@ -40,12 +44,17 @@ public class ReloadSystemAction implements org.phantam.fozminesproofapi.action.I
                     registry.register(newData, entity);
                     plugin.getLogger().log(Level.FINE,
                             "[ReloadSystemAction] Refreshed data for bot '" + botName + "'");
+                    DebugLogger.logFine(plugin.getLogger(), "ReloadSystemAction: refreshed %s", botName);
+                    refreshed++;
                 }
             } else {
                 plugin.getLogger().log(Level.WARNING,
                         "[ReloadSystemAction] Bot '" + botName + "' missing in database during reload");
+                DebugLogger.log(plugin.getLogger(), "ReloadSystemAction: %s missing in DB", botName);
             }
         }
+
+        DebugLogger.log(plugin.getLogger(), "ReloadSystemAction: reload complete, %d bots refreshed", refreshed);
         return null;
     }
 }

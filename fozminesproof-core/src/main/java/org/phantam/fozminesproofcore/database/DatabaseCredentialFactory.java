@@ -2,6 +2,7 @@ package org.phantam.fozminesproofcore.database;
 
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.phantam.fozminesproofcore.utils.DebugLogger;
 
 /**
  * Factory for creating database credentials and sanitising table names.
@@ -20,9 +21,16 @@ public final class DatabaseCredentialFactory {
      */
     public static String getSafeTableName(String rawName) {
         if (rawName == null || rawName.isEmpty()) {
+            DebugLogger.log(JavaPlugin.getPlugin(JavaPlugin.class).getLogger(),
+                    "DatabaseCredentialFactory: raw name null/empty, using default 'fozminesproof'");
             return "fozminesproof";
         }
-        return rawName.replaceAll("[^a-zA-Z0-9_]", "");
+        String sanitized = rawName.replaceAll("[^a-zA-Z0-9_]", "");
+        if (!sanitized.equals(rawName)) {
+            DebugLogger.log(JavaPlugin.getPlugin(JavaPlugin.class).getLogger(),
+                    "DatabaseCredentialFactory: sanitized table name '%s' from '%s'", sanitized, rawName);
+        }
+        return sanitized;
     }
 
     /**
@@ -33,13 +41,17 @@ public final class DatabaseCredentialFactory {
      */
     public static DatabaseCredentials createCredentials(JavaPlugin plugin) {
         FileConfiguration config = plugin.getConfig();
-        return new DatabaseCredentials(
-                config.getString("Database.host", "localhost"),
-                config.getInt("Database.port", 3306),
-                config.getString("Database.database", "minecraft"),
-                config.getString("Database.user", "root"),
-                config.getString("Database.password", "")
-        );
+        String host = config.getString("Database.host", "localhost");
+        int port = config.getInt("Database.port", 3306);
+        String database = config.getString("Database.database", "minecraft");
+        String user = config.getString("Database.user", "root");
+        // password not logged for security
+
+        DebugLogger.log(plugin.getLogger(),
+                "DatabaseCredentialFactory: credentials: host=%s, port=%d, database=%s, user=%s",
+                host, port, database, user);
+
+        return new DatabaseCredentials(host, port, database, user, config.getString("Database.password", ""));
     }
 
     /**

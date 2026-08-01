@@ -4,13 +4,6 @@ main: org.phantam.fozminesproofcore.FozmineSproofCore
 api-version: "1.19"
 description: Advanced fake player management system with minimal TPS impact
 author: phantam
-
-dependencies:
-  server:
-    PlaceholderAPI:
-      load: BEFORE
-      required: false
-
 commands:
   sproof:
     description: Main command for the FozmineSproof fake player system.

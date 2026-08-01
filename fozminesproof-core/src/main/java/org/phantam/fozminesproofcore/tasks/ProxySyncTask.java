@@ -4,6 +4,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.phantam.fozminesproofapi.database.IFakePlayerDatabase;
 import org.phantam.fozminesproofcore.config.ConfigManager;
+import org.phantam.fozminesproofcore.utils.DebugLogger;
 
 import java.util.logging.Level;
 
@@ -21,13 +22,18 @@ public class ProxySyncTask extends BukkitRunnable {
         this.plugin = plugin;
         this.database = database;
         this.configManager = configManager;
+        DebugLogger.log(plugin.getLogger(), "ProxySyncTask: initialized");
     }
 
     @Override
     public void run() {
+        DebugLogger.log(plugin.getLogger(), "ProxySyncTask: sync cycle started");
+
         try {
             int activeCount = database.getActiveBotCount();
             int inactiveCount = database.getInactiveBotCount();
+
+            DebugLogger.log(plugin.getLogger(), "ProxySyncTask: counts: active=%d, inactive=%d", activeCount, inactiveCount);
 
             database.sendProxySyncData(
                     configManager.getBungeeName(),
@@ -39,13 +45,18 @@ public class ProxySyncTask extends BukkitRunnable {
             plugin.getLogger().log(Level.FINE,
                     "[ProxySyncTask] Synced proxy data: active=" + activeCount + ", inactive=" + inactiveCount);
 
+            DebugLogger.logFine(plugin.getLogger(), "ProxySyncTask: sync data sent");
+
         } catch (Exception e) {
             plugin.getLogger().log(Level.SEVERE,
                     "[ProxySyncTask] Error syncing proxy data: " + e.getMessage(), e);
+            DebugLogger.log(plugin.getLogger(), "ProxySyncTask: error: %s", e.getMessage());
         } finally {
             // Reschedule only if the plugin is still enabled
             if (plugin.isEnabled()) {
                 reschedule();
+            } else {
+                DebugLogger.log(plugin.getLogger(), "ProxySyncTask: plugin disabled, not rescheduling");
             }
         }
     }
@@ -62,5 +73,7 @@ public class ProxySyncTask extends BukkitRunnable {
 
         plugin.getLogger().log(Level.FINE,
                 "[ProxySyncTask] Next sync scheduled in " + delaySeconds + " seconds.");
+
+        DebugLogger.logFine(plugin.getLogger(), "ProxySyncTask: rescheduled in %d seconds", delaySeconds);
     }
 }

@@ -4,6 +4,7 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.phantam.fozminesproofcore.utils.ColorUtils;
+import org.phantam.fozminesproofcore.utils.DebugLogger;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -34,11 +35,17 @@ public class MessageManager {
     public void reload() {
         if (!configFile.exists()) {
             plugin.saveResource("messages.yml", false);
+            DebugLogger.log(plugin.getLogger(), "MessageManager: created default messages.yml");
         }
 
         this.config = YamlConfiguration.loadConfiguration(configFile);
         String rawPrefix = config.getString("system.prefix", "[FozmineSproof] ");
         this.prefix = ColorUtils.colorize(rawPrefix);
+
+        if (DebugLogger.isDebugEnabled()) {
+            DebugLogger.log(plugin.getLogger(), "MessageManager: reloaded, prefix=%s", rawPrefix.trim());
+            DebugLogger.logFine(plugin.getLogger(), "MessageManager: loaded %d top-level keys", config.getKeys(false).size());
+        }
 
         plugin.getLogger().log(Level.INFO,
                 "[FozmineSproof] Messages reloaded. Prefix: " + rawPrefix.trim());
@@ -53,6 +60,7 @@ public class MessageManager {
     public String getMessage(String path) {
         String raw = config.getString(path);
         if (raw == null) {
+            DebugLogger.log(plugin.getLogger(), "MessageManager: missing message path: %s", path);
             return prefix + "§cMissing message path: " + path;
         }
         return prefix + ColorUtils.colorize(raw);
@@ -67,6 +75,7 @@ public class MessageManager {
     public String getOnlyMessage(String path) {
         String raw = config.getString(path);
         if (raw == null) {
+            DebugLogger.log(plugin.getLogger(), "MessageManager: missing message path (only): %s", path);
             return "§cMissing message path: " + path;
         }
         return ColorUtils.colorize(raw);
@@ -81,6 +90,7 @@ public class MessageManager {
     public List<String> getMessageList(String path) {
         List<String> rawLines = config.getStringList(path);
         if (rawLines.isEmpty()) {
+            DebugLogger.log(plugin.getLogger(), "MessageManager: missing or empty message list: %s", path);
             return Collections.singletonList("§cMissing message list path: " + path);
         }
 

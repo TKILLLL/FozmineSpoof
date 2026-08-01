@@ -6,13 +6,12 @@ import org.phantam.fozminesproofcore.config.ChatConfig;
 import org.phantam.fozminesproofcore.config.ConfigManager;
 import org.phantam.fozminesproofcore.manager.FakePlayerManager;
 import org.phantam.fozminesproofcore.tasks.ChatTickerTask;
+import org.phantam.fozminesproofcore.utils.DebugLogger;
 
 import java.util.logging.Logger;
 
 /**
  * Manages the lifecycle of the automatic bot chat scheduler.
- * <p>
- * Starts and stops the periodic chat ticker based on configuration.
  */
 public class ChatScheduler {
 
@@ -37,15 +36,11 @@ public class ChatScheduler {
         this.chatProcessor = new BotChatProcessor(plugin, fakePlayerManager, configManager);
     }
 
-    /**
-     * Starts the chat scheduler with the given configuration.
-     * Cancels any existing scheduler before starting a new one.
-     *
-     * @param config the chat configuration to use
-     */
     public void start(ChatConfig config) {
         this.chatConfig = config;
         this.stop();
+
+        DebugLogger.log(logger, "ChatScheduler: start called, enabled=%s", config.isEnabled());
 
         if (!chatConfig.isEnabled()) {
             logger.warning("[ChatSystem] Chat system is disabled in config.yml.");
@@ -54,17 +49,15 @@ public class ChatScheduler {
 
         this.tickerTask = new ChatTickerTask(plugin, chatConfig, botSelector, chatProcessor, messageLoader);
 
-        logger.info("[ChatSystem] Chat system activated! First cycle in "
-                + (tickerTask.getTicksUntilNextChat() / 20) + " seconds.");
+        int firstCycleSeconds = tickerTask.getTicksUntilNextChat() / 20;
+        DebugLogger.log(logger, "ChatScheduler: first cycle in %d seconds", firstCycleSeconds);
 
         tickerTask.runTaskTimer(plugin, 20L, 20L);
     }
 
-    /**
-     * Stops the current chat scheduler safely.
-     */
     public void stop() {
         if (tickerTask != null) {
+            DebugLogger.log(logger, "ChatScheduler: stopping existing ticker task");
             tickerTask.cancel();
             tickerTask = null;
         }

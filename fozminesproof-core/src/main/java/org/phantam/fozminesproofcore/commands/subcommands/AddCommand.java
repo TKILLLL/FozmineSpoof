@@ -7,15 +7,12 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.phantam.fozminesproofcore.FozmineSproofCore;
 import org.phantam.fozminesproofcore.config.MessageManager;
+import org.phantam.fozminesproofcore.utils.DebugLogger;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.regex.Pattern;
 
-/**
- * Handles the "/sproof add" command to create a new fake player entry in the database.
- * The new bot remains inactive (despawned) until spawned manually.
- */
 public class AddCommand implements SubCommand {
 
     private final FozmineSproofCore plugin;
@@ -26,24 +23,16 @@ public class AddCommand implements SubCommand {
     }
 
     @Override
-    public String getName() {
-        return "add";
-    }
+    public String getName() { return "add"; }
 
     @Override
-    public String getDescription() {
-        return "Add a new fake player to the database (inactive, not spawned)";
-    }
+    public String getDescription() { return "Add a new fake player to the database (inactive, not spawned)"; }
 
     @Override
-    public String getSyntax() {
-        return "/sproof add <name>";
-    }
+    public String getSyntax() { return "/sproof add <name>"; }
 
     @Override
-    public String getPermission() {
-        return "fozminesproof.admin";
-    }
+    public String getPermission() { return "fozminesproof.admin"; }
 
     @Override
     public void execute(CommandSender sender, String[] args) {
@@ -55,74 +44,59 @@ public class AddCommand implements SubCommand {
         }
 
         String name = args[1];
+        DebugLogger.log(plugin.getLogger(), "AddCommand: executing for name=%s by %s", name, sender.getName());
 
-        // Validate name format (Mojang-compatible)
         if (!VALID_NAME_PATTERN.matcher(name).matches()) {
             sender.sendMessage(messages.getMessage("bot.invalid-name"));
+            DebugLogger.log(plugin.getLogger(), "AddCommand: invalid name format: %s", name);
             return;
         }
 
-        // Check for duplicate
         boolean exists = plugin.getFakePlayerManager().getAllDatabaseBots().stream()
                 .anyMatch(bot -> bot.getName().equalsIgnoreCase(name));
 
         if (exists) {
-            sender.sendMessage(messages.getMessage("bot.already-exists")
-                    .replace("%fakeplayer_name%", name));
+            sender.sendMessage(messages.getMessage("bot.already-exists").replace("%fakeplayer_name%", name));
+            DebugLogger.log(plugin.getLogger(), "AddCommand: bot %s already exists", name);
             return;
         }
 
-        // Determine spawn location
         Location location = resolveSpawnLocation(sender);
         if (location == null) {
-            sender.sendMessage(messages.getOnlyMessage("system.prefix") +
-                    "§cCould not determine a valid world to place the bot.");
+            sender.sendMessage(messages.getOnlyMessage("system.prefix") + "§cCould not determine a valid world.");
+            DebugLogger.log(plugin.getLogger(), "AddCommand: cannot resolve spawn location");
             return;
         }
 
-        // Add to database
         plugin.getFakePlayerManager().addBot(name, location);
 
-        // Confirm success
         String worldName = plugin.getConfigManager().getBotWorldName();
         sender.sendMessage(messages.getMessage("bot.add-success")
                 .replace("%fakeplayer_name%", name)
                 .replace("%world%", worldName));
 
-        sender.sendMessage(" §7▪ Location: §b" + (int) location.getX() + "§7, §b" +
-                (int) location.getY() + "§7, §b" + (int) location.getZ());
-        sender.sendMessage(" §7▪ Tip: Use §e/sproof spawn " + name + " §7to activate 3D model.");
+        DebugLogger.log(plugin.getLogger(), "AddCommand: added bot %s at %s,%s,%s in %s",
+                name, location.getBlockX(), location.getBlockY(), location.getBlockZ(), worldName);
+
+        if (plugin.getConfigManager().isDebug()) {
+            sender.sendMessage(" §7▪ Location: §b" + (int) location.getX() + "§7, §b" +
+                    (int) location.getY() + "§7, §b" + (int) location.getZ());
+            sender.sendMessage(" §7▪ Tip: Use §e/sproof spawn " + name + " §7to activate 3D model.");
+        }
     }
 
     @Override
     public List<String> tabComplete(CommandSender sender, String[] args) {
-        if (args.length == 2) {
-            return List.of("<name>");
-        }
+        if (args.length == 2) return List.of("<name>");
         return Collections.emptyList();
     }
 
-    /**
-     * Resolves the spawn location from the sender's context.
-     * If the sender is a player, uses their current location.
-     * If console, uses the configured bot world or the server's default world.
-     *
-     * @param sender the command sender
-     * @return the resolved Location, or null if no world is available
-     */
     private Location resolveSpawnLocation(CommandSender sender) {
-        if (sender instanceof Player player) {
-            return player.getLocation();
-        }
+        if (sender instanceof Player player) return player.getLocation();
 
-        // Console or non-player sender
         String worldName = plugin.getConfigManager().getBotWorldName();
         World world = Bukkit.getWorld(worldName);
-
-        if (world == null && !Bukkit.getWorlds().isEmpty()) {
-            world = Bukkit.getWorlds().get(0);
-        }
-
+        if (world == null && !Bukkit.getWorlds().isEmpty()) world = Bukkit.getWorlds().get(0);
         return (world != null) ? world.getSpawnLocation() : null;
     }
 }

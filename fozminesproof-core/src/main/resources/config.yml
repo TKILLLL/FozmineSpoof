@@ -45,6 +45,8 @@ Database:
     # Name of the bungee server (used as a key in the proxy sync table)
     bungee_name: "fozminesproof"
 
+
+
 # ================================================================================= #
 #                       FAKE PLAYER BEHAVIOR SETTINGS                               #
 # ================================================================================= #
@@ -95,20 +97,7 @@ chat-system:
     # Chat format used when message-format is enabled
     chat-format: "&7[&a%fakeplayer_name%&7]&f: %fakeplayer_message%"
 
-    # Tablist format used when message-format is enabled
-    tab-format: "%fake_vault_prefix%&f%fakeplayer_name%"
-
 # ================================================================================= #
-#                       PLACEHOLDERAPI EXTRA EXPANSION                              #
+#                       DEBUG SETTINGS                                              #
 # ================================================================================= #
-# This list defines which PlaceholderAPI placeholders should be intercepted
-# and augmented with fake player counts.
-#
-# When a player uses %fake_<placeholder>%, the plugin will:
-#   - Return the original placeholder's value (real players) + number of fake players
-#   - Useful for placeholders that do not automatically include NPCs
-#
-# Example: %fake_server_online% will return real player count + bot count
-parse-papi:
-  - "server_online"
-  - "bungee_lobby"
+debug: false

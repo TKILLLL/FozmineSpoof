@@ -2,6 +2,7 @@ package org.phantam.fozminesproofcore.config;
 
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.phantam.fozminesproofcore.utils.DebugLogger;
 
 import java.util.List;
 import java.util.Random;
@@ -26,14 +27,13 @@ public class ConfigManager {
     private String fakePluginName;
     private boolean hideInTab;
     private static final Random RANDOM = new Random();
+    private boolean debug;
 
     // Chat system
     private ChatConfig chatConfig;
     private String chatFormat;
-    private String tabFormat;
     private boolean messageFormatEnable;
     private String messageChatFormat;
-    private String messageTabFormat;
 
     // Proxy & database
     private Boolean proxyEnable;
@@ -57,6 +57,12 @@ public class ConfigManager {
 
             // Reload messages
             this.messageManager.reload();
+            this.debug = config.getBoolean("debug", false);
+
+            // Debug log: show config file is being reloaded
+            if (debug) {
+                DebugLogger.log(plugin.getLogger(), "ConfigManager: reloading configuration...");
+            }
 
             // General settings
             this.targetPlaceholders = config.getStringList("parse-papi");
@@ -67,28 +73,44 @@ public class ConfigManager {
             this.fakePluginName = config.getString("Fakeplayer-setting.fake-plugin-name", "FozmineSpawner");
             this.hideInTab = config.getBoolean("Fakeplayer-setting.hide-in-tab", false);
 
+            if (debug) {
+                DebugLogger.log(plugin.getLogger(), "ConfigManager: botWorldName=%s, joinLeave=%s, hideInTab=%s, fakePluginName=%s",
+                        botWorldName, joinLeaveMessageEnable, hideInTab, fakePluginName);
+                DebugLogger.log(plugin.getLogger(), "ConfigManager: joinMessage=%s, leaveMessage=%s", joinMessage, leaveMessage);
+            }
+
             // Chat format settings
             this.messageFormatEnable = config.getBoolean("chat-system.message-format.enable", false);
             this.messageChatFormat = config.getString("chat-system.message-format.chat-format",
                     "&7[&a%fakeplayer_name%&7]&f: %fakeplayer_message%");
-            this.messageTabFormat = config.getString("chat-system.message-format.tab-format",
-                    "%fake_vault_prefix%&f%fakeplayer_name%");
 
             // Root fallback formats
             this.chatFormat = config.getString("chat-system.chat-format", "<%fakeplayer_name%> %fakeplayer_message%");
-            this.tabFormat = config.getString("chat-system.tab-format", "%fake_vault_prefix%&f%fakeplayer_name%");
+
+            if (debug) {
+                DebugLogger.log(plugin.getLogger(), "ConfigManager: messageFormatEnable=%s, chatFormat=%s",
+                        messageFormatEnable, chatFormat);
+            }
 
             // Proxy & database
             this.proxyEnable = config.getBoolean("Database.bridging-setting.enable-proxy", false);
             this.bungeeName = config.getString("Database.bridging-setting.bungee_name", "fozminesproof");
             this.chatConfig = new ChatConfig(config);
-
             this.databaseEnabled = config.getBoolean("Database.enable", true);
             this.rawDatabaseName = config.getString("Database.name", "fozminesproof");
+
+            if (debug) {
+                DebugLogger.log(plugin.getLogger(), "ConfigManager: proxyEnable=%s, databaseEnabled=%s, rawDatabaseName=%s",
+                        proxyEnable, databaseEnabled, rawDatabaseName);
+                DebugLogger.log(plugin.getLogger(), "ConfigManager: reload complete.");
+            }
 
         } catch (Exception e) {
             plugin.getLogger().log(Level.SEVERE,
                     "[FozmineSproof] Failed to load config.yml: " + e.getMessage(), e);
+            if (debug) {
+                DebugLogger.log(plugin.getLogger(), "ConfigManager: error during reload: %s", e.getMessage());
+            }
         }
     }
 
@@ -99,7 +121,11 @@ public class ConfigManager {
      * @return true if the placeholder is in the target list
      */
     public boolean isTargetPlaceholder(String placeholder) {
-        return this.targetPlaceholders != null && this.targetPlaceholders.contains(placeholder);
+        boolean result = this.targetPlaceholders != null && this.targetPlaceholders.contains(placeholder);
+        if (debug) {
+            DebugLogger.logFine(plugin.getLogger(), "ConfigManager: isTargetPlaceholder(%s)=%s", placeholder, result);
+        }
+        return result;
     }
 
     /**
@@ -115,7 +141,11 @@ public class ConfigManager {
             String[] parts = value.split("-");
             int min = Integer.parseInt(parts[0].trim());
             int max = Integer.parseInt(parts[1].trim());
-            return ThreadLocalRandom.current().nextInt(min, max + 1) * 20;
+            int result = ThreadLocalRandom.current().nextInt(min, max + 1) * 20;
+            if (debug) {
+                DebugLogger.logFine(plugin.getLogger(), "ConfigManager: getJoinQuitIntervalTicks()=%d (range: %s)", result, value);
+            }
+            return result;
         } catch (Exception e) {
             return 20;
         }
@@ -134,13 +164,21 @@ public class ConfigManager {
             String[] parts = value.split("-");
             int min = Integer.parseInt(parts[0].trim());
             int max = Integer.parseInt(parts[1].trim());
-            return ThreadLocalRandom.current().nextInt(min, max + 1);
+            int result = ThreadLocalRandom.current().nextInt(min, max + 1);
+            if (debug) {
+                DebugLogger.logFine(plugin.getLogger(), "ConfigManager: getProxyUpdateInterval()=%d (range: %s)", result, value);
+            }
+            return result;
         } catch (Exception e) {
             return 20;
         }
     }
 
     // --- Getters ---
+
+    public boolean isDebug() {
+        return this.debug;
+    }
 
     public MessageManager getMessages() {
         return this.messageManager;
@@ -184,14 +222,6 @@ public class ConfigManager {
      */
     public String getChatFormat() {
         return this.messageFormatEnable ? this.messageChatFormat : this.chatFormat;
-    }
-
-    /**
-     * Returns the active tab format based on the message-format.enable flag.
-     * If enabled, returns the custom format; otherwise returns the root format.
-     */
-    public String getTabFormat() {
-        return this.messageFormatEnable ? this.messageTabFormat : this.tabFormat;
     }
 
     /**

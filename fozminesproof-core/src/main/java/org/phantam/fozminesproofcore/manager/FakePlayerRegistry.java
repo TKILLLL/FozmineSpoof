@@ -1,7 +1,9 @@
 package org.phantam.fozminesproofcore.manager;
 
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.phantam.fozminesproofapi.model.FakePlayerData;
+import org.phantam.fozminesproofcore.utils.DebugLogger;
 
 import java.util.Collection;
 import java.util.Map;
@@ -28,6 +30,8 @@ public class FakePlayerRegistry {
         if (entity != null) {
             entityCache.put(key, entity);
         }
+        DebugLogger.logFine(Bukkit.getLogger(), "FakePlayerRegistry: registered %s (uuid=%s)",
+                data.getName(), data.getUuid());
     }
 
     /**
@@ -37,16 +41,24 @@ public class FakePlayerRegistry {
      */
     public void unregister(String name) {
         String key = name.toLowerCase();
-        dataCache.remove(key);
-        entityCache.remove(key);
+        FakePlayerData removedData = dataCache.remove(key);
+        Player removedEntity = entityCache.remove(key);
+        if (removedData != null) {
+            DebugLogger.logFine(Bukkit.getLogger(), "FakePlayerRegistry: unregistered %s", name);
+        } else {
+            DebugLogger.logFine(Bukkit.getLogger(), "FakePlayerRegistry: unregister called for %s but not found", name);
+        }
     }
 
     /**
      * Clears all registrations.
      */
     public void clearAll() {
+        int dataSize = dataCache.size();
+        int entitySize = entityCache.size();
         dataCache.clear();
         entityCache.clear();
+        DebugLogger.log(Bukkit.getLogger(), "FakePlayerRegistry: cleared all (%d data, %d entities)", dataSize, entitySize);
     }
 
     /**
@@ -56,7 +68,10 @@ public class FakePlayerRegistry {
      * @return the data, or null
      */
     public FakePlayerData getData(String name) {
-        return dataCache.get(name.toLowerCase());
+        FakePlayerData data = dataCache.get(name.toLowerCase());
+        DebugLogger.logFine(Bukkit.getLogger(), "FakePlayerRegistry: getData %s -> %s",
+                name, data != null ? "found" : "null");
+        return data;
     }
 
     /**
@@ -66,7 +81,10 @@ public class FakePlayerRegistry {
      * @return the Player, or null
      */
     public Player getEntity(String name) {
-        return entityCache.get(name.toLowerCase());
+        Player player = entityCache.get(name.toLowerCase());
+        DebugLogger.logFine(Bukkit.getLogger(), "FakePlayerRegistry: getEntity %s -> %s",
+                name, player != null ? "found" : "null");
+        return player;
     }
 
     /**
@@ -75,7 +93,9 @@ public class FakePlayerRegistry {
      * @return collection of names
      */
     public Collection<String> getOnlineNames() {
-        return dataCache.keySet();
+        Collection<String> names = dataCache.keySet();
+        DebugLogger.logFine(Bukkit.getLogger(), "FakePlayerRegistry: getOnlineNames -> %d names", names.size());
+        return names;
     }
 
     /**
@@ -84,7 +104,9 @@ public class FakePlayerRegistry {
      * @return collection of data
      */
     public Collection<FakePlayerData> getOnlineData() {
-        return dataCache.values();
+        Collection<FakePlayerData> data = dataCache.values();
+        DebugLogger.logFine(Bukkit.getLogger(), "FakePlayerRegistry: getOnlineData -> %d bots", data.size());
+        return data;
     }
 
     /**
@@ -94,6 +116,8 @@ public class FakePlayerRegistry {
      * @return true if online
      */
     public boolean isOnline(String name) {
-        return dataCache.containsKey(name.toLowerCase());
+        boolean online = dataCache.containsKey(name.toLowerCase());
+        DebugLogger.logFine(Bukkit.getLogger(), "FakePlayerRegistry: isOnline %s -> %s", name, online);
+        return online;
     }
 }

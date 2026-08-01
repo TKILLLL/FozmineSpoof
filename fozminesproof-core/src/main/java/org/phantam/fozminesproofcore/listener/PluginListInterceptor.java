@@ -8,6 +8,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.plugin.Plugin;
 import org.phantam.fozminesproofcore.config.ConfigManager;
+import org.phantam.fozminesproofcore.utils.DebugLogger;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -30,6 +31,7 @@ public class PluginListInterceptor implements Listener {
     public PluginListInterceptor(ConfigManager configManager, Plugin ownPlugin) {
         this.configManager = configManager;
         this.ownPlugin = ownPlugin;
+        DebugLogger.log(Bukkit.getLogger(), "PluginListInterceptor: initialized, ownPlugin=%s", ownPlugin.getName());
     }
 
     @EventHandler
@@ -43,15 +45,22 @@ public class PluginListInterceptor implements Listener {
             return;
         }
 
+        Player player = event.getPlayer();
+        DebugLogger.log(Bukkit.getLogger(), "PluginListInterceptor: intercepted /%s from %s", baseCmd, player.getName());
+
         String fakeName = configManager.getFakePluginName();
         if (fakeName == null || fakeName.equalsIgnoreCase("none")) {
-            return; // disabled
+            DebugLogger.log(Bukkit.getLogger(), "PluginListInterceptor: disabled (fakeName='none' or null)");
+            return;
         }
 
-        Player player = event.getPlayer();
+        DebugLogger.logFine(Bukkit.getLogger(), "PluginListInterceptor: using fake name '%s'", fakeName);
+
         String message = buildPluginList(fakeName);
         player.sendMessage(message);
         event.setCancelled(true);
+
+        DebugLogger.log(Bukkit.getLogger(), "PluginListInterceptor: sent fake plugin list to %s", player.getName());
     }
 
     /**
@@ -65,6 +74,8 @@ public class PluginListInterceptor implements Listener {
                 .map(plugin -> {
                     String name = plugin.getName();
                     if (plugin.equals(ownPlugin)) {
+                        DebugLogger.logFine(Bukkit.getLogger(), "PluginListInterceptor: replacing '%s' with '%s'",
+                                name, fakeName);
                         return fakeName;
                     }
                     return name;
@@ -73,6 +84,9 @@ public class PluginListInterceptor implements Listener {
                 .collect(Collectors.joining(", "));
 
         int total = plugins.length;
-        return ChatColor.GRAY + "Plugins (" + total + "): " + ChatColor.WHITE + pluginNames;
+        String result = ChatColor.GRAY + "Plugins (" + total + "): " + ChatColor.WHITE + pluginNames;
+
+        DebugLogger.logFine(Bukkit.getLogger(), "PluginListInterceptor: built list: %s", result);
+        return result;
     }
 }

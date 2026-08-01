@@ -5,13 +5,11 @@ import org.bukkit.command.CommandSender;
 import org.phantam.fozminesproofcore.FozmineSproofCore;
 import org.phantam.fozminesproofcore.config.ConfigManager;
 import org.phantam.fozminesproofcore.world.VoidWorldFactory;
+import org.phantam.fozminesproofcore.utils.DebugLogger;
 
 import java.util.Collections;
 import java.util.List;
 
-/**
- * Reloads the plugin configuration, messages, and restores bot states.
- */
 public class ReloadCommand implements SubCommand {
 
     private final FozmineSproofCore plugin;
@@ -21,66 +19,61 @@ public class ReloadCommand implements SubCommand {
     }
 
     @Override
-    public String getName() {
-        return "reload";
-    }
+    public String getName() { return "reload"; }
 
     @Override
-    public String getDescription() {
-        return "Reload plugin configuration and bot system";
-    }
+    public String getDescription() { return "Reload plugin configuration and bot system"; }
 
     @Override
-    public String getSyntax() {
-        return "/sproof reload";
-    }
+    public String getSyntax() { return "/sproof reload"; }
 
     @Override
-    public String getPermission() {
-        return "fozminesproof.admin";
-    }
+    public String getPermission() { return "fozminesproof.admin"; }
 
     @Override
     public void execute(CommandSender sender, String[] args) {
         ConfigManager config = plugin.getConfigManager();
-        sender.sendMessage(config.getMessages().getMessage("system.prefix") +
-                "§eReloading system configuration...");
+        DebugLogger.log(plugin.getLogger(), "ReloadCommand: executed by %s", sender.getName());
+
+        sender.sendMessage(config.getMessages().getMessage("system.prefix") + "§eReloading system configuration...");
 
         try {
-            // Reload config files
             config.reloadAllConfigs();
+            DebugLogger.log(plugin.getLogger(), "ReloadCommand: config reloaded");
 
-            // Recreate void world if needed
             VoidWorldFactory.createVoidWorld(plugin, config.getBotWorldName());
 
-            // Reload message pool
             if (plugin.getMessageLoader() != null) {
                 plugin.getMessageLoader().loadMessages();
+                DebugLogger.log(plugin.getLogger(), "ReloadCommand: messages reloaded");
             }
 
-            // Stop old chat scheduler
             if (plugin.getChatScheduler() != null) {
                 plugin.getChatScheduler().stop();
+                DebugLogger.log(plugin.getLogger(), "ReloadCommand: chat scheduler stopped");
             }
 
-            // Reload bot system and restart chat scheduler after a tick
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 try {
                     if (plugin.getFakePlayerManager() != null) {
                         plugin.getFakePlayerManager().reloadSystem();
+                        DebugLogger.log(plugin.getLogger(), "ReloadCommand: fake player system reloaded");
                     }
 
                     if (plugin.getChatScheduler() != null) {
                         plugin.getChatScheduler().start(config.getChatConfig());
+                        DebugLogger.log(plugin.getLogger(), "ReloadCommand: chat scheduler restarted");
                     }
 
                     sender.sendMessage(config.getMessages().getMessage("system.reload-success"));
+                    DebugLogger.log(plugin.getLogger(), "ReloadCommand: reload completed successfully");
 
                 } catch (Exception ex) {
                     sender.sendMessage(config.getMessages().getOnlyMessage("system.prefix") +
                             "§cAn error occurred during delayed reload phase.");
                     plugin.getLogger().severe("Error during reload delayed task:");
                     ex.printStackTrace();
+                    DebugLogger.log(plugin.getLogger(), "ReloadCommand: error in delayed phase: %s", ex.getMessage());
                 }
             }, 1L);
 
@@ -89,6 +82,7 @@ public class ReloadCommand implements SubCommand {
                     "§cA critical error occurred during reload. Check console.");
             plugin.getLogger().severe("Error executing reload command:");
             e.printStackTrace();
+            DebugLogger.log(plugin.getLogger(), "ReloadCommand: critical error: %s", e.getMessage());
         }
     }
 

@@ -4,6 +4,7 @@ import org.bukkit.Location;
 import org.phantam.fozminesproofapi.model.FakePlayerData;
 import org.phantam.fozminesproofapi.database.IFakePlayerDatabase;
 import org.phantam.fozminesproofcore.FozmineSproofCore;
+import org.phantam.fozminesproofcore.utils.DebugLogger;
 
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
@@ -25,12 +26,16 @@ public class AddBotAction implements org.phantam.fozminesproofapi.action.IBotAct
 
     @Override
     public Void execute(Request request) {
+        DebugLogger.log(plugin.getLogger(), "AddBotAction: adding bot '%s'", request.name());
+
         String worldName = plugin.getConfigManager().getBotWorldName();
 
         // Generate a deterministic UUID based on the name (offline-mode style)
         UUID uuid = UUID.nameUUIDFromBytes(
                 ("OfflinePlayer:" + request.name()).getBytes(StandardCharsets.UTF_8)
         );
+
+        DebugLogger.logFine(plugin.getLogger(), "AddBotAction: generated UUID %s for %s", uuid, request.name());
 
         FakePlayerData data = new FakePlayerData.Builder()
                 .name(request.name())
@@ -44,6 +49,8 @@ public class AddBotAction implements org.phantam.fozminesproofapi.action.IBotAct
 
         plugin.getLogger().log(Level.INFO,
                 "[AddBotAction] Added bot '" + request.name() + "' to database (UUID: " + uuid + ")");
+
+        DebugLogger.log(plugin.getLogger(), "AddBotAction: successfully added bot '%s'", request.name());
 
         return null;
     }

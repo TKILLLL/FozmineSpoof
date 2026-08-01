@@ -8,6 +8,7 @@ import org.phantam.fozminesproofcore.chat.BotChatProcessor;
 import org.phantam.fozminesproofcore.chat.BotSelector;
 import org.phantam.fozminesproofcore.chat.MessageLoader;
 import org.phantam.fozminesproofcore.config.ChatConfig;
+import org.phantam.fozminesproofcore.utils.DebugLogger;
 
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
@@ -36,6 +37,8 @@ public class ChatTickerTask extends BukkitRunnable {
         this.chatProcessor = chatProcessor;
         this.messageLoader = messageLoader;
         resetCountdown();
+
+        DebugLogger.log(plugin.getLogger(), "ChatTickerTask: initialized, first cycle in %d ticks", ticksUntilNextChat);
     }
 
     @Override
@@ -43,6 +46,7 @@ public class ChatTickerTask extends BukkitRunnable {
         if (!chatConfig.isEnabled()) {
             plugin.getLogger().log(Level.WARNING,
                     "[ChatTickerTask] Chat system is disabled. Cancelling task.");
+            DebugLogger.log(plugin.getLogger(), "ChatTickerTask: cancelled (disabled)");
             this.cancel();
             return;
         }
@@ -53,15 +57,20 @@ public class ChatTickerTask extends BukkitRunnable {
         if (isFirstRun) {
             plugin.getLogger().log(Level.INFO,
                     "[ChatTickerTask] First run. Next chat in " + (ticksUntilNextChat / 20) + " seconds.");
+            DebugLogger.log(plugin.getLogger(), "ChatTickerTask: first run, remaining %d seconds",
+                    ticksUntilNextChat / 20);
             isFirstRun = false;
         }
 
         if (ticksUntilNextChat <= 0) {
             plugin.getLogger().log(Level.INFO, "[ChatTickerTask] Starting new chat cycle.");
+            DebugLogger.log(plugin.getLogger(), "ChatTickerTask: executing chat cycle");
             executeChatCycle();
             resetCountdown();
             plugin.getLogger().log(Level.INFO,
                     "[ChatTickerTask] Next cycle in " + (ticksUntilNextChat / 20) + " seconds.");
+            DebugLogger.log(plugin.getLogger(), "ChatTickerTask: next cycle in %d seconds",
+                    ticksUntilNextChat / 20);
         }
     }
 
@@ -75,11 +84,14 @@ public class ChatTickerTask extends BukkitRunnable {
 
         if (minutes == 0) {
             totalSeconds = ThreadLocalRandom.current().nextInt(10, 60);
+            DebugLogger.logFine(plugin.getLogger(), "ChatTickerTask: minutes=0, using fallback %ds", totalSeconds);
         } else {
             totalSeconds = minutes * 60;
+            DebugLogger.logFine(plugin.getLogger(), "ChatTickerTask: minutes=%d, totalSeconds=%d", minutes, totalSeconds);
         }
 
         this.ticksUntilNextChat = totalSeconds * 20;
+        DebugLogger.logFine(plugin.getLogger(), "ChatTickerTask: reset countdown to %d ticks", ticksUntilNextChat);
     }
 
     /**
@@ -91,6 +103,7 @@ public class ChatTickerTask extends BukkitRunnable {
         if (speakingBots.isEmpty()) {
             plugin.getLogger().log(Level.WARNING,
                     "[ChatTickerTask] No bots available to chat.");
+            DebugLogger.log(plugin.getLogger(), "ChatTickerTask: no bots selected for chat");
             return;
         }
 
@@ -100,15 +113,22 @@ public class ChatTickerTask extends BukkitRunnable {
         int staggerSeconds = chatConfig.getRandomDelaySeconds();
         long currentDelay = 0;
 
+        DebugLogger.log(plugin.getLogger(), "ChatTickerTask: selected %d bots, stagger=%ds",
+                speakingBots.size(), staggerSeconds);
+
         for (Player bot : speakingBots) {
             String rawMessage = messageLoader.getRandomMessage();
             if (rawMessage == null) {
                 plugin.getLogger().log(Level.WARNING,
                         "[ChatTickerTask] No message available for bot: " + bot.getName());
+                DebugLogger.log(plugin.getLogger(), "ChatTickerTask: no message for %s", bot.getName());
                 continue;
             }
 
             long delayTicks = currentDelay * 20L;
+            DebugLogger.logFine(plugin.getLogger(), "ChatTickerTask: scheduling %s to chat in %d ticks",
+                    bot.getName(), delayTicks);
+
             Bukkit.getScheduler().runTaskLater(plugin,
                     () -> chatProcessor.processChatAsync(bot, rawMessage, chatConfig),
                     delayTicks);

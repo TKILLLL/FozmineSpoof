@@ -5,6 +5,7 @@ import org.bukkit.World;
 import org.bukkit.WorldCreator;
 import org.bukkit.generator.ChunkGenerator;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.phantam.fozminesproofcore.utils.DebugLogger;
 
 import java.util.Random;
 import java.util.logging.Level;
@@ -28,29 +29,43 @@ public final class VoidWorldFactory {
      */
     public static void createVoidWorld(JavaPlugin plugin, String worldName) {
         if (worldName == null || worldName.isEmpty()) {
+            DebugLogger.log(plugin.getLogger(), "VoidWorldFactory: worldName is null or empty, skipping");
             return;
         }
+
+        DebugLogger.log(plugin.getLogger(), "VoidWorldFactory: createVoidWorld('%s') called", worldName);
 
         try {
             if (Bukkit.getWorld(worldName) != null) {
                 plugin.getLogger().log(Level.FINE,
                         "[VoidWorldFactory] World '" + worldName + "' already exists. Skipping creation.");
+                DebugLogger.log(plugin.getLogger(), "VoidWorldFactory: world '%s' already exists", worldName);
                 return;
             }
 
             plugin.getLogger().log(Level.INFO,
                     "[VoidWorldFactory] Creating void world: " + worldName);
+            DebugLogger.log(plugin.getLogger(), "VoidWorldFactory: creating void world '%s'", worldName);
 
             WorldCreator creator = new WorldCreator(worldName);
             creator.generator(new VoidChunkGenerator());
-            Bukkit.createWorld(creator);
+            World createdWorld = Bukkit.createWorld(creator);
 
-            plugin.getLogger().log(Level.INFO,
-                    "[VoidWorldFactory] Void world '" + worldName + "' created successfully.");
+            if (createdWorld != null) {
+                plugin.getLogger().log(Level.INFO,
+                        "[VoidWorldFactory] Void world '" + worldName + "' created successfully.");
+                DebugLogger.log(plugin.getLogger(), "VoidWorldFactory: void world '%s' created successfully", worldName);
+            } else {
+                plugin.getLogger().log(Level.WARNING,
+                        "[VoidWorldFactory] Void world '" + worldName + "' creation returned null.");
+                DebugLogger.log(plugin.getLogger(), "VoidWorldFactory: world creation returned null for '%s'", worldName);
+            }
 
         } catch (Exception e) {
             plugin.getLogger().log(Level.SEVERE,
                     "[VoidWorldFactory] Failed to create void world '" + worldName + "': " + e.getMessage(), e);
+            DebugLogger.log(plugin.getLogger(), "VoidWorldFactory: exception creating world '%s': %s",
+                    worldName, e.getMessage());
         }
     }
 
@@ -62,6 +77,7 @@ public final class VoidWorldFactory {
         @Override
         @SuppressWarnings("deprecation")
         public ChunkData generateChunkData(World world, Random random, int chunkX, int chunkZ, BiomeGrid biome) {
+            // This method always returns an empty chunk (air blocks only)
             return createChunkData(world);
         }
     }

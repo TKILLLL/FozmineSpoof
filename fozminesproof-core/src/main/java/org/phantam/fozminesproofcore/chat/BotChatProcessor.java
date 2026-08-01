@@ -8,6 +8,7 @@ import org.phantam.fozminesproofcore.config.ChatConfig;
 import org.phantam.fozminesproofcore.config.ConfigManager;
 import org.phantam.fozminesproofcore.manager.FakePlayerManager;
 import org.phantam.fozminesproofcore.utils.ColorUtils;
+import org.phantam.fozminesproofcore.utils.DebugLogger;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,9 +17,6 @@ import java.util.logging.Logger;
 
 /**
  * Handles asynchronous processing of a bot's chat message.
- * <p>
- * This class manages translation, placeholder replacement, and broadcasting of the final message.
- * Depending on configuration, it either sends using NMS broadcast or triggers a normal chat event.
  */
 public class BotChatProcessor {
 
@@ -36,13 +34,6 @@ public class BotChatProcessor {
         this.logger = plugin.getLogger();
     }
 
-    /**
-     * Processes a chat message asynchronously for the given bot.
-     *
-     * @param bot          the bot player entity
-     * @param rawMessage   the raw message template (may contain [name] placeholder)
-     * @param chatConfig   the current chat configuration
-     */
     public void processChatAsync(Player bot, String rawMessage, ChatConfig chatConfig) {
         if (bot == null || rawMessage == null || rawMessage.trim().isEmpty()) {
             return;
@@ -50,8 +41,11 @@ public class BotChatProcessor {
 
         String botName = bot.getName();
         if (!playerManager.isBotOnline(botName)) {
+            DebugLogger.logFine(logger, "BotChatProcessor: bot %s is not online, skipping", botName);
             return;
         }
+
+        DebugLogger.log(logger, "BotChatProcessor: processing chat for %s: '%s'", botName, rawMessage);
 
         String processed = replaceNamePlaceholder(rawMessage, new ArrayList<>(Bukkit.getOnlinePlayers()));
 
@@ -64,25 +58,31 @@ public class BotChatProcessor {
                 String targetLang = (chatConfig != null && chatConfig.getTranslationTarget() != null)
                         ? chatConfig.getTranslationTarget() : "vi";
 
+                DebugLogger.logFine(logger, "BotChatProcessor: translating to %s", targetLang);
                 String translated = translator.translate(processed, targetLang);
+
                 if (translated == null || translated.trim().isEmpty()) {
+                    DebugLogger.log(logger, "BotChatProcessor: translation result empty for %s", botName);
                     return;
                 }
 
                 boolean useCustomFormat = configManager.isMessageFormatEnable();
+                DebugLogger.log(logger, "BotChatProcessor: useCustomFormat=%s", useCustomFormat);
 
                 if (useCustomFormat) {
                     String formatted = buildCustomFormatMessage(bot, translated);
                     String finalMessage = ColorUtils.colorize(formatted);
 
                     Bukkit.getScheduler().runTask(plugin, () -> {
-                        // Use NMS broadcast for consistency
+                        DebugLogger.log(logger, "BotChatProcessor: broadcasting NMS chat for %s: %s",
+                                botName, finalMessage);
                         plugin.getBridge().broadcastNMSChat(bot, finalMessage);
                     });
                 } else {
-                    // Let other chat plugins (e.g., LPC) handle formatting via normal chat event
                     Bukkit.getScheduler().runTask(plugin, () -> {
                         if (bot.isOnline()) {
+                            DebugLogger.log(logger, "BotChatProcessor: triggering normal chat event for %s: %s",
+                                    botName, translated);
                             bot.chat(translated);
                         }
                     });
@@ -108,6 +108,7 @@ public class BotChatProcessor {
                 int index = ThreadLocalRandom.current().nextInt(onlinePlayers.size());
                 String selected = onlinePlayers.get(index).getName();
                 result = result.replaceFirst("\\[name\\]", selected);
+                DebugLogger.logFine(logger, "BotChatProcessor: replaced [name] with %s", selected);
             }
         }
         return result;

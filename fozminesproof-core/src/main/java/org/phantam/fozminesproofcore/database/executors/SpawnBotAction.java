@@ -14,6 +14,7 @@ import org.phantam.fozminesproofcore.FozmineSproofCore;
 import org.phantam.fozminesproofcore.chat.FakePlayerBroadcaster;
 import org.phantam.fozminesproofcore.manager.FakePlayerRegistry;
 import org.phantam.fozminesproofcore.utils.ColorUtils;
+import org.phantam.fozminesproofcore.utils.DebugLogger;
 
 import java.net.InetAddress;
 import java.util.Optional;
@@ -53,11 +54,14 @@ public class SpawnBotAction implements org.phantam.fozminesproofapi.action.IBotA
      * @param callback result consumer
      */
     public void executeAsync(String name, Consumer<Boolean> callback) {
+        DebugLogger.log(plugin.getLogger(), "SpawnBotAction: starting async spawn for '%s'", name);
+
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             Optional<FakePlayerData> opt = database.loadFakePlayer(name);
             if (opt.isEmpty()) {
                 plugin.getLogger().log(Level.WARNING,
                         "[SpawnBotAction] Bot '" + name + "' not found in database");
+                DebugLogger.log(plugin.getLogger(), "SpawnBotAction: bot '%s' not found in database", name);
                 Bukkit.getScheduler().runTask(plugin, () -> callback.accept(false));
                 return;
             }
@@ -65,6 +69,8 @@ public class SpawnBotAction implements org.phantam.fozminesproofapi.action.IBotA
             FakePlayerData data = opt.get();
             InetAddress address = InetAddress.getLoopbackAddress();
             UUID uuid = data.getUuid();
+
+            DebugLogger.logFine(plugin.getLogger(), "SpawnBotAction: loaded data for %s (uuid=%s)", name, uuid);
 
             // Trigger pre-login event
             AsyncPlayerPreLoginEvent preLoginEvent = new AsyncPlayerPreLoginEvent(
@@ -75,6 +81,7 @@ public class SpawnBotAction implements org.phantam.fozminesproofapi.action.IBotA
             if (preLoginEvent.getLoginResult() != AsyncPlayerPreLoginEvent.Result.ALLOWED) {
                 plugin.getLogger().log(Level.WARNING,
                         "[SpawnBotAction] PreLogin denied for '" + name + "'");
+                DebugLogger.log(plugin.getLogger(), "SpawnBotAction: PreLogin denied for %s", name);
                 Bukkit.getScheduler().runTask(plugin, () -> callback.accept(false));
                 return;
             }
@@ -85,13 +92,18 @@ public class SpawnBotAction implements org.phantam.fozminesproofapi.action.IBotA
                 FakePlayerData updatedData = data.withActive(true);
                 database.saveFakePlayer(updatedData);
 
+                DebugLogger.logFine(plugin.getLogger(), "SpawnBotAction: saved active=true for %s", name);
+
                 Player entity = spawnNpc(updatedData);
                 if (entity == null) {
                     plugin.getLogger().log(Level.SEVERE,
                             "[SpawnBotAction] Failed to spawn NPC for '" + name + "'");
+                    DebugLogger.log(plugin.getLogger(), "SpawnBotAction: spawnNpc returned null for %s", name);
                     callback.accept(false);
                     return;
                 }
+
+                DebugLogger.logFine(plugin.getLogger(), "SpawnBotAction: NPC entity created for %s", name);
 
                 // Trigger login event
                 PlayerLoginEvent loginEvent = new PlayerLoginEvent(entity, "", address);
@@ -100,6 +112,7 @@ public class SpawnBotAction implements org.phantam.fozminesproofapi.action.IBotA
                     plugin.getBridge().despawnPlayer(updatedData.getUuid());
                     plugin.getLogger().log(Level.WARNING,
                             "[SpawnBotAction] Login denied for '" + name + "'");
+                    DebugLogger.log(plugin.getLogger(), "SpawnBotAction: Login denied for %s", name);
                     callback.accept(false);
                     return;
                 }
@@ -126,6 +139,7 @@ public class SpawnBotAction implements org.phantam.fozminesproofapi.action.IBotA
 
                 plugin.getLogger().log(Level.INFO,
                         "[SpawnBotAction] Successfully spawned bot '" + name + "'");
+                DebugLogger.log(plugin.getLogger(), "SpawnBotAction: spawn completed successfully for %s", name);
                 callback.accept(true);
             });
         });
@@ -140,31 +154,41 @@ public class SpawnBotAction implements org.phantam.fozminesproofapi.action.IBotA
      */
     private Player spawnNpc(FakePlayerData data) {
         if (plugin.getBridge() == null) {
+            DebugLogger.log(plugin.getLogger(), "SpawnBotAction: bridge is null");
             return null;
         }
 
         String worldName = data.getWorldName();
         if (worldName == null || worldName.isEmpty()) {
             worldName = plugin.getConfigManager().getBotWorldName();
+            DebugLogger.logFine(plugin.getLogger(), "SpawnBotAction: using configured bot world: %s", worldName);
         }
 
         World world = Bukkit.getWorld(worldName);
         if (world == null && !Bukkit.getWorlds().isEmpty()) {
             world = Bukkit.getWorlds().get(0);
+            DebugLogger.logFine(plugin.getLogger(), "SpawnBotAction: using fallback world: %s", world.getName());
         }
         if (world == null) {
+            DebugLogger.log(plugin.getLogger(), "SpawnBotAction: no world available");
             return null;
         }
 
         Location loc = new Location(world, data.getX(), data.getY(), data.getZ(),
                 data.getYaw(), data.getPitch());
 
+        DebugLogger.logFine(plugin.getLogger(), "SpawnBotAction: spawn location %s at %.2f %.2f %.2f",
+                world.getName(), data.getX(), data.getY(), data.getZ());
+
+        // Ensure a solid block beneath the player to prevent falling
         Location below = loc.clone().subtract(0, 1, 0);
         if (below.getBlock().getType() == org.bukkit.Material.AIR) {
             below.getBlock().setType(org.bukkit.Material.BEDROCK);
+            DebugLogger.logFine(plugin.getLogger(), "SpawnBotAction: placed bedrock under %s", data.getName());
         }
 
         boolean hideTab = plugin.getConfigManager().isHideInTab();
+        DebugLogger.logFine(plugin.getLogger(), "SpawnBotAction: hideTab=%s for %s", hideTab, data.getName());
 
         return plugin.getBridge().spawnPlayer(data.getName(), data.getUuid(), loc, hideTab);
     }

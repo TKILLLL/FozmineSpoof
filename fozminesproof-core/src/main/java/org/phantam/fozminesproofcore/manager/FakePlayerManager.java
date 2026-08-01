@@ -8,6 +8,7 @@ import org.phantam.fozminesproofapi.database.IFakePlayerDatabase;
 import org.phantam.fozminesproofcore.FozmineSproofCore;
 import org.phantam.fozminesproofcore.chat.FakePlayerBroadcaster;
 import org.phantam.fozminesproofcore.database.executors.*;
+import org.phantam.fozminesproofcore.utils.DebugLogger;
 
 import java.util.Collection;
 import java.util.function.Consumer;
@@ -19,6 +20,7 @@ import java.util.logging.Level;
  */
 public class FakePlayerManager {
 
+    private final FozmineSproofCore plugin;
     private final IFakePlayerDatabase database;
     private final FakePlayerRegistry registry;
 
@@ -29,6 +31,7 @@ public class FakePlayerManager {
     private final ReloadSystemAction reloadAction;
 
     public FakePlayerManager(FozmineSproofCore plugin, IFakePlayerDatabase database) {
+        this.plugin = plugin;
         this.database = database;
         this.registry = new FakePlayerRegistry();
         FakePlayerBroadcaster broadcaster = new FakePlayerBroadcaster(plugin.getConfigManager());
@@ -43,6 +46,7 @@ public class FakePlayerManager {
     // --- Synchronous actions (for backward compatibility) ---
 
     public void addBot(String name, Location location) {
+        DebugLogger.log(plugin.getLogger(), "FakePlayerManager: addBot(%s)", name);
         addAction.execute(new AddBotAction.Request(name, location));
     }
 
@@ -54,11 +58,15 @@ public class FakePlayerManager {
      * @return true if spawned within timeout
      */
     public boolean spawnBot(String name) {
+        DebugLogger.log(plugin.getLogger(), "FakePlayerManager: spawnBot(sync) %s", name);
         java.util.concurrent.CompletableFuture<Boolean> future = new java.util.concurrent.CompletableFuture<>();
         spawnAction.executeAsync(name, future::complete);
         try {
-            return future.get(5, java.util.concurrent.TimeUnit.SECONDS);
+            boolean result = future.get(5, java.util.concurrent.TimeUnit.SECONDS);
+            DebugLogger.log(plugin.getLogger(), "FakePlayerManager: spawnBot(sync) %s -> %s", name, result);
+            return result;
         } catch (Exception e) {
+            DebugLogger.log(plugin.getLogger(), "FakePlayerManager: spawnBot(sync) %s timed out or failed", name);
             return false;
         }
     }
@@ -70,37 +78,58 @@ public class FakePlayerManager {
      * @param callback callback with success flag
      */
     public void spawnBotAsync(String name, Consumer<Boolean> callback) {
+        DebugLogger.logFine(plugin.getLogger(), "FakePlayerManager: spawnBotAsync %s", name);
         spawnAction.executeAsync(name, callback);
     }
 
     public boolean despawnBot(String name) {
-        return despawnAction.execute(name);
+        DebugLogger.log(plugin.getLogger(), "FakePlayerManager: despawnBot %s", name);
+        boolean result = despawnAction.execute(name);
+        DebugLogger.log(plugin.getLogger(), "FakePlayerManager: despawnBot %s -> %s", name, result);
+        return result;
     }
 
     public boolean removeBot(String name) {
-        return removeAction.execute(name);
+        DebugLogger.log(plugin.getLogger(), "FakePlayerManager: removeBot %s", name);
+        boolean result = removeAction.execute(name);
+        DebugLogger.log(plugin.getLogger(), "FakePlayerManager: removeBot %s -> %s", name, result);
+        return result;
     }
 
     public void reloadSystem() {
+        DebugLogger.log(plugin.getLogger(), "FakePlayerManager: reloadSystem");
         reloadAction.execute(null);
+        DebugLogger.log(plugin.getLogger(), "FakePlayerManager: reloadSystem completed");
     }
 
     // --- Queries ---
 
     public Player getOnlineBotEntity(String name) {
-        return registry.getEntity(name);
+        Player entity = registry.getEntity(name);
+        if (entity != null) {
+            DebugLogger.logFine(plugin.getLogger(), "FakePlayerManager: getOnlineBotEntity %s found", name);
+        } else {
+            DebugLogger.logFine(plugin.getLogger(), "FakePlayerManager: getOnlineBotEntity %s not found", name);
+        }
+        return entity;
     }
 
     public Collection<FakePlayerData> getAllDatabaseBots() {
-        return database.loadAllPlayers();
+        Collection<FakePlayerData> all = database.loadAllPlayers();
+        DebugLogger.logFine(plugin.getLogger(), "FakePlayerManager: getAllDatabaseBots -> %d bots", all.size());
+        return all;
     }
 
     public Collection<FakePlayerData> getOnlineBotsData() {
-        return registry.getOnlineData();
+        Collection<FakePlayerData> online = registry.getOnlineData();
+        DebugLogger.logFine(plugin.getLogger(), "FakePlayerManager: getOnlineBotsData -> %d bots", online.size());
+        return online;
     }
 
     public boolean isBotOnline(String name) {
-        return registry.isOnline(name);
+        boolean online = registry.isOnline(name);
+        DebugLogger.logFine(plugin.getLogger(), "FakePlayerManager: isBotOnline %s -> %s", name, online);
+        return online;
     }
 
     // --- Shutdown ---
@@ -110,30 +139,33 @@ public class FakePlayerManager {
      * Waits briefly for database operations to complete.
      */
     public void despawnAllOnShutdown() {
+        DebugLogger.log(plugin.getLogger(), "FakePlayerManager: despawnAllOnShutdown");
         Collection<FakePlayerData> onlineData = this.getOnlineBotsData();
         if (onlineData == null || onlineData.isEmpty()) {
+            DebugLogger.log(plugin.getLogger(), "FakePlayerManager: no online bots to despawn");
             return;
         }
 
         java.util.List<FakePlayerData> targetBots = new java.util.ArrayList<>(onlineData);
-        org.bukkit.Bukkit.getLogger().log(Level.INFO,
+        plugin.getLogger().log(Level.INFO,
                 "[FozmineSproof] Found " + targetBots.size() + " online bots. Despawning...");
 
         for (FakePlayerData bot : targetBots) {
             if (bot == null || bot.getName() == null) continue;
             boolean success = this.despawnBot(bot.getName());
             String status = success ? "Success" : "Failed";
-            org.bukkit.Bukkit.getLogger().log(success ? Level.INFO : Level.WARNING,
+            plugin.getLogger().log(success ? Level.INFO : Level.WARNING,
                     "[Shutdown Cleanup] -> " + bot.getName() + " (" + status + ")");
         }
 
         try {
-            org.bukkit.Bukkit.getLogger().log(Level.INFO,
+            plugin.getLogger().log(Level.INFO,
                     "[FozmineSproof] Waiting for SQL sync...");
             Thread.sleep(600);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+        DebugLogger.log(plugin.getLogger(), "FakePlayerManager: despawnAllOnShutdown completed");
     }
 
     // --- Startup ---
@@ -144,7 +176,10 @@ public class FakePlayerManager {
      * @param configManager the config manager for interval settings
      */
     public void spawnAllOnStartup(org.phantam.fozminesproofcore.config.ConfigManager configManager) {
-        if (configManager == null) return;
+        if (configManager == null) {
+            DebugLogger.log(plugin.getLogger(), "FakePlayerManager: spawnAllOnStartup called with null configManager");
+            return;
+        }
 
         java.util.List<String> offlineNames = this.getAllDatabaseBots().stream()
                 .map(FakePlayerData::getName)
@@ -152,12 +187,13 @@ public class FakePlayerManager {
                 .collect(java.util.stream.Collectors.toList());
 
         if (offlineNames.isEmpty()) {
-            org.bukkit.Bukkit.getLogger().log(Level.INFO,
+            plugin.getLogger().log(Level.INFO,
                     "[FozmineSproof] No offline bots found to spawn.");
+            DebugLogger.log(plugin.getLogger(), "FakePlayerManager: no offline bots to spawn");
             return;
         }
 
-        org.bukkit.Bukkit.getLogger().log(Level.INFO,
+        plugin.getLogger().log(Level.INFO,
                 "[FozmineSproof] Found " + offlineNames.size() +
                         " offline bots. Starting staggered spawn...");
 
@@ -167,8 +203,9 @@ public class FakePlayerManager {
             @Override
             public void run() {
                 if (queue.isEmpty()) {
-                    org.bukkit.Bukkit.getLogger().log(Level.INFO,
+                    plugin.getLogger().log(Level.INFO,
                             "[FozmineSproof] Startup spawn queue completed.");
+                    DebugLogger.log(plugin.getLogger(), "FakePlayerManager: startup spawn queue completed");
                     return;
                 }
 
@@ -177,8 +214,10 @@ public class FakePlayerManager {
                 if (!isBotOnline(next)) {
                     spawnBotAsync(next, success -> {
                         String status = success ? "Success" : "Failed";
-                        org.bukkit.Bukkit.getLogger().log(success ? Level.INFO : Level.WARNING,
+                        plugin.getLogger().log(success ? Level.INFO : Level.WARNING,
                                 "[Startup Spawn] -> " + next + " (" + status + ")");
+                        DebugLogger.log(plugin.getLogger(), "FakePlayerManager: spawnAllOnStartup %s -> %s",
+                                next, status);
                     });
                 }
 
@@ -192,9 +231,9 @@ public class FakePlayerManager {
                         public void run() {
                             current.run();
                         }
-                    }.runTaskLater(org.bukkit.Bukkit.getPluginManager().getPlugin("fozminesproof-core"), delay);
+                    }.runTaskLater(plugin, delay);
                 }
             }
-        }.runTaskLater(org.bukkit.Bukkit.getPluginManager().getPlugin("fozminesproof-core"), 40L);
+        }.runTaskLater(plugin, 40L);
     }
 }

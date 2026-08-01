@@ -9,6 +9,7 @@ import org.phantam.fozminesproofcore.FozmineSproofCore;
 import org.phantam.fozminesproofcore.chat.FakePlayerBroadcaster;
 import org.phantam.fozminesproofcore.manager.FakePlayerRegistry;
 import org.phantam.fozminesproofcore.utils.ColorUtils;
+import org.phantam.fozminesproofcore.utils.DebugLogger;
 
 import java.util.Optional;
 import java.util.logging.Level;
@@ -32,6 +33,8 @@ public class DespawnBotAction implements org.phantam.fozminesproofapi.action.IBo
 
     @Override
     public Boolean execute(String name) {
+        DebugLogger.log(plugin.getLogger(), "DespawnBotAction: starting despawn for '%s'", name);
+
         FakePlayerData data = registry.getData(name);
         registry.unregister(name);
 
@@ -40,9 +43,11 @@ public class DespawnBotAction implements org.phantam.fozminesproofapi.action.IBo
             if (opt.isEmpty()) {
                 plugin.getLogger().log(Level.WARNING,
                         "[DespawnBotAction] Bot '" + name + "' not found in database");
+                DebugLogger.log(plugin.getLogger(), "DespawnBotAction: bot '%s' not found", name);
                 return false;
             }
             data = opt.get();
+            DebugLogger.logFine(plugin.getLogger(), "DespawnBotAction: loaded data from DB for %s", name);
         }
 
         // Update active status using withActive()
@@ -59,15 +64,18 @@ public class DespawnBotAction implements org.phantam.fozminesproofapi.action.IBo
             if (quitEvent.getQuitMessage() != null && !quitEvent.getQuitMessage().isEmpty()) {
                 Bukkit.broadcastMessage(ColorUtils.colorize(quitEvent.getQuitMessage()));
             }
+            DebugLogger.logFine(plugin.getLogger(), "DespawnBotAction: quit event triggered for %s", name);
         }
 
         // Remove from NMS world
         if (plugin.getBridge() != null) {
             plugin.getBridge().despawnPlayer(updatedData.getUuid());
+            DebugLogger.logFine(plugin.getLogger(), "DespawnBotAction: NMS despawn called for %s", name);
         }
 
         plugin.getLogger().log(Level.INFO,
                 "[DespawnBotAction] Despawned bot '" + name + "'");
+        DebugLogger.log(plugin.getLogger(), "DespawnBotAction: despawn completed for %s", name);
         return true;
     }
 }

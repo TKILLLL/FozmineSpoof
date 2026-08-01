@@ -7,14 +7,11 @@ import org.bukkit.command.TabCompleter;
 import org.phantam.fozminesproofcore.FozmineSproofCore;
 import org.phantam.fozminesproofcore.commands.subcommands.*;
 import org.phantam.fozminesproofcore.config.MessageManager;
+import org.phantam.fozminesproofcore.utils.DebugLogger;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * Central command manager for the /sproof command.
- * Registers all subcommands and handles execution and tab completion.
- */
 public class CommandManager implements CommandExecutor, TabCompleter {
 
     private final FozmineSproofCore plugin;
@@ -45,15 +42,18 @@ public class CommandManager implements CommandExecutor, TabCompleter {
         }
 
         String subName = args[0].toLowerCase();
-        SubCommand sub = subCommands.get(subName);
+        DebugLogger.log(plugin.getLogger(), "CommandManager: /%s %s by %s", label, subName, sender.getName());
 
+        SubCommand sub = subCommands.get(subName);
         if (sub == null) {
             sender.sendMessage(messages.getMessage("system.unknown-command"));
+            DebugLogger.log(plugin.getLogger(), "CommandManager: unknown subcommand %s", subName);
             return true;
         }
 
         if (!sender.hasPermission(sub.getPermission())) {
             sender.sendMessage(messages.getMessage("system.no-permission"));
+            DebugLogger.log(plugin.getLogger(), "CommandManager: permission denied for %s", subName);
             return true;
         }
 
@@ -64,19 +64,17 @@ public class CommandManager implements CommandExecutor, TabCompleter {
                     "§cAn error occurred while executing this command.");
             plugin.getLogger().severe("Error executing subcommand '/sproof " + subName + "':");
             e.printStackTrace();
+            DebugLogger.log(plugin.getLogger(), "CommandManager: error in %s: %s", subName, e.getMessage());
         }
         return true;
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (args.length == 0) {
-            return Collections.emptyList();
-        }
+        if (args.length == 0) return Collections.emptyList();
 
         String input = args[0].toLowerCase();
 
-        // First argument: suggest subcommand names
         if (args.length == 1) {
             return subCommands.values().stream()
                     .filter(sub -> sub.getName().toLowerCase().startsWith(input))
@@ -85,7 +83,6 @@ public class CommandManager implements CommandExecutor, TabCompleter {
                     .collect(Collectors.toList());
         }
 
-        // Delegate to the subcommand for further arguments
         SubCommand sub = subCommands.get(input);
         if (sub != null && sender.hasPermission(sub.getPermission())) {
             return sub.tabComplete(sender, args);
@@ -94,31 +91,22 @@ public class CommandManager implements CommandExecutor, TabCompleter {
         return Collections.emptyList();
     }
 
-    /**
-     * Sends the formatted help message to the sender.
-     */
     private void sendHelp(CommandSender sender) {
         MessageManager messages = plugin.getConfigManager().getMessages();
-
         sender.sendMessage(messages.getOnlyMessage("commands.help.header"));
 
         for (SubCommand sub : subCommands.values()) {
-            if (!sender.hasPermission(sub.getPermission())) {
-                continue;
-            }
+            if (!sender.hasPermission(sub.getPermission())) continue;
 
             String descPath = "commands.help.list." + sub.getName().toLowerCase();
             String description = messages.getOnlyMessage(descPath);
-            if (description.startsWith("§cMissing")) {
-                description = sub.getDescription();
-            }
+            if (description.startsWith("§cMissing")) description = sub.getDescription();
 
             String line = messages.getOnlyMessage("commands.help.format")
                     .replace("%syntax%", sub.getSyntax())
                     .replace("%description%", description);
             sender.sendMessage(line);
         }
-
         sender.sendMessage(messages.getOnlyMessage("commands.help.footer"));
     }
 }

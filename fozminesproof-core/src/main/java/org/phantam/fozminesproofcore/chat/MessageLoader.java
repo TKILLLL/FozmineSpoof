@@ -2,6 +2,7 @@ package org.phantam.fozminesproofcore.chat;
 
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.phantam.fozminesproofcore.utils.DebugLogger;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -12,8 +13,6 @@ import java.util.logging.Logger;
 
 /**
  * Loads and provides random chat messages from the configured YAML file.
- * <p>
- * The messages are stored in a thread-safe list to allow concurrent access.
  */
 public class MessageLoader {
 
@@ -26,13 +25,11 @@ public class MessageLoader {
         this.logger = plugin.getLogger();
     }
 
-    /**
-     * Loads or reloads messages from the file {@code chats/random-messages.yml}.
-     * Creates a default file if not present.
-     */
     public void loadMessages() {
         try {
+            DebugLogger.log(logger, "MessageLoader: loading messages...");
             ensureDefaultFileExists();
+
             File file = new File(plugin.getDataFolder(), "chats/random-messages.yml");
             YamlConfiguration config = YamlConfiguration.loadConfiguration(file);
             List<String> messages = config.getStringList("random-messages");
@@ -49,6 +46,9 @@ public class MessageLoader {
                 messagePool.addAll(valid);
             }
 
+            DebugLogger.log(logger, "MessageLoader: loaded %d messages (from %d raw entries)",
+                    messagePool.size(), messages != null ? messages.size() : 0);
+
             if (messagePool.isEmpty()) {
                 logger.warning("[MessageLoader] No messages loaded! Bots will not be able to chat.");
                 logger.warning("[MessageLoader] Please add at least one message to chats/random-messages.yml");
@@ -62,17 +62,15 @@ public class MessageLoader {
         }
     }
 
-    /**
-     * Returns a random message from the pool, or null if none available.
-     *
-     * @return a random message, or null if the pool is empty
-     */
     public String getRandomMessage() {
         if (messagePool.isEmpty()) {
+            DebugLogger.logFine(logger, "MessageLoader: getRandomMessage called but pool is empty");
             return null;
         }
-        int randomIndex = ThreadLocalRandom.current().nextInt(messagePool.size());
-        return messagePool.get(randomIndex);
+        int index = ThreadLocalRandom.current().nextInt(messagePool.size());
+        String msg = messagePool.get(index);
+        DebugLogger.logFine(logger, "MessageLoader: selected message #%d: %s", index, msg);
+        return msg;
     }
 
     private void ensureDefaultFileExists() {

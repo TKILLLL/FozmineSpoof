@@ -1,5 +1,7 @@
 package org.phantam.fozminesproofcore.chat;
 
+import org.phantam.fozminesproofcore.utils.DebugLogger;
+
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
@@ -13,33 +15,25 @@ import java.util.regex.Pattern;
 
 /**
  * Translates text using a free Google Translate API endpoint.
- * <p>
- * This service is designed to run asynchronously and includes fail-safe fallback
- * to the original text if translation fails or the target language is 'none'.
  */
 public class TranslatorService {
 
     private static final Pattern JSON_TEXT_PATTERN = Pattern.compile("^\\[\\[\\[\"([^\"]+)\"");
     private static final Logger LOGGER = Logger.getLogger(TranslatorService.class.getName());
 
-    /**
-     * Translates the given text to the target language.
-     *
-     * @param text        the original text (typically English)
-     * @param targetLang  the target language code (e.g., "vi", "ja"). Use "none" to skip translation.
-     * @return the translated text, or the original text if translation fails or is disabled
-     */
     public String translate(String text, String targetLang) {
         if (text == null || text.trim().isEmpty()) {
             return "";
         }
 
         if (targetLang == null || targetLang.trim().equalsIgnoreCase("none")) {
+            DebugLogger.logFine(LOGGER, "TranslatorService: translation disabled (targetLang=none)");
             return text;
         }
 
+        DebugLogger.logFine(LOGGER, "TranslatorService: translating text length %d to %s", text.length(), targetLang);
+
         try {
-            // Note: This is a free, unofficial endpoint. It may change or be rate-limited.
             String encoded = URLEncoder.encode(text, StandardCharsets.UTF_8);
             String urlStr = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl="
                     + targetLang + "&dt=t&q=" + encoded;
@@ -53,6 +47,7 @@ public class TranslatorService {
 
             if (conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
                 LOGGER.warning("[TranslatorService] HTTP error: " + conn.getResponseCode() + " - returning original text.");
+                DebugLogger.log(LOGGER, "TranslatorService: HTTP error %d, fallback to original", conn.getResponseCode());
                 return text;
             }
 
@@ -65,29 +60,27 @@ public class TranslatorService {
 
                 Matcher matcher = JSON_TEXT_PATTERN.matcher(response.toString());
                 if (matcher.find()) {
-                    return decodeUnicode(matcher.group(1));
+                    String result = decodeUnicode(matcher.group(1));
+                    DebugLogger.logFine(LOGGER, "TranslatorService: translation successful: '%s'", result);
+                    return result;
+                } else {
+                    DebugLogger.log(LOGGER, "TranslatorService: no translation found in response");
                 }
             }
 
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, "[TranslatorService] Translation failed: " + e.getMessage(), e);
+            DebugLogger.log(LOGGER, "TranslatorService: exception, fallback to original: %s", e.getMessage());
         }
 
         return text;
     }
 
-    /**
-     * Decodes Unicode escape sequences (e.g., \u00e9) in the given string.
-     *
-     * @param str the input string possibly containing Unicode escapes
-     * @return the decoded string
-     */
     private String decodeUnicode(String str) {
         if (str == null || str.isEmpty()) {
             return "";
         }
 
-        // Replace JSON escapes
         str = str.replace("\\\"", "\"").replace("\\\\", "\\");
 
         if (!str.contains("\\u")) {
@@ -107,9 +100,7 @@ public class TranslatorService {
                     sb.append((char) code);
                     i += 6;
                     continue;
-                } catch (NumberFormatException ignored) {
-                    // fall through to append the character as-is
-                }
+                } catch (NumberFormatException ignored) {}
             }
             sb.append(ch);
             i++;
