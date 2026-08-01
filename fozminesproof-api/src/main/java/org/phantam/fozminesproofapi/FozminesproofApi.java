@@ -21,14 +21,15 @@ public interface FozminesproofApi {
      * name, UUID, and spawn location. The implementation must handle skin retrieval
      * and packet broadcasting automatically.
      *
-     * @param name the display name of the fake player
-     * @param uuid the UUID to assign (must be unique)
-     * @param loc  the spawn location (world + coordinates)
+     * @param name    the display name of the fake player
+     * @param uuid    the UUID to assign (must be unique)
+     * @param loc     the spawn location (world + coordinates)
+     * @param hideTab if true, the fake player will not appear in the tab list
      * @return the Bukkit Player representation of the spawned fake player
      * @throws IllegalArgumentException if any parameter is null or invalid
-     * @throws IllegalStateException if spawning fails due to internal error
+     * @throws IllegalStateException   if spawning fails due to internal error
      */
-    Player spawnPlayer(String name, UUID uuid, Location loc);
+    Player spawnPlayer(String name, UUID uuid, Location loc, boolean hideTab);
 
     /**
      * Despawns and removes a fake player from the world and server's player list.
@@ -48,8 +49,9 @@ public interface FozminesproofApi {
      * @param uuid      the UUID of the target fake player
      * @param texture   the base64 encoded texture string from Mojang API
      * @param signature the signature associated with the texture (can be empty/null if not provided)
+     * @param hideTab   if true, the fake player will not appear in the tab list
      */
-    void updatePlayerSkin(UUID uuid, String texture, String signature);
+    void updatePlayerSkin(UUID uuid, String texture, String signature, boolean hideTab);
 
     /**
      * Returns the number of currently active (spawned) fake players.

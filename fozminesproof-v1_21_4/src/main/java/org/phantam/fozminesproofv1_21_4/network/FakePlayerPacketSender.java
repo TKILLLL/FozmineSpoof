@@ -1,27 +1,34 @@
 package org.phantam.fozminesproofv1_21_4.network;
 
 import io.netty.channel.embedded.EmbeddedChannel;
-import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.game.*;
+import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundRemoveEntitiesPacket;
+import net.minecraft.network.protocol.game.ClientboundRotateHeadPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.PlayerList;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Random;
 import java.util.UUID;
 
-/**
- * Broadcasts packets to all real players to show or hide a fake player.
- * Excludes the fake player itself to prevent recursive packet loops.
- */
 public class FakePlayerPacketSender {
 
+    private static final Random RANDOM = new Random();
     private final PlayerList playerList;
 
     public FakePlayerPacketSender(PlayerList playerList) {
         this.playerList = playerList;
+    }
+
+    private int randomLatency() {
+        return 20 + RANDOM.nextInt(181); // 20 - 200 ms
     }
 
     /**
@@ -30,12 +37,37 @@ public class FakePlayerPacketSender {
      *
      * @param fakePlayer the fake player to show
      * @param name       the player name (unused but kept for clarity)
+     * @param hideTab    if true, skip sending tablist entry
      */
-    public void sendSpawnPackets(ServerPlayer fakePlayer, String name) {
-        ClientboundPlayerInfoUpdatePacket tabPacket =
-                ClientboundPlayerInfoUpdatePacket.createPlayerInitializing(List.of(fakePlayer));
+    public void sendSpawnPackets(ServerPlayer fakePlayer, String name, boolean hideTab) {
+        if (!hideTab) {
+            int latency = randomLatency();
 
-        // Use the full constructor with all required parameters.
+            ClientboundPlayerInfoUpdatePacket.Entry entry = new ClientboundPlayerInfoUpdatePacket.Entry(
+                    fakePlayer.getUUID(),
+                    fakePlayer.getGameProfile(),
+                    true,
+                    latency,
+                    fakePlayer.gameMode.getGameModeForPlayer(),
+                    fakePlayer.getDisplayName(),
+                    true,
+                    0,
+                    null
+            );
+
+            ClientboundPlayerInfoUpdatePacket tabPacket = new ClientboundPlayerInfoUpdatePacket(
+                    EnumSet.of(
+                            ClientboundPlayerInfoUpdatePacket.Action.ADD_PLAYER,
+                            ClientboundPlayerInfoUpdatePacket.Action.UPDATE_GAME_MODE,
+                            ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LISTED,
+                            ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LATENCY,
+                            ClientboundPlayerInfoUpdatePacket.Action.UPDATE_DISPLAY_NAME
+                    ),
+                    List.of(entry)
+            );
+            broadcastExcept(fakePlayer.getUUID(), tabPacket);
+        }
+
         ClientboundAddEntityPacket spawnPacket = new ClientboundAddEntityPacket(
                 fakePlayer.getId(),
                 fakePlayer.getUUID(),
@@ -54,7 +86,6 @@ public class FakePlayerPacketSender {
                 new ClientboundRotateHeadPacket(fakePlayer,
                         (byte) (fakePlayer.getYRot() * 256.0F / 360.0F));
 
-        broadcastExcept(fakePlayer.getUUID(), tabPacket);
         broadcastExcept(fakePlayer.getUUID(), spawnPacket);
         broadcastExcept(fakePlayer.getUUID(), headPacket);
     }
@@ -87,7 +118,6 @@ public class FakePlayerPacketSender {
             if (player.getUUID().equals(excludedUuid)) continue;
 
             if (player.connection != null && player.connection.connection != null) {
-                // Never send packets back into an embedded channel (fake connection)
                 if (!(player.connection.connection.channel instanceof EmbeddedChannel)) {
                     player.connection.send(packet);
                 }

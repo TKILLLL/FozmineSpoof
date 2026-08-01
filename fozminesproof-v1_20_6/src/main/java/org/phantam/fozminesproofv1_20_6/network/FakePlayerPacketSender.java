@@ -6,7 +6,9 @@ import net.minecraft.network.protocol.game.*;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.PlayerList;
 
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Random;
 import java.util.UUID;
 
 /**
@@ -15,10 +17,15 @@ import java.util.UUID;
  */
 public class FakePlayerPacketSender {
 
+    private static final Random RANDOM = new Random();
     private final PlayerList playerList;
 
     public FakePlayerPacketSender(PlayerList playerList) {
         this.playerList = playerList;
+    }
+
+    private int randomLatency() {
+        return 5 + RANDOM.nextInt(16); // 5 - 20 ms
     }
 
     /**
@@ -27,18 +34,40 @@ public class FakePlayerPacketSender {
      *
      * @param fakePlayer the fake player to show
      * @param name       the player name (unused but kept for clarity)
+     * @param hideTab    if true, skip sending tablist entry
      */
-    public void sendSpawnPackets(ServerPlayer fakePlayer, String name) {
-        ClientboundPlayerInfoUpdatePacket tabPacket =
-                ClientboundPlayerInfoUpdatePacket.createPlayerInitializing(List.of(fakePlayer));
+    public void sendSpawnPackets(ServerPlayer fakePlayer, String name, boolean hideTab) {
+        if (!hideTab) {
+            int latency = randomLatency();
+
+            ClientboundPlayerInfoUpdatePacket.Entry entry = new ClientboundPlayerInfoUpdatePacket.Entry(
+                    fakePlayer.getUUID(),
+                    fakePlayer.getGameProfile(),
+                    true,
+                    latency,
+                    fakePlayer.gameMode.getGameModeForPlayer(),
+                    fakePlayer.getDisplayName(),
+                    null
+            );
+
+            ClientboundPlayerInfoUpdatePacket tabPacket = new ClientboundPlayerInfoUpdatePacket(
+                    EnumSet.of(
+                            ClientboundPlayerInfoUpdatePacket.Action.ADD_PLAYER,
+                            ClientboundPlayerInfoUpdatePacket.Action.UPDATE_GAME_MODE,
+                            ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LISTED,
+                            ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LATENCY,
+                            ClientboundPlayerInfoUpdatePacket.Action.UPDATE_DISPLAY_NAME
+                    ),
+                    List.of(entry)
+            );
+            broadcastExcept(fakePlayer.getUUID(), tabPacket);
+        }
 
         ClientboundAddEntityPacket spawnPacket = new ClientboundAddEntityPacket(fakePlayer);
-
         ClientboundRotateHeadPacket headPacket =
                 new ClientboundRotateHeadPacket(fakePlayer,
                         (byte) (fakePlayer.getYRot() * 256.0F / 360.0F));
 
-        broadcastExcept(fakePlayer.getUUID(), tabPacket);
         broadcastExcept(fakePlayer.getUUID(), spawnPacket);
         broadcastExcept(fakePlayer.getUUID(), headPacket);
     }

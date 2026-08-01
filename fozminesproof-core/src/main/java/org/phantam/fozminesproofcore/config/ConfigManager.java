@@ -4,6 +4,7 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Level;
 
@@ -23,6 +24,8 @@ public class ConfigManager {
     private String joinMessage;
     private String leaveMessage;
     private String fakePluginName;
+    private boolean hideInTab;
+    private static final Random RANDOM = new Random();
 
     // Chat system
     private ChatConfig chatConfig;
@@ -61,8 +64,8 @@ public class ConfigManager {
             this.joinLeaveMessageEnable = config.getBoolean("Fakeplayer-setting.join-leave-message-enable", true);
             this.joinMessage = config.getString("Fakeplayer-setting.join-message", "%fakeplayer_name% join the game");
             this.leaveMessage = config.getString("Fakeplayer-setting.leave-message", "%fakeplayer_name% left the game");
-
             this.fakePluginName = config.getString("Fakeplayer-setting.fake-plugin-name", "FozmineSpawner");
+            this.hideInTab = config.getBoolean("Fakeplayer-setting.hide-in-tab", false);
 
             // Chat format settings
             this.messageFormatEnable = config.getBoolean("chat-system.message-format.enable", false);
@@ -165,6 +168,14 @@ public class ConfigManager {
 
     public String getFakePluginName() {
         return this.fakePluginName;
+    }
+
+    private int randomLatency() {
+        return 5 + RANDOM.nextInt(16); // 5 - 20 ms
+    }
+
+    public boolean isHideInTab() {
+        return this.hideInTab;
     }
 
     /**

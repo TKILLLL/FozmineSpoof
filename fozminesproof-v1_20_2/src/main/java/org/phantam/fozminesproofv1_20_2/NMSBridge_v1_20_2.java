@@ -50,7 +50,7 @@ public class NMSBridge_v1_20_2 implements FozminesproofApi {
     }
 
     @Override
-    public Player spawnPlayer(String name, UUID uuid, Location loc) {
+    public Player spawnPlayer(String name, UUID uuid, Location loc, boolean hideTab) {
         MinecraftServer server = ((CraftServer) Bukkit.getServer()).getServer();
         ServerLevel level = ((CraftWorld) loc.getWorld()).getHandle();
 
@@ -69,7 +69,7 @@ public class NMSBridge_v1_20_2 implements FozminesproofApi {
 
         // Broadcast spawn packets to all real players
         FakePlayerPacketSender packetSender = new FakePlayerPacketSender(server.getPlayerList());
-        packetSender.sendSpawnPackets(fakePlayer, name);
+        packetSender.sendSpawnPackets(fakePlayer, name, hideTab);
 
         Bukkit.getLogger().log(Level.INFO,
                 "[NMSBridge] Spawned fake player '" + name + "' in version 1.20.2");
@@ -101,7 +101,7 @@ public class NMSBridge_v1_20_2 implements FozminesproofApi {
     }
 
     @Override
-    public void updatePlayerSkin(UUID uuid, String texture, String signature) {
+    public void updatePlayerSkin(UUID uuid, String texture, String signature, boolean hideTab) {
         ServerPlayer oldPlayer = activeFakePlayers.get(uuid);
         if (oldPlayer == null) return;
 
@@ -137,7 +137,7 @@ public class NMSBridge_v1_20_2 implements FozminesproofApi {
         bukkitPlayer.setMetadata("NPC", new FixedMetadataValue(getPluginInstance(), true));
 
         // Spawn new player
-        packetSender.sendSpawnPackets(newPlayer, profile.getName());
+        packetSender.sendSpawnPackets(newPlayer, profile.getName(), hideTab);
 
         Bukkit.getLogger().log(Level.INFO,
                 "[NMSBridge] Updated skin for player '" + name + "'");
@@ -152,8 +152,10 @@ public class NMSBridge_v1_20_2 implements FozminesproofApi {
 
         FakePlayerPacketSender packetSender = new FakePlayerPacketSender(server.getPlayerList());
 
+        // Keep-alive uses false as default for hideTab.
+        // If you need to preserve hideTab state per player, store it in a separate map.
         activeFakePlayers.forEach((uuid, fakePlayer) ->
-                packetSender.sendSpawnPackets(fakePlayer, fakePlayer.getGameProfile().getName())
+                packetSender.sendSpawnPackets(fakePlayer, fakePlayer.getGameProfile().getName(), false)
         );
     }
 

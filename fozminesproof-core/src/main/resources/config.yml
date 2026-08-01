@@ -49,6 +49,8 @@ Database:
 #                       FAKE PLAYER BEHAVIOR SETTINGS                               #
 # ================================================================================= #
 Fakeplayer-setting:
+  hide-in-tab: false
+
   # Name of the dedicated void world where bots will be spawned
   botworld: "botworld"
 

@@ -25,19 +25,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 
 /**
- * NMS bridge implementation for Minecraft 1.20.4.
- * Handles fake player creation, spawning, despawning, skin updates, and chat broadcasts.
+ * NMS bridge implementation for Minecraft 1.20.6.
  */
 public class NMSBridge_v1_20_6 implements FozminesproofApi {
 
     private final Map<UUID, ServerPlayer> activeFakePlayers = new ConcurrentHashMap<>();
     private Plugin pluginInstance;
 
-    /**
-     * Lazy-initialises and caches the plugin instance for metadata attachment.
-     *
-     * @return the plugin instance
-     */
     private Plugin getPluginInstance() {
         if (pluginInstance == null) {
             Plugin plugin = Bukkit.getPluginManager().getPlugin("fozminesproof-core");
@@ -50,7 +44,7 @@ public class NMSBridge_v1_20_6 implements FozminesproofApi {
     }
 
     @Override
-    public Player spawnPlayer(String name, UUID uuid, Location loc) {
+    public Player spawnPlayer(String name, UUID uuid, Location loc, boolean hideTab) {
         MinecraftServer server = ((CraftServer) Bukkit.getServer()).getServer();
         ServerLevel level = ((CraftWorld) loc.getWorld()).getHandle();
 
@@ -58,21 +52,18 @@ public class NMSBridge_v1_20_6 implements FozminesproofApi {
 
         activeFakePlayers.put(uuid, fakePlayer);
 
-        // Register the fake player with the server's player list
         Connection connection = fakePlayer.connection.connection;
         CommonListenerCookie cookie = CommonListenerCookie.createInitial(fakePlayer.getGameProfile(), false);
         server.getPlayerList().placeNewPlayer(connection, fakePlayer, cookie);
 
-        // Mark as NPC in Bukkit metadata for other plugins to detect
         Player bukkitPlayer = fakePlayer.getBukkitEntity();
         bukkitPlayer.setMetadata("NPC", new FixedMetadataValue(getPluginInstance(), true));
 
-        // Broadcast spawn packets to all real players
         FakePlayerPacketSender packetSender = new FakePlayerPacketSender(server.getPlayerList());
-        packetSender.sendSpawnPackets(fakePlayer, name);
+        packetSender.sendSpawnPackets(fakePlayer, name, hideTab);
 
         Bukkit.getLogger().log(Level.INFO,
-                "[NMSBridge] Spawned fake player '" + name + "' in version 1.20.4");
+                "[NMSBridge] Spawned fake player '" + name + "' in version 1.20.6");
 
         return bukkitPlayer;
     }
@@ -84,11 +75,9 @@ public class NMSBridge_v1_20_6 implements FozminesproofApi {
 
         MinecraftServer server = ((CraftServer) Bukkit.getServer()).getServer();
 
-        // Broadcast despawn packets
         FakePlayerPacketSender packetSender = new FakePlayerPacketSender(server.getPlayerList());
         packetSender.sendDespawnPackets(uuid, fakePlayer.getId());
 
-        // Remove from server's player list and world
         server.getPlayerList().players.remove(fakePlayer);
         ServerLevel level = fakePlayer.serverLevel();
         level.removePlayerImmediately(fakePlayer,
@@ -101,7 +90,7 @@ public class NMSBridge_v1_20_6 implements FozminesproofApi {
     }
 
     @Override
-    public void updatePlayerSkin(UUID uuid, String texture, String signature) {
+    public void updatePlayerSkin(UUID uuid, String texture, String signature, boolean hideTab) {
         ServerPlayer oldPlayer = activeFakePlayers.get(uuid);
         if (oldPlayer == null) return;
 
@@ -112,14 +101,12 @@ public class NMSBridge_v1_20_6 implements FozminesproofApi {
 
         FakePlayerPacketSender packetSender = new FakePlayerPacketSender(server.getPlayerList());
 
-        // Remove old player
         packetSender.sendDespawnPackets(uuid, oldPlayer.getId());
         server.getPlayerList().players.remove(oldPlayer);
         level.removePlayerImmediately(oldPlayer,
                 net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
         oldPlayer.discard();
 
-        // Create new player with updated skin
         ServerPlayer newPlayer = FakePlayerFactory.create(server, level, name, uuid, currentLoc);
 
         GameProfile profile = newPlayer.getGameProfile();
@@ -128,7 +115,6 @@ public class NMSBridge_v1_20_6 implements FozminesproofApi {
 
         activeFakePlayers.put(uuid, newPlayer);
 
-        // Register new player
         Connection connection = newPlayer.connection.connection;
         CommonListenerCookie cookie = CommonListenerCookie.createInitial(newPlayer.getGameProfile(), false);
         server.getPlayerList().placeNewPlayer(connection, newPlayer, cookie);
@@ -136,8 +122,7 @@ public class NMSBridge_v1_20_6 implements FozminesproofApi {
         Player bukkitPlayer = newPlayer.getBukkitEntity();
         bukkitPlayer.setMetadata("NPC", new FixedMetadataValue(getPluginInstance(), true));
 
-        // Spawn new player
-        packetSender.sendSpawnPackets(newPlayer, profile.getName());
+        packetSender.sendSpawnPackets(newPlayer, profile.getName(), hideTab);
 
         Bukkit.getLogger().log(Level.INFO,
                 "[NMSBridge] Updated skin for player '" + name + "'");
@@ -153,7 +138,7 @@ public class NMSBridge_v1_20_6 implements FozminesproofApi {
         FakePlayerPacketSender packetSender = new FakePlayerPacketSender(server.getPlayerList());
 
         activeFakePlayers.forEach((uuid, fakePlayer) ->
-                packetSender.sendSpawnPackets(fakePlayer, fakePlayer.getGameProfile().getName())
+                packetSender.sendSpawnPackets(fakePlayer, fakePlayer.getGameProfile().getName(), false)
         );
     }
 

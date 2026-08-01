@@ -159,12 +159,13 @@ public class SpawnBotAction implements org.phantam.fozminesproofapi.action.IBotA
         Location loc = new Location(world, data.getX(), data.getY(), data.getZ(),
                 data.getYaw(), data.getPitch());
 
-        // Ensure a solid block beneath the player to prevent falling
         Location below = loc.clone().subtract(0, 1, 0);
         if (below.getBlock().getType() == org.bukkit.Material.AIR) {
             below.getBlock().setType(org.bukkit.Material.BEDROCK);
         }
 
-        return plugin.getBridge().spawnPlayer(data.getName(), data.getUuid(), loc);
+        boolean hideTab = plugin.getConfigManager().isHideInTab();
+
+        return plugin.getBridge().spawnPlayer(data.getName(), data.getUuid(), loc, hideTab);
     }
 }
