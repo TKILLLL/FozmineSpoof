@@ -7,6 +7,7 @@ import org.phantam.fozminesproofcore.FozmineSproofCore;
 import org.phantam.fozminesproofcore.config.MessageManager;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 public class SpawnCommand implements SubCommand {
@@ -40,13 +41,11 @@ public class SpawnCommand implements SubCommand {
 
         String targetName = args[1];
 
-        // CÚ PHÁP 1: /sproof spawn * (Nạp toàn bộ)
         if (targetName.equals("*")) {
             handleSpawnMultiple(sender, -1, msgManager);
             return;
         }
 
-        // CÚ PHÁP 2: /sproof spawn <số_lượng> (Kiểm tra xem có phải định dạng số không)
         try {
             int amount = Integer.parseInt(targetName);
             if (amount <= 0) {
@@ -55,19 +54,16 @@ public class SpawnCommand implements SubCommand {
             }
             handleSpawnMultiple(sender, amount, msgManager);
             return;
-        } catch (NumberFormatException e) {
-            // Không phải số -> Chuyển sang xử lý Cú pháp 3: Gọi tên cụ thể
+        } catch (NumberFormatException ignored) {
         }
 
-        // CÚ PHÁP 3: /sproof spawn <TÊN CỤ THỂ>
         handleSpawnSingle(sender, targetName, msgManager);
     }
 
     /**
-     * Logic xử lý nạp hàng loạt (Hỗ trợ cả tất cả hoặc giới hạn theo số lượng cụ thể)
+     * Xử lý spawn hàng loạt (tất cả hoặc số lượng cụ thể)
      */
     private void handleSpawnMultiple(CommandSender sender, int maxAmount, MessageManager msgManager) {
-        // Lấy danh sách toàn bộ bot hiện đang offline
         List<String> offlineBots = plugin.getFakePlayerManager().getAllDatabaseBots().stream()
                 .map(FakePlayerData::getName)
                 .filter(name -> !plugin.getFakePlayerManager().isBotOnline(name))
@@ -78,9 +74,8 @@ public class SpawnCommand implements SubCommand {
             return;
         }
 
-        // TÍNH NĂNG MỚI: Nếu có giới hạn số lượng, xáo trộn ngẫu nhiên danh sách và cắt bớt phần thừa
         if (maxAmount > 0) {
-            Collections.shuffle(offlineBots); // Xáo trộn để bốc ngẫu nhiên Bot trong DB
+            Collections.shuffle(offlineBots);
             if (offlineBots.size() > maxAmount) {
                 offlineBots = offlineBots.subList(0, maxAmount);
             }
@@ -92,12 +87,15 @@ public class SpawnCommand implements SubCommand {
                 + offlineBots.size() + " §abot từ DB lên máy chủ (Giãn cách: §f" + (intervalTicks / 20.0) + "s§a)...");
 
         Queue<String> spawnQueue = new LinkedList<>(offlineBots);
+        AtomicInteger successCount = new AtomicInteger(0);
+        AtomicInteger failCount = new AtomicInteger(0);
 
         new BukkitRunnable() {
             @Override
             public void run() {
                 if (spawnQueue.isEmpty() || !plugin.isEnabled()) {
-                    sender.sendMessage(msgManager.getOnlyMessage("system.prefix") + "§a| Đã hoàn tất tiến trình nạp toàn bộ bot từ hàng đợi!");
+                    sender.sendMessage(msgManager.getOnlyMessage("system.prefix") + "§a| Đã hoàn tất! Thành công: §e"
+                            + successCount.get() + " §a, Thất bại: §c" + failCount.get());
                     this.cancel();
                     return;
                 }
@@ -105,19 +103,34 @@ public class SpawnCommand implements SubCommand {
                 String nextBot = spawnQueue.poll();
 
                 if (!plugin.getFakePlayerManager().isBotOnline(nextBot)) {
-                    boolean success = plugin.getFakePlayerManager().spawnBot(nextBot);
-                    if (success) {
-                        sender.sendMessage(" §7-> Đang nạp: §e" + nextBot + " §a(Thành công)");
-                    } else {
-                        sender.sendMessage(" §7-> Đang nạp: §e" + nextBot + " §c(Thất bại)");
-                    }
+                    plugin.getFakePlayerManager().spawnBotAsync(nextBot, success -> {
+                        if (success) {
+                            successCount.incrementAndGet();
+                            sender.sendMessage(" §7-> Đang nạp: §e" + nextBot + " §a(Thành công)");
+                        } else {
+                            failCount.incrementAndGet();
+                            sender.sendMessage(" §7-> Đang nạp: §e" + nextBot + " §c(Thất bại)");
+                        }
+                    });
+                }
+
+                if (!spawnQueue.isEmpty()) {
+                    long nextDelayTicks = plugin.getConfigManager().getJoinQuitIntervalTicks();
+                    if (nextDelayTicks <= 0) nextDelayTicks = 20L;
+                    final BukkitRunnable currentTask = this;
+                    new BukkitRunnable() {
+                        @Override
+                        public void run() {
+                            currentTask.run();
+                        }
+                    }.runTaskLater(plugin, nextDelayTicks);
                 }
             }
         }.runTaskTimer(plugin, 20L, intervalTicks);
     }
 
     /**
-     * Logic xử lý kích hoạt một FakePlayer cụ thể dựa theo định danh tên
+     * Xử lý spawn một bot cụ thể
      */
     private void handleSpawnSingle(CommandSender sender, String targetName, MessageManager msgManager) {
         if (plugin.getFakePlayerManager().isBotOnline(targetName)) {
@@ -133,13 +146,14 @@ public class SpawnCommand implements SubCommand {
             return;
         }
 
-        boolean success = plugin.getFakePlayerManager().spawnBot(targetName);
-
-        if (success) {
-            sender.sendMessage(msgManager.getMessage("bot.spawn-success").replace("%fakeplayer_name%", targetName));
-        } else {
-            sender.sendMessage(msgManager.getOnlyMessage("system.prefix") + "§cKích hoạt thất bại! Vui lòng kiểm tra cấu hình thế giới hoặc hệ thống log.");
-        }
+        sender.sendMessage(msgManager.getOnlyMessage("system.prefix") + "§eĐang kích hoạt bot " + targetName + "...");
+        plugin.getFakePlayerManager().spawnBotAsync(targetName, success -> {
+            if (success) {
+                sender.sendMessage(msgManager.getMessage("bot.spawn-success").replace("%fakeplayer_name%", targetName));
+            } else {
+                sender.sendMessage(msgManager.getOnlyMessage("system.prefix") + "§cKích hoạt thất bại! Vui lòng kiểm tra log.");
+            }
+        });
     }
 
     @Override
@@ -151,8 +165,6 @@ public class SpawnCommand implements SubCommand {
             if ("*".startsWith(input)) {
                 suggestions.add("*");
             }
-
-            // Gợi ý tượng trưng cho tính năng số lượng cụ thể trong TabComplete
             if (input.isEmpty()) {
                 suggestions.add("<số_lượng>");
             }

@@ -9,7 +9,6 @@ import org.phantam.fozminesproofcore.config.ConfigManager;
 import org.phantam.fozminesproofcore.database.FakePlayerManager;
 import org.phantam.fozminesproofcore.utils.ColorUtils;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -37,17 +36,12 @@ public class BotChatProcessor {
             return;
         }
 
-        // TÍNH NĂNG MỚI: Xử lý thay thế [name] thành một người chơi hoặc bot bất kỳ đang trực tuyến
         String processedMessage = rawMessage;
         if (processedMessage.contains("[name]")) {
-            // Gom toàn bộ tên người chơi thực tế và tên của các Bot đang online vào một danh sách chung
-            List<String> poolNames = new ArrayList<>();
-
+            List<String> poolNames = new java.util.ArrayList<>();
             for (Player p : Bukkit.getOnlinePlayers()) {
                 if (p != null) poolNames.add(p.getName());
             }
-
-            // Vòng lặp thay thế liên tục từng thẻ [name] một để hỗ trợ tin nhắn chứa nhiều thẻ tên khác nhau
             while (processedMessage.contains("[name]")) {
                 if (poolNames.isEmpty()) {
                     processedMessage = processedMessage.replaceFirst("\\[name\\]", "");
@@ -61,7 +55,6 @@ public class BotChatProcessor {
 
         final String finalRawMessage = processedMessage;
 
-        // TÁC VỤ CHẠY TRÊN LUỒNG BẤT ĐỒNG BỘ (ASYNC THREAD) - AN TOÀN CHO I/O VÀ DATABASE LUCKPERMS
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             try {
                 if (!fakePlayerManager.isBotOnline(botName)) {
@@ -76,37 +69,41 @@ public class BotChatProcessor {
                     return;
                 }
 
-                // 1. Lấy khung định dạng chat từ file config.yml
-                String rawFormat = configManager.getChatFormat();
-                boolean hasPapi = Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null;
+                boolean useCustomFormat = configManager.isMessageFormatEnable();
 
-                // 2. Thay thế các từ khóa cơ bản trước
-                String formattedMessage = rawFormat
-                        .replace("%fakeplayer_name%", bot.getName())
-                        .replace("%fakeplayer_message%", finalMessage);
+                if (useCustomFormat) {
+                    String rawFormat = configManager.getChatFormat();
+                    String formattedMessage = rawFormat
+                            .replace("%fakeplayer_name%", bot.getName())
+                            .replace("%fakeplayer_message%", finalMessage)
+                            .replace("{name}", bot.getName())
+                            .replace("{message}", finalMessage)
+                            .replace("{prefix}", "")
+                            .replace("&r", "");
 
-                // SỬA TẠI ĐÂY (TỐI ƯU LUỒNG): Tiến hành dịch biến %fake_...% ngay trên luồng Async này.
-                // LuckPerms có thể thoải mái đọc Database/File để lấy thông tin Offline Player của Bot mà không bị chặn lỗi ServerThreadLookupException.
-                if (hasPapi) {
-                    formattedMessage = PlaceholderAPI.setPlaceholders(bot, formattedMessage);
+                    if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
+                        formattedMessage = PlaceholderAPI.setPlaceholders(bot, formattedMessage);
+                    }
+                    final String messageToBroadcast = ColorUtils.colorize(formattedMessage);
+
+                    Bukkit.getScheduler().runTask(plugin, () -> {
+                        for (Player p : Bukkit.getOnlinePlayers()) {
+                            p.sendMessage(messageToBroadcast);
+                        }
+                        Bukkit.getConsoleSender().sendMessage(messageToBroadcast);
+                    });
+                    return;
                 }
 
-                // Chuyển kết quả chuỗi cuối cùng đã được bóc tách toàn vẹn về luồng chính để vẽ Component và phát Packet mạng
-                final String finalFormattedChat = formattedMessage;
-
                 Bukkit.getScheduler().runTask(plugin, () -> {
-                    if (fakePlayerManager.isBotOnline(botName) && plugin.getBridge() != null) {
-
-                        // Chuyển đổi màu sắc (& và HEX) sang định dạng component
-                        String colorizedMessage = ColorUtils.colorize(finalFormattedChat);
-
-                        // Bắn packet NMS sạch ra toàn server
-                        plugin.getBridge().broadcastNMSChat(bot, colorizedMessage);
+                    if (bot.isOnline()) {
+                        bot.chat(finalMessage);
                     }
                 });
 
             } catch (Exception e) {
                 plugin.getLogger().warning("⚠ Lỗi xảy ra trong tiến trình xử lý chat bất đồng bộ của Bot " + botName + ": " + e.getMessage());
+                e.printStackTrace();
             }
         });
     }

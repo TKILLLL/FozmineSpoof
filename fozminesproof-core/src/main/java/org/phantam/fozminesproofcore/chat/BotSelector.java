@@ -17,16 +17,25 @@ public class BotSelector {
      */
     public List<Player> selectRandomBots(int maxBotsToSelect) {
         Collection<FakePlayerData> onlineData = fakePlayerManager.getOnlineBotsData();
+
+        if (onlineData == null || onlineData.isEmpty()) {
+            org.bukkit.Bukkit.getLogger().warning("[BotSelector] Không có bot nào trong registry!");
+            return Collections.emptyList();
+        }
+
         List<Player> availableBots = new ArrayList<>();
 
         for (FakePlayerData data : onlineData) {
             Player botPlayer = fakePlayerManager.getOnlineBotEntity(data.getName());
             if (botPlayer != null && botPlayer.isValid()) {
                 availableBots.add(botPlayer);
+            } else {
+                org.bukkit.Bukkit.getLogger().warning("[BotSelector] Bot " + data.getName() + " không có entity hợp lệ.");
             }
         }
 
         if (availableBots.isEmpty()) {
+            org.bukkit.Bukkit.getLogger().warning("[BotSelector] Không có bot nào có entity hợp lệ.");
             return Collections.emptyList();
         }
 

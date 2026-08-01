@@ -16,19 +16,23 @@ public class ConfigManager {
     private String leaveMessage;
     private ChatConfig chatConfig;
     private String chatFormat;
-    // BỔ SUNG TẠI ĐÂY: Trường lưu trữ định dạng Tablist cho bot
     private String tabFormat;
     private Boolean proxyEnable;
     private String bungeeName;
+    private boolean databaseEnabled;
+    private String rawDatabaseName;
+
+    // Thêm biến cho message-format
+    private boolean messageFormatEnable;
+    private String messageChatFormat;
+    private String messageTabFormat;
+
     public ConfigManager(JavaPlugin plugin) {
         this.plugin = plugin;
         this.messageManager = new MessageManager(plugin);
         this.reloadAllConfigs();
     }
 
-    /**
-     * Chỉ làm nhiệm vụ đọc/nạp lại dữ liệu từ tệp tin ổ đĩa vào bộ nhớ RAM
-     */
     public void reloadAllConfigs() {
         try {
             plugin.reloadConfig();
@@ -41,12 +45,20 @@ public class ConfigManager {
             this.joinLeaveMessageEnable = config.getBoolean("Fakeplayer-setting.join-leave-message-enable", true);
             this.joinMessage = config.getString("Fakeplayer-setting.join-message", "%fakeplayer_name% join the game");
             this.leaveMessage = config.getString("Fakeplayer-setting.leave-message", "%fakeplayer_name% left the game");
+
+            this.messageFormatEnable = config.getBoolean("chat-system.message-format.enable", false);
+            this.messageChatFormat = config.getString("chat-system.message-format.chat-format", "&7[&a%fakeplayer_name%&7]&f: %fakeplayer_message%");
+            this.messageTabFormat = config.getString("chat-system.message-format.tab-format", "%fake_vault_prefix%&f%fakeplayer_name%");
+
             this.chatFormat = config.getString("chat-system.chat-format", "<%fakeplayer_name%> %fakeplayer_message%");
-            // BỔ SUNG TẠI ĐÂY: Đọc chuỗi cấu hình tab-format từ đường dẫn chỉ định trong config.yml
             this.tabFormat = config.getString("chat-system.tab-format", "%fake_vault_prefix%&f%fakeplayer_name%");
+
             this.proxyEnable = config.getBoolean("Database.bridging-setting.enable-proxy", false);
             this.bungeeName = config.getString("Database.bridging-setting.bungee_name", "fozminesproof");
             this.chatConfig = new ChatConfig(config);
+
+            this.databaseEnabled = config.getBoolean("Database.enable", true);
+            this.rawDatabaseName = config.getString("Database.name", "fozminesproof");
 
         } catch (Exception e) {
             plugin.getLogger().severe("🚨 Lỗi khi nạp dữ liệu từ file config.yml: " + e.getMessage());
@@ -85,20 +97,22 @@ public class ConfigManager {
         }
     }
 
-    // --- GETTERS (Read-Only Data Transfer Objects) ---
+    // --- GETTERS ---
     public MessageManager getMessages() { return this.messageManager; }
     public String getBotWorldName() { return this.botWorldName; }
     public boolean isJoinLeaveMessageEnable() { return this.joinLeaveMessageEnable; }
     public String getJoinMessage() { return this.joinMessage; }
     public String getLeaveMessage() { return this.leaveMessage; }
     public ChatConfig getChatConfig() { return this.chatConfig; }
-    public String getChatFormat() { return this.chatFormat; }
-    // BỔ SUNG TẠI ĐÂY: Hàm getter công khai để lấy chuỗi định dạng Tablist
-    public String getTabFormat() { return this.tabFormat; }
-    public Boolean isProxyEnable() { return  this.proxyEnable; }
-    public String getBungeeName() { return this.bungeeName; }
-
-    public String getRawDatabaseName() {
-        return plugin.getConfig().getString("Database.name", "lobby");
+    public String getChatFormat() {
+        return this.messageFormatEnable ? this.messageChatFormat : this.chatFormat;
     }
+    public String getTabFormat() {
+        return this.messageFormatEnable ? this.messageTabFormat : this.tabFormat;
+    }
+    public boolean isMessageFormatEnable() { return this.messageFormatEnable; }
+    public Boolean isProxyEnable() { return this.proxyEnable; }
+    public String getBungeeName() { return this.bungeeName; }
+    public String getRawDatabaseName() { return this.rawDatabaseName; }
+    public boolean isDatabaseEnabled() { return this.databaseEnabled; }
 }

@@ -9,17 +9,11 @@ public final class DatabaseCredentialFactory {
         throw new UnsupportedOperationException("Factory class");
     }
 
-    /**
-     * Lấy tên bảng SQL an toàn (Xóa toàn bộ ký tự đặc biệt)
-     */
     public static String getSafeTableName(String rawName) {
-        if (rawName == null) return "lobby";
+        if (rawName == null || rawName.isEmpty()) return "fozminesproof";
         return rawName.replaceAll("[^a-zA-Z0-9_]", "");
     }
 
-    /**
-     * Trích xuất thông tin kết nối trực tiếp từ cấu hình thô của plugin
-     */
     public static DatabaseCredentials createCredentials(JavaPlugin plugin) {
         FileConfiguration config = plugin.getConfig();
         return new DatabaseCredentials(

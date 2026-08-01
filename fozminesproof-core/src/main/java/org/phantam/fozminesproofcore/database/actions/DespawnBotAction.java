@@ -1,10 +1,15 @@
 package org.phantam.fozminesproofcore.database.actions;
 
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.phantam.fozminesproofapi.model.FakePlayerData;
 import org.phantam.fozminesproofapi.database.IFakePlayerDatabase;
 import org.phantam.fozminesproofcore.FozmineSproofCore;
 import org.phantam.fozminesproofcore.chat.FakePlayerBroadcaster;
 import org.phantam.fozminesproofcore.database.FakePlayerRegistry;
+import org.phantam.fozminesproofcore.utils.ColorUtils;
+
 import java.util.Optional;
 
 public class DespawnBotAction implements org.phantam.fozminesproofapi.action.IBotAction<String, Boolean> {
@@ -35,10 +40,21 @@ public class DespawnBotAction implements org.phantam.fozminesproofapi.action.IBo
         data.setActive(false);
         database.saveFakePlayer(data);
 
+        Player botEntity = plugin.getFakePlayerManager().getOnlineBotEntity(name);
+        if (botEntity != null) {
+            String quitMessage = plugin.getConfigManager().getLeaveMessage()
+                    .replace("%fakeplayer_name%", name);
+            PlayerQuitEvent quitEvent = new PlayerQuitEvent(botEntity, quitMessage);
+            Bukkit.getPluginManager().callEvent(quitEvent);
+            if (quitEvent.getQuitMessage() != null && !quitEvent.getQuitMessage().isEmpty()) {
+                Bukkit.broadcastMessage(ColorUtils.colorize(quitEvent.getQuitMessage()));
+            }
+        }
+
         if (plugin.getBridge() != null) {
             plugin.getBridge().despawnPlayer(data.getUuid());
-            broadcaster.broadcastLeave(data.getName());
         }
+
         return true;
     }
 }

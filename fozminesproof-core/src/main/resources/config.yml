@@ -14,19 +14,19 @@
 # ######################################################################################
 
 # Cấu hình kết nối Cơ sở dữ liệu SQL
-# LƯU Ý YÊU CẦU PHẢI CÓ DATABASE ĐỂ HOẠT ĐỘNG
 Database:
+  enable: false
   # Tên bảng dữ liệu động (Tự động lọc bỏ ký tự đặc biệt độc hại)
-  name: "skyblock"
+  name: ""
   # Tên cơ sở dữ liệu trên hệ thống hosting
-  database: "s3923_fozminesproof"
+  database: ""
   # Địa chỉ IP hoặc Domain kết nối đến máy chủ MySQL
-  host: "database.gamehosting.vn"
+  host: ""
   # Cổng kết nối mặc định của MySQL
   port: 3306
   # Tài khoản và mật khẩu truy cập dữ liệu
-  user: "u3923_RDUGGHro8y"
-  password: "avSxGrlLS.myYnN3sL=O+4y3"
+  user: ""
+  password: ""
 
   # Cấu hình kết nối với hệ thống Proxy (BungeeCord / Velocity)
   bridging-setting:
@@ -56,36 +56,15 @@ Fakeplayer-setting:
 #                       FAKE PLAYER CHAT SYSTEM CONFIGURATION                       #
 # ================================================================================= #
 chat-system:
-  # Bật/Tắt toàn bộ tính năng tự động phát tin nhắn ngẫu nhiên của FakePlayer
-  enabled: false
-
-  # Cấu hình dịch thuật tự động (Sử dụng mã ngôn ngữ quốc tế ISO 639-1)
-  # Đặt "none" nếu muốn giữ nguyên tiếng Anh gốc trích xuất từ file random-messages.yml
-  # Tính năng hiện chưa sd đc
-  translation-target: "none"
-
-  # Tần suất thực hiện kiểm tra và kích hoạt chu kỳ chat mới
-  # Định dạng: 'min-max' tính bằng phút (Ví dụ: từ 0 đến 1 phút)
-  interval-minutes: "3-8"
-  
-  # Số lượng bot tối đa sẽ được bốc ngẫu nhiên để lên tiếng trong mỗi chu kỳ chat
-  # Định dạng: 'min-max' số lượng bot
-  bots-per-interval: "1-2"
-  
-  # Khoảng trễ ngẫu nhiên so le giữa các bot khi có nhiều bot cùng chat (tính bằng giây)
-  # Giúp phân tách gói tin mạng mạng ảo, ngăn chặn việc 3 bot chat lên màn hình ở cùng 1 mili-giây
-  delay-between-bots-seconds: "4-9"
-
-  # Định dạng chat cho bot
-  # Hỗ trợ PlaceholderAPI
-  # %fakeplayer_name% -> Name bot
-  # %fakeplayer_message% -> Text bot
-  #
-  # Trình a non nên không fake đc real connection =(
-  chat-format: "&f%fakeplayer_name% &8➠ &7%fakeplayer_message%"
-  # Định dạng hiển thị tên của bot trên Tablist (Hỗ trợ PlaceholderAPI qua tiền tố fake_)
-  # %fakeplayer_name% -> Tên của bot
-  tab-format: "%fake_vault_prefix%&f%fakeplayer_name%"
+  enabled: true
+  translation-target: "vi"
+  interval-minutes: "0-0"
+  bots-per-interval: "1-1"
+  delay-between-bots-seconds: "0-0"
+  message-format:
+    enable: false
+    chat-format: "&7[&a%fakeplayer_name%&7]&f: %fakeplayer_message%"
+    tab-format: "%fake_vault_prefix%&f%fakeplayer_name%"
 
 # ================================================================================= #
 #                       PLACEHOLDERAPI EXTRA EXPANSION                             #
