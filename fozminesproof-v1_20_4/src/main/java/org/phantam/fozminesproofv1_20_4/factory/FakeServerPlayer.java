@@ -7,42 +7,68 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
 
+/**
+ * Custom ServerPlayer implementation for fake (NPC) players.
+ * Overrides critical methods to eliminate heavy tick logic, making bots
+ * completely passive and CPU-efficient while remaining visible to clients.
+ */
 public class FakeServerPlayer extends ServerPlayer {
 
-    public FakeServerPlayer(MinecraftServer server, ServerLevel level, GameProfile profile, ClientInformation clientInformation) {
-        super(server, level, profile, clientInformation);
+    public FakeServerPlayer(MinecraftServer server, ServerLevel level, GameProfile profile, ClientInformation clientInfo) {
+        super(server, level, profile, clientInfo);
     }
 
+    /**
+     * Suppresses the full player tick loop to save CPU.
+     * Only the minimal base tick (e.g., void fall protection) is retained.
+     */
     @Override
     public void tick() {
-        // CHẶN TOÀN BỘ LOGIC TICK NẶNG: Không tính toán đói, không tăng giảm thời gian hiệu ứng,
-        // không chạy cơ chế cập nhật trạng thái di chuyển mạng gốc của Mojang.
-        // Giúp giữ Bot đứng im và tiết kiệm tối đa CPU/TPS cho Server.
-
-        this.baseTick(); // Chỉ giữ lại các logic gốc tối thiểu (như khử thực thể khi rơi xuống hư vô)
+        // Skip all heavy logic: hunger, potion effects, movement updates, network sync.
+        // Only keep the bare minimum to prevent entity removal when falling into the void.
+        this.baseTick();
     }
 
+    /**
+     * Completely blocks the doTick() method which handles per-tick player state.
+     */
     @Override
     public void doTick() {
-        // Chặn hoàn toàn logic tick phụ thuộc của Player thông thường
+        // No-op: prevents any tick-dependent player logic.
     }
 
+    /**
+     * Makes the bot invulnerable to all damage sources.
+     * Prevents accidental death from mobs or players.
+     *
+     * @param source the damage source
+     * @param amount the damage amount
+     * @return false (damage is ignored)
+     */
     @Override
     public boolean hurt(DamageSource source, float amount) {
-        // Trả về false để biến Bot thành trạng thái bất tử (Invulnerable)
-        // Tránh việc Bot bị chết bởi quái vật hoặc người chơi khác gây lỗi biến mất thực thể ngầm
         return false;
     }
 
+    /**
+     * Forces the bot to be treated as a non-spectator.
+     * Ensures the 3D model is always rendered for all clients.
+     *
+     * @return false (not a spectator)
+     */
     @Override
     public boolean isSpectator() {
-        // Ép buộc hệ thống coi Bot không phải Spectator để Client luôn vẽ mô hình 3D
         return false;
     }
 
+    /**
+     * Simulates creative mode to prevent mobs from targeting the bot.
+     * In survival, mobs would normally attack; creative mode avoids this.
+     *
+     * @return true (creative mode)
+     */
     @Override
     public boolean isCreative() {
-        // Giả lập trạng thái sáng tạo để chặn quái vật nhắm mục tiêu (Target) tấn công Bot
         return true;
     }
 }

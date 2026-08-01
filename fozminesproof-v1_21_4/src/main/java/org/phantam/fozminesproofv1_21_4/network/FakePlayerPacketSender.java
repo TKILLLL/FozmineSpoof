@@ -3,17 +3,19 @@ package org.phantam.fozminesproofv1_21_4.network;
 import io.netty.channel.embedded.EmbeddedChannel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
-import net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket;
-import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
-import net.minecraft.network.protocol.game.ClientboundRemoveEntitiesPacket;
-import net.minecraft.network.protocol.game.ClientboundRotateHeadPacket;
+import net.minecraft.network.protocol.game.*;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.PlayerList;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Broadcasts packets to all real players to show or hide a fake player.
+ * Excludes the fake player itself to prevent recursive packet loops.
+ */
 public class FakePlayerPacketSender {
 
     private final PlayerList playerList;
@@ -23,27 +25,46 @@ public class FakePlayerPacketSender {
     }
 
     /**
-     * Phát chuỗi gói tin hiển thị NPC ra toàn Server và ép hiển thị trên Tablist
+     * Sends all packets required to display a fake player to every real player.
+     * Includes tablist entry, entity spawn, and head rotation.
+     *
+     * @param fakePlayer the fake player to show
+     * @param name       the player name (unused but kept for clarity)
      */
     public void sendSpawnPackets(ServerPlayer fakePlayer, String name) {
-        // Khởi tạo gói tin cập nhật danh sách người chơi (Tablist) thông qua hàm static chính thức của Mojang 1.21.4
-        ClientboundPlayerInfoUpdatePacket tabPacket = ClientboundPlayerInfoUpdatePacket.createPlayerInitializing(List.of(fakePlayer));
+        ClientboundPlayerInfoUpdatePacket tabPacket =
+                ClientboundPlayerInfoUpdatePacket.createPlayerInitializing(List.of(fakePlayer));
 
-        // VÁ LỖI CONSTRUCTOR 1.21.4: Khởi tạo gói tin sinh khối thực thể dựa vào BlockPos của Bot theo đúng file .class bạn cung cấp
-        BlockPos botPos = fakePlayer.blockPosition();
-        ClientboundAddEntityPacket spawnPacket = new ClientboundAddEntityPacket(fakePlayer, 0, botPos);
+        // Use the full constructor with all required parameters.
+        ClientboundAddEntityPacket spawnPacket = new ClientboundAddEntityPacket(
+                fakePlayer.getId(),
+                fakePlayer.getUUID(),
+                fakePlayer.getX(),
+                fakePlayer.getY(),
+                fakePlayer.getZ(),
+                fakePlayer.getXRot(),
+                fakePlayer.getYRot(),
+                EntityType.PLAYER,
+                0,
+                Vec3.ZERO,
+                fakePlayer.getYHeadRot()
+        );
 
-        // VÁ LỖI QUAY ĐẦU BOT: Đồng bộ góc quay của đầu trùng khớp với hướng nhìn cơ thể thực tế (Yaw)
-        ClientboundRotateHeadPacket rotateHeadPacket = new ClientboundRotateHeadPacket(fakePlayer, (byte) (fakePlayer.getYRot() * 256.0F / 360.0F));
+        ClientboundRotateHeadPacket headPacket =
+                new ClientboundRotateHeadPacket(fakePlayer,
+                        (byte) (fakePlayer.getYRot() * 256.0F / 360.0F));
 
-        // Gửi đồng loạt chuỗi dữ liệu tới toàn bộ người chơi thực tế đang trực tuyến
         broadcastExcept(fakePlayer.getUUID(), tabPacket);
         broadcastExcept(fakePlayer.getUUID(), spawnPacket);
-        broadcastExcept(fakePlayer.getUUID(), rotateHeadPacket);
+        broadcastExcept(fakePlayer.getUUID(), headPacket);
     }
 
     /**
-     * Phát chuỗi gói tin hủy bỏ NPC khỏi thế giới và xóa tên khỏi Tablist
+     * Sends packets to remove a fake player from all real players' client.
+     * Cleans up both the entity and the tablist entry.
+     *
+     * @param uuid     the UUID of the fake player
+     * @param entityId the entity ID of the fake player
      */
     public void sendDespawnPackets(UUID uuid, int entityId) {
         ClientboundRemoveEntitiesPacket destroyPacket = new ClientboundRemoveEntitiesPacket(entityId);
@@ -54,18 +75,21 @@ public class FakePlayerPacketSender {
     }
 
     /**
-     * Hàm phụ trợ phân phát Packet mạng đến mọi người chơi thực tế trừ các Bot ảo sử dụng kênh mạng RAM
+     * Broadcasts a packet to all real players except the one with the given UUID.
+     * Skips players whose connection uses an EmbeddedChannel (i.e., fake players).
+     *
+     * @param excludedUuid the UUID to exclude
+     * @param packet       the packet to send
      */
     private void broadcastExcept(UUID excludedUuid, Packet<?> packet) {
-        for (ServerPlayer realPlayer : playerList.players) {
-            if (realPlayer == null) continue;
+        for (ServerPlayer player : playerList.players) {
+            if (player == null) continue;
+            if (player.getUUID().equals(excludedUuid)) continue;
 
-            if (realPlayer.getUUID().equals(excludedUuid)) continue;
-
-            if (realPlayer.connection != null && realPlayer.connection.connection != null) {
-                // Kiểm tra chống gửi ngược gói tin vào mạng ảo EmbeddedChannel của Bot gây tràn bộ nhớ RAM ảo
-                if (!(realPlayer.connection.connection.channel instanceof EmbeddedChannel)) {
-                    realPlayer.connection.send(packet);
+            if (player.connection != null && player.connection.connection != null) {
+                // Never send packets back into an embedded channel (fake connection)
+                if (!(player.connection.connection.channel instanceof EmbeddedChannel)) {
+                    player.connection.send(packet);
                 }
             }
         }

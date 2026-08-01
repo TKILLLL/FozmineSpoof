@@ -6,38 +6,58 @@ import net.minecraft.server.level.ClientInformation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 
+/**
+ * Custom ServerPlayer implementation for fake (NPC) players.
+ * Overrides critical methods to eliminate heavy tick logic, making bots
+ * completely passive and CPU-efficient while remaining visible to clients.
+ */
 public class FakeServerPlayer extends ServerPlayer {
 
-    /**
-     * Khởi tạo FakeServerPlayer và kích hoạt trạng thái bất tử hệ thống Paper 1.21.11
-     */
-    public FakeServerPlayer(MinecraftServer server, ServerLevel level, GameProfile profile, ClientInformation clientInformation) {
-        super(server, level, profile, clientInformation);
-
-        // VÁ LỖI CHÍ MẠNG 1.21.11: Gọi trực tiếp thuộc tính bất tử của Mojang trong constructor.
-        // Giải pháp này biến Bot thành thực thể miễn nhiễm hoàn toàn với mọi damage (Quái đánh, người chơi chém, Void, Lava)
-        // mà không cần override bất kỳ hàm bị khóa 'final' nào của lớp cha.
+    public FakeServerPlayer(MinecraftServer server, ServerLevel level, GameProfile profile, ClientInformation clientInfo) {
+        super(server, level, profile, clientInfo);
+        // Make the bot invulnerable to all damage sources.
+        // This is the recommended way in 1.21.4+ since hurt() is final.
         this.setInvulnerable(true);
     }
 
+    /**
+     * Suppresses the full player tick loop to save CPU.
+     * Only the minimal base tick (e.g., void fall protection) is retained.
+     */
     @Override
     public void tick() {
-        // CHẶN LOGIC TICK NẶNG: Thay vì gọi super.tick() kế thừa từ Avatar làm Bot tự động tính toán vật lý phức tạp,
-        // di chuyển mạng và va chạm, ta chỉ gọi baseTick() để giữ lại các cơ chế tối thiểu của một thực thể (như rơi xuống hư vô Void).
-        // Giúp giữ Bot đứng im hoàn toàn và tiết kiệm tối đa CPU/TPS cho hệ thống đa luồng.
+        // Skip all heavy logic: hunger, potion effects, movement updates, network sync.
+        // Only keep the bare minimum to prevent entity removal when falling into the void.
         this.baseTick();
     }
 
+    /**
+     * Completely blocks the doTick() method which handles per-tick player state.
+     */
+    @Override
+    public void doTick() {
+        // No-op: prevents any tick-dependent player logic.
+    }
+
+    /**
+     * Forces the bot to be treated as a non-spectator.
+     * Ensures the 3D model is always rendered for all clients.
+     *
+     * @return false (not a spectator)
+     */
     @Override
     public boolean isSpectator() {
-        // Chặn trạng thái Spectator để Client người chơi thực tế luôn vẽ mô hình 3D hiển thị đầy đủ của Bot
         return false;
     }
 
+    /**
+     * Simulates creative mode to prevent mobs from targeting the bot.
+     * In survival, mobs would normally attack; creative mode avoids this.
+     *
+     * @return true (creative mode)
+     */
     @Override
     public boolean isCreative() {
-        // Giả lập trạng thái sáng tạo (Creative) để hệ thống AI của quái vật (MythicMobs, Vanilla Mobs)
-        // tự động bỏ qua, không nhắm mục tiêu (Target) tấn công Bot gây giật lag hành vi thực thể
         return true;
     }
 }

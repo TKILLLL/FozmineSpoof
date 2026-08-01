@@ -2,16 +2,19 @@ package org.phantam.fozminesproofv1_21_11;
 
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
-import com.mojang.authlib.properties.PropertyMap;
+import net.minecraft.network.Connection;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.craftbukkit.CraftServer;
 import org.bukkit.craftbukkit.CraftWorld;
 import org.bukkit.craftbukkit.util.CraftChatMessage;
 import org.bukkit.entity.Player;
+import org.bukkit.metadata.FixedMetadataValue;
+import org.bukkit.plugin.Plugin;
 import org.phantam.fozminesproofapi.FozminesproofApi;
 import org.phantam.fozminesproofv1_21_11.factory.FakePlayerFactory;
 import org.phantam.fozminesproofv1_21_11.network.FakePlayerPacketSender;
@@ -19,33 +22,59 @@ import org.phantam.fozminesproofv1_21_11.network.FakePlayerPacketSender;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
 
+/**
+ * NMS bridge implementation for Minecraft 1.21.11.
+ * Handles fake player creation, spawning, despawning, skin updates, and chat broadcasts.
+ */
 public class NMSBridge_v1_21_11 implements FozminesproofApi {
 
     private final Map<UUID, ServerPlayer> activeFakePlayers = new ConcurrentHashMap<>();
+    private Plugin pluginInstance;
+
+    /**
+     * Lazy-initialises and caches the plugin instance for metadata attachment.
+     *
+     * @return the plugin instance
+     */
+    private Plugin getPluginInstance() {
+        if (pluginInstance == null) {
+            Plugin plugin = Bukkit.getPluginManager().getPlugin("fozminesproof-core");
+            if (plugin == null) {
+                plugin = org.bukkit.plugin.java.JavaPlugin.getProvidingPlugin(getClass());
+            }
+            pluginInstance = plugin;
+        }
+        return pluginInstance;
+    }
 
     @Override
     public Player spawnPlayer(String name, UUID uuid, Location loc) {
         MinecraftServer server = ((CraftServer) Bukkit.getServer()).getServer();
         ServerLevel level = ((CraftWorld) loc.getWorld()).getHandle();
 
-        // Khởi tạo thực thể an toàn thông qua nhà máy tạo Bot
         ServerPlayer fakePlayer = FakePlayerFactory.create(server, level, name, uuid, loc);
 
         activeFakePlayers.put(uuid, fakePlayer);
 
-        // ĐĂNG KÝ VÀO DANH SÁCH MÁY CHỦ CHỐNG LỖI NULL POINTER
-        if (!server.getPlayerList().players.contains(fakePlayer)) {
-            server.getPlayerList().players.add(fakePlayer);
-        }
+        // Register the fake player with the server's player list
+        Connection connection = fakePlayer.connection.connection;
+        CommonListenerCookie cookie = CommonListenerCookie.createInitial(fakePlayer.getGameProfile(), false);
+        server.getPlayerList().placeNewPlayer(connection, fakePlayer, cookie);
 
-        // VÁ LỖI CHÍ MẠNG 1.21.11: Thay thế addNewPlayer bằng addFreshEntity chuẩn cấu trúc vòng lặp Mojang mới
-        level.addFreshEntity(fakePlayer);
+        // Mark as NPC in Bukkit metadata for other plugins to detect
+        Player bukkitPlayer = fakePlayer.getBukkitEntity();
+        bukkitPlayer.setMetadata("NPC", new FixedMetadataValue(getPluginInstance(), true));
 
+        // Broadcast spawn packets to all real players
         FakePlayerPacketSender packetSender = new FakePlayerPacketSender(server.getPlayerList());
         packetSender.sendSpawnPackets(fakePlayer, name);
 
-        return fakePlayer.getBukkitEntity();
+        Bukkit.getLogger().log(Level.INFO,
+                "[NMSBridge] Spawned fake player '" + name + "' in version 1.21.11");
+
+        return bukkitPlayer;
     }
 
     @Override
@@ -55,70 +84,81 @@ public class NMSBridge_v1_21_11 implements FozminesproofApi {
 
         MinecraftServer server = ((CraftServer) Bukkit.getServer()).getServer();
 
+        // Broadcast despawn packets
         FakePlayerPacketSender packetSender = new FakePlayerPacketSender(server.getPlayerList());
         packetSender.sendDespawnPackets(uuid, fakePlayer.getId());
 
+        // Remove from server's player list and world
         server.getPlayerList().players.remove(fakePlayer);
+        // In 1.21.11+, use level() which returns ServerLevel
+        ServerLevel level = fakePlayer.level();
+        level.removePlayerImmediately(fakePlayer,
+                net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
 
-        // Hủy bỏ thực thể an toàn, loại bỏ triệt để khỏi World Ticking của Server 1.21.11
-        fakePlayer.remove(net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
+        fakePlayer.discard();
+
+        Bukkit.getLogger().log(Level.INFO,
+                "[NMSBridge] Despawned fake player with UUID: " + uuid);
     }
 
     @Override
     public void updatePlayerSkin(UUID uuid, String texture, String signature) {
-        ServerPlayer oldFakePlayer = activeFakePlayers.get(uuid);
-        if (oldFakePlayer == null) return;
+        ServerPlayer oldPlayer = activeFakePlayers.get(uuid);
+        if (oldPlayer == null) return;
 
         MinecraftServer server = ((CraftServer) Bukkit.getServer()).getServer();
-        ServerLevel level = (ServerLevel) oldFakePlayer.level();
-        Location currentLoc = oldFakePlayer.getBukkitEntity().getLocation();
-        String name = oldFakePlayer.getGameProfile().name(); // Sử dụng name() dạng Record chuẩn hóa
+        // In 1.21.11+, use level() which returns ServerLevel
+        ServerLevel level = oldPlayer.level();
+        Location currentLoc = oldPlayer.getBukkitEntity().getLocation();
+        // GameProfile is a record in 1.21.11; use name() accessor
+        String name = oldPlayer.getGameProfile().name();
 
         FakePlayerPacketSender packetSender = new FakePlayerPacketSender(server.getPlayerList());
 
-        // 1. Phát gói tin Despawn gỡ bỏ thực thể cũ ra khỏi màn hình Client người chơi
-        packetSender.sendDespawnPackets(uuid, oldFakePlayer.getId());
+        // Remove old player
+        packetSender.sendDespawnPackets(uuid, oldPlayer.getId());
+        server.getPlayerList().players.remove(oldPlayer);
+        level.removePlayerImmediately(oldPlayer,
+                net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
+        oldPlayer.discard();
 
-        // 2. Dọn dẹp triệt để thực thể cũ khỏi danh sách quản lý mạng và ticking của Core Server
-        server.getPlayerList().players.remove(oldFakePlayer);
-        oldFakePlayer.remove(net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
+        // Create new player with updated skin
+        ServerPlayer newPlayer = FakePlayerFactory.create(server, level, name, uuid, currentLoc);
 
-        // 3. VÁ LỖI CONSTRUCTOR PROPERTYMAP: Sử dụng Multimap trung gian của Guava để gom dữ liệu Skin
-        com.google.common.collect.Multimap<String, com.mojang.authlib.properties.Property> tempMultimap = com.google.common.collect.LinkedHashMultimap.create();
-        tempMultimap.put("textures", new com.mojang.authlib.properties.Property("textures", texture, signature));
+        GameProfile profile = newPlayer.getGameProfile();
+        // In 1.21.11, GameProfile is a record; use properties() accessor.
+        profile.properties().removeAll("textures");
+        profile.properties().put("textures", new Property("textures", texture, signature));
 
-        // Khởi tạo đối tượng PropertyMap chuẩn xác theo constructor (final Multimap<String, Property> properties) của bạn
-        com.mojang.authlib.properties.PropertyMap newProperties = new com.mojang.authlib.properties.PropertyMap(tempMultimap);
+        activeFakePlayers.put(uuid, newPlayer);
 
-        // Khởi tạo một đối tượng GameProfile Record mới chứa tập hợp thuộc tính Skin mới
-        GameProfile newProfile = new GameProfile(uuid, name, newProperties);
+        // Register new player
+        Connection connection = newPlayer.connection.connection;
+        CommonListenerCookie cookie = CommonListenerCookie.createInitial(newPlayer.getGameProfile(), false);
+        server.getPlayerList().placeNewPlayer(connection, newPlayer, cookie);
 
-        // 4. Khởi tạo một đối tượng ServerPlayer hoàn toàn mới thông qua Factory nâng cao nhận vào Profile mới
-        ServerPlayer newFakePlayer = FakePlayerFactory.createWithProfile(server, level, newProfile, currentLoc);
+        Player bukkitPlayer = newPlayer.getBukkitEntity();
+        bukkitPlayer.setMetadata("NPC", new FixedMetadataValue(getPluginInstance(), true));
 
-        // 5. Đăng ký lại thực thể mới vào hệ thống máy chủ và map dữ liệu hoạt động
-        activeFakePlayers.put(uuid, newFakePlayer);
-        if (!server.getPlayerList().players.contains(newFakePlayer)) {
-            server.getPlayerList().players.add(newFakePlayer);
-        }
-        level.addFreshEntity(newFakePlayer);
+        // Spawn new player - profile.name() is the accessor for record
+        packetSender.sendSpawnPackets(newPlayer, profile.name());
 
-        // 6. Phát lại chuỗi gói tin Spawn để ép buộc Client người chơi vẽ lại mô hình kèm Skin mới ngay lập tức
-        packetSender.sendSpawnPackets(newFakePlayer, newProfile.name());
+        Bukkit.getLogger().log(Level.INFO,
+                "[NMSBridge] Updated skin for player '" + name + "'");
     }
 
     @Override
     public void sendKeepAlivePackets() {
-        if (this.activeFakePlayers.isEmpty()) return;
+        if (activeFakePlayers.isEmpty()) return;
 
-        MinecraftServer server = ((Bukkit.getServer() instanceof CraftServer) ? ((CraftServer) Bukkit.getServer()).getServer() : null);
+        MinecraftServer server = ((CraftServer) Bukkit.getServer()).getServer();
         if (server == null) return;
 
         FakePlayerPacketSender packetSender = new FakePlayerPacketSender(server.getPlayerList());
 
-        this.activeFakePlayers.forEach((uuid, fakePlayer) -> {
-            packetSender.sendSpawnPackets(fakePlayer, fakePlayer.getGameProfile().name());
-        });
+        activeFakePlayers.forEach((uuid, fakePlayer) ->
+                packetSender.sendSpawnPackets(fakePlayer, fakePlayer.getGameProfile().name())
+        );
     }
 
     @Override
@@ -128,26 +168,28 @@ public class NMSBridge_v1_21_11 implements FozminesproofApi {
         try {
             MinecraftServer server = ((CraftServer) Bukkit.getServer()).getServer();
 
-            // VÁ LỖI CHAT COMPONENT: Chuyển đổi mã màu an toàn thông qua Spigot/Paper Chat Component Mappings
-            net.minecraft.network.chat.Component finalComponent = CraftChatMessage.fromStringOrNull(message);
-            if (finalComponent == null) return;
+            net.minecraft.network.chat.Component[] components =
+                    CraftChatMessage.fromString(message);
+            if (components.length == 0) return;
 
-            // VÁ LỖI BROADCAST 1.21.11: Gửi tin nhắn trực tiếp qua hệ thống phân phát đồng bộ Packet
-            // Giúp ngăn ngừa lỗi Main-thread freeze do sự khác biệt tham số broadcastSystemMessage
-            for (ServerPlayer serverPlayer : server.getPlayerList().players) {
-                if (serverPlayer.connection != null) {
-                    serverPlayer.sendSystemMessage(finalComponent);
-                }
+            net.minecraft.network.chat.MutableComponent finalComponent =
+                    net.minecraft.network.chat.Component.empty();
+
+            for (net.minecraft.network.chat.Component comp : components) {
+                finalComponent.append(comp);
             }
 
+            server.getPlayerList().broadcastSystemMessage(finalComponent, false);
+
         } catch (Exception e) {
-            Bukkit.getLogger().severe("[Fozminesproof] Khong the gui packet chat NMS cho: " + player.getName());
-            e.printStackTrace();
+            Bukkit.getLogger().log(Level.SEVERE,
+                    "[NMSBridge] Failed to broadcast NMS chat for player "
+                            + player.getName() + ": " + e.getMessage(), e);
         }
     }
 
     @Override
     public int getFakePlayersCount() {
-        return this.activeFakePlayers.size();
+        return activeFakePlayers.size();
     }
 }

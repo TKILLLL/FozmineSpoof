@@ -2,15 +2,20 @@ package org.phantam.fozminesproofv1_21_4;
 
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
+import net.minecraft.network.Connection;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.craftbukkit.CraftServer;
 import org.bukkit.craftbukkit.CraftWorld;
 import org.bukkit.craftbukkit.util.CraftChatMessage;
 import org.bukkit.entity.Player;
+import org.bukkit.metadata.FixedMetadataValue;
+import org.bukkit.plugin.Plugin;
 import org.phantam.fozminesproofapi.FozminesproofApi;
 import org.phantam.fozminesproofv1_21_4.factory.FakePlayerFactory;
 import org.phantam.fozminesproofv1_21_4.network.FakePlayerPacketSender;
@@ -18,34 +23,59 @@ import org.phantam.fozminesproofv1_21_4.network.FakePlayerPacketSender;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
 
+/**
+ * NMS bridge implementation for Minecraft 1.21.4.
+ * Handles fake player creation, spawning, despawning, skin updates, and chat broadcasts.
+ */
 public class NMSBridge_v1_21_4 implements FozminesproofApi {
 
     private final Map<UUID, ServerPlayer> activeFakePlayers = new ConcurrentHashMap<>();
+    private Plugin pluginInstance;
+
+    /**
+     * Lazy-initialises and caches the plugin instance for metadata attachment.
+     *
+     * @return the plugin instance
+     */
+    private Plugin getPluginInstance() {
+        if (pluginInstance == null) {
+            Plugin plugin = Bukkit.getPluginManager().getPlugin("fozminesproof-core");
+            if (plugin == null) {
+                plugin = org.bukkit.plugin.java.JavaPlugin.getProvidingPlugin(getClass());
+            }
+            pluginInstance = plugin;
+        }
+        return pluginInstance;
+    }
 
     @Override
     public Player spawnPlayer(String name, UUID uuid, Location loc) {
         MinecraftServer server = ((CraftServer) Bukkit.getServer()).getServer();
         ServerLevel level = ((CraftWorld) loc.getWorld()).getHandle();
 
-        // Khởi tạo thực thể từ Factory phiên bản mới 1.21.4
         ServerPlayer fakePlayer = FakePlayerFactory.create(server, level, name, uuid, loc);
 
         activeFakePlayers.put(uuid, fakePlayer);
 
-        // --- ĐOẠN ĐĂNG KÝ QUAN TRỌNG VÀO HỆ THỐNG MÁY CHỦ ---
-        if (!server.getPlayerList().players.contains(fakePlayer)) {
-            server.getPlayerList().players.add(fakePlayer);
-        }
+        // Register the fake player with the server's player list
+        Connection connection = fakePlayer.connection.connection;
+        CommonListenerCookie cookie = CommonListenerCookie.createInitial(fakePlayer.getGameProfile(), false);
+        server.getPlayerList().placeNewPlayer(connection, fakePlayer, cookie);
 
-        // Trên 1.21.4, addNewPlayer được gọi để đăng ký người chơi mới vào thế giới
-        level.addNewPlayer(fakePlayer);
-        // ----------------------------------------------------
+        // Mark as NPC in Bukkit metadata for other plugins to detect
+        Player bukkitPlayer = fakePlayer.getBukkitEntity();
+        bukkitPlayer.setMetadata("NPC", new FixedMetadataValue(getPluginInstance(), true));
 
+        // Broadcast spawn packets to all real players
         FakePlayerPacketSender packetSender = new FakePlayerPacketSender(server.getPlayerList());
         packetSender.sendSpawnPackets(fakePlayer, name);
 
-        return fakePlayer.getBukkitEntity();
+        Bukkit.getLogger().log(Level.INFO,
+                "[NMSBridge] Spawned fake player '" + name + "' in version 1.21.4");
+
+        return bukkitPlayer;
     }
 
     @Override
@@ -55,70 +85,79 @@ public class NMSBridge_v1_21_4 implements FozminesproofApi {
 
         MinecraftServer server = ((CraftServer) Bukkit.getServer()).getServer();
 
+        // Broadcast despawn packets
         FakePlayerPacketSender packetSender = new FakePlayerPacketSender(server.getPlayerList());
         packetSender.sendDespawnPackets(uuid, fakePlayer.getId());
 
-        // --- ĐOẠN XÓA KHỎI HỆ THỐNG MÁY CHỦ ---
+        // Remove from server's player list and world
         server.getPlayerList().players.remove(fakePlayer);
-
-        // Sử dụng cơ chế RemovalReason chuẩn hóa của Mojang 1.21.4 để giải phóng Bot hoàn toàn khỏi Ticking Loop
-        fakePlayer.remove(net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
-        // ------------------------------------
+        // In 1.21.4+, use serverLevel() instead of getLevel()
+        ServerLevel level = fakePlayer.serverLevel();
+        level.removePlayerImmediately(fakePlayer,
+                net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
 
         fakePlayer.discard();
+
+        Bukkit.getLogger().log(Level.INFO,
+                "[NMSBridge] Despawned fake player with UUID: " + uuid);
     }
 
     @Override
     public void updatePlayerSkin(UUID uuid, String texture, String signature) {
-        ServerPlayer oldFakePlayer = activeFakePlayers.get(uuid);
-        if (oldFakePlayer == null) return;
+        ServerPlayer oldPlayer = activeFakePlayers.get(uuid);
+        if (oldPlayer == null) return;
 
         MinecraftServer server = ((CraftServer) Bukkit.getServer()).getServer();
-        ServerLevel level = (ServerLevel) oldFakePlayer.level();
-        Location currentLoc = oldFakePlayer.getBukkitEntity().getLocation();
-        String name = oldFakePlayer.getGameProfile().getName();
+        // In 1.21.4+, use serverLevel() instead of getLevel()
+        ServerLevel level = oldPlayer.serverLevel();
+        Location currentLoc = oldPlayer.getBukkitEntity().getLocation();
+        String name = oldPlayer.getGameProfile().getName();
 
         FakePlayerPacketSender packetSender = new FakePlayerPacketSender(server.getPlayerList());
 
-        // 1. Phát gói tin Despawn gỡ bỏ thực thể cũ ra khỏi màn hình Client người chơi thực tế
-        packetSender.sendDespawnPackets(uuid, oldFakePlayer.getId());
+        // Remove old player
+        packetSender.sendDespawnPackets(uuid, oldPlayer.getId());
+        server.getPlayerList().players.remove(oldPlayer);
+        level.removePlayerImmediately(oldPlayer,
+                net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
+        oldPlayer.discard();
 
-        // 2. Dọn dẹp triệt để thực thể cũ khỏi danh sách quản lý mạng và ticking của Core Server
-        server.getPlayerList().players.remove(oldFakePlayer);
-        oldFakePlayer.remove(net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
-        oldFakePlayer.discard();
+        // Create new player with updated skin
+        ServerPlayer newPlayer = FakePlayerFactory.create(server, level, name, uuid, currentLoc);
 
-        // 3. Khởi tạo một đối tượng ServerPlayer hoàn toàn mới thông qua Factory để nạp Skin mới sạch sẽ
-        ServerPlayer newFakePlayer = FakePlayerFactory.create(server, level, name, uuid, currentLoc);
-
-        // 4. Inject thủ công chuỗi Skin Texture bản quyền mới vào cấu trúc GameProfile của thực thể mới
-        GameProfile profile = newFakePlayer.getGameProfile();
+        GameProfile profile = newPlayer.getGameProfile();
         profile.getProperties().removeAll("textures");
         profile.getProperties().put("textures", new Property("textures", texture, signature));
 
-        // 5. Đăng ký lại thực thể mới vào hệ thống máy chủ và map dữ liệu hoạt động
-        activeFakePlayers.put(uuid, newFakePlayer);
-        if (!server.getPlayerList().players.contains(newFakePlayer)) {
-            server.getServer().getPlayerList().players.add(newFakePlayer);
-        }
-        level.addNewPlayer(newFakePlayer);
+        activeFakePlayers.put(uuid, newPlayer);
 
-        // 6. Phát lại chuỗi gói tin Spawn để ép buộc Client người chơi cập nhật và vẽ lại Skin mới ngay lập tức
-        packetSender.sendSpawnPackets(newFakePlayer, profile.getName());
+        // Register new player
+        Connection connection = newPlayer.connection.connection;
+        CommonListenerCookie cookie = CommonListenerCookie.createInitial(newPlayer.getGameProfile(), false);
+        server.getPlayerList().placeNewPlayer(connection, newPlayer, cookie);
+
+        Player bukkitPlayer = newPlayer.getBukkitEntity();
+        bukkitPlayer.setMetadata("NPC", new FixedMetadataValue(getPluginInstance(), true));
+
+        // Spawn new player
+        packetSender.sendSpawnPackets(newPlayer, profile.getName());
+
+        Bukkit.getLogger().log(Level.INFO,
+                "[NMSBridge] Updated skin for player '" + name + "'");
     }
 
     @Override
     public void sendKeepAlivePackets() {
-        if (this.activeFakePlayers.isEmpty()) return;
+        if (activeFakePlayers.isEmpty()) return;
 
-        MinecraftServer server = ((Bukkit.getServer() instanceof CraftServer) ? ((CraftServer) Bukkit.getServer()).getServer() : null);
+        MinecraftServer server = ((CraftServer) Bukkit.getServer()).getServer();
         if (server == null) return;
 
         FakePlayerPacketSender packetSender = new FakePlayerPacketSender(server.getPlayerList());
 
-        this.activeFakePlayers.forEach((uuid, fakePlayer) -> {
-            packetSender.sendSpawnPackets(fakePlayer, fakePlayer.getGameProfile().getName());
-        });
+        activeFakePlayers.forEach((uuid, fakePlayer) ->
+                packetSender.sendSpawnPackets(fakePlayer, fakePlayer.getGameProfile().getName())
+        );
     }
 
     @Override
@@ -126,32 +165,30 @@ public class NMSBridge_v1_21_4 implements FozminesproofApi {
         if (player == null || message == null || message.trim().isEmpty()) return;
 
         try {
-            // 1. Lấy instance của MinecraftServer bằng CraftServer không phiên bản
             MinecraftServer server = ((CraftServer) Bukkit.getServer()).getServer();
 
-            // 2. Chuyển đổi chuỗi chứa mã màu thành mảng Component Mojang hoàn chỉnh
-            net.minecraft.network.chat.Component[] components = CraftChatMessage.fromString(message);
+            Component[] components =
+                    CraftChatMessage.fromString(message);
             if (components.length == 0) return;
 
-            // Khởi tạo một MutableComponent rỗng làm gốc để chứa toàn bộ cấu trúc chat
-            net.minecraft.network.chat.MutableComponent finalComponent = net.minecraft.network.chat.Component.empty();
+            net.minecraft.network.chat.MutableComponent finalComponent =
+                    net.minecraft.network.chat.Component.empty();
 
-            // Duyệt qua toàn bộ mảng và nối đuôi liên tục để giữ nguyên vẹn 100% định dạng màu sắc lẫn chữ nội dung
             for (net.minecraft.network.chat.Component comp : components) {
                 finalComponent.append(comp);
             }
 
-            // 3. Phát tin nhắn đã được hợp nhất ra toàn Server dưới dạng tin nhắn Hệ Thống Mở Rộng
             server.getPlayerList().broadcastSystemMessage(finalComponent, false);
 
         } catch (Exception e) {
-            Bukkit.getLogger().severe("[Fozminesproof] Khong the gui packet chat NMS cho: " + player.getName());
-            e.printStackTrace();
+            Bukkit.getLogger().log(Level.SEVERE,
+                    "[NMSBridge] Failed to broadcast NMS chat for player "
+                            + player.getName() + ": " + e.getMessage(), e);
         }
     }
 
     @Override
     public int getFakePlayersCount() {
-        return this.activeFakePlayers.size();
+        return activeFakePlayers.size();
     }
 }
