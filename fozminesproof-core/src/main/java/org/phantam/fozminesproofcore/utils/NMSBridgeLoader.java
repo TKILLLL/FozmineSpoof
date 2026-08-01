@@ -19,8 +19,11 @@ public final class NMSBridgeLoader {
 
     static {
         VERSION_MAP.put("1.19.4", "1_19_4");
+        VERSION_MAP.put("1.20.1", "1_20_1");
         VERSION_MAP.put("1.20.2", "1_20_2");
         VERSION_MAP.put("1.20.4", "1_20_4");
+        VERSION_MAP.put("1.20.6", "1_20_6");
+        VERSION_MAP.put("1.21.1", "1_21_1");
         VERSION_MAP.put("1.21.4", "1_21_4");
         VERSION_MAP.put("1.21.11", "1_21_11");
     }

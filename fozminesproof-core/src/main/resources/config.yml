@@ -52,16 +52,17 @@ Fakeplayer-setting:
   # Name of the dedicated void world where bots will be spawned
   botworld: "botworld"
 
+  fake-plugin-name: "FozmineSpawner"
+
   # Show join/leave messages for bots in the global chat
   join-leave-message-enable: true
+  # Join and leave message formats (supports color codes & and %fakeplayer_name%)
+  join-message: "&8[&a+&8] &e%fakeplayer_name%"
+  leave-message: "&8[&a+&8] &e%fakeplayer_name%"
 
   # Random delay range (in seconds) between bulk spawn/despawn operations
   # Format: "min-max" (e.g., "1-3" means 1 to 3 seconds)
   join-quit-interval: "1-3"
-
-  # Join and leave message formats (supports color codes & and %fakeplayer_name%)
-  join-message: "&8[&a+&8] &e%fakeplayer_name%"
-  leave-message: "&8[&a+&8] &e%fakeplayer_name%"
 
 # ================================================================================= #
 #                       FAKE PLAYER CHAT SYSTEM                                     #

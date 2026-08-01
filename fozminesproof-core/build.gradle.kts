@@ -17,8 +17,11 @@ dependencies {
     implementation(project(":fozminesproof-api"))
 
     implementation(project(path = ":fozminesproof-v1_19_4", configuration = "reobf"))
+    implementation(project(path = ":fozminesproof-v1_20_1", configuration = "reobf"))
     implementation(project(path = ":fozminesproof-v1_20_2", configuration = "reobf"))
     implementation(project(path = ":fozminesproof-v1_20_4", configuration = "reobf"))
+    implementation(project(path = ":fozminesproof-v1_20_6", configuration = "reobf"))
+    implementation(project(path = ":fozminesproof-v1_21_1", configuration = "reobf"))
     implementation(project(path = ":fozminesproof-v1_21_4", configuration = "reobf"))
     implementation(project(path = ":fozminesproof-v1_21_11", configuration = "reobf"))
 }
