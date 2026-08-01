@@ -4,7 +4,11 @@ import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.phantam.fozminesproofcore.config.ConfigManager;
 
+/**
+ * Broadcasts join/leave messages for fake players.
+ */
 public class FakePlayerBroadcaster {
+
     private final ConfigManager configManager;
 
     public FakePlayerBroadcaster(ConfigManager configManager) {
@@ -12,15 +16,17 @@ public class FakePlayerBroadcaster {
     }
 
     public void broadcastJoin(String botName) {
-        if (!configManager.isJoinLeaveMessageEnable() || configManager.getJoinMessage() == null) return;
-
+        if (!configManager.isJoinLeaveMessageEnable() || configManager.getJoinMessage() == null) {
+            return;
+        }
         String msg = configManager.getJoinMessage().replace("%fakeplayer_name%", botName);
         broadcast(msg);
     }
 
     public void broadcastLeave(String botName) {
-        if (!configManager.isJoinLeaveMessageEnable() || configManager.getLeaveMessage() == null) return;
-
+        if (!configManager.isJoinLeaveMessageEnable() || configManager.getLeaveMessage() == null) {
+            return;
+        }
         String msg = configManager.getLeaveMessage().replace("%fakeplayer_name%", botName);
         broadcast(msg);
     }

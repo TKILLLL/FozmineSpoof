@@ -9,7 +9,12 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.logging.Level;
 
+/**
+ * Manages message loading and formatting from messages.yml.
+ * Provides three modes: with prefix, without prefix, and as a list.
+ */
 public class MessageManager {
 
     private final JavaPlugin plugin;
@@ -20,11 +25,11 @@ public class MessageManager {
     public MessageManager(JavaPlugin plugin) {
         this.plugin = plugin;
         this.configFile = new File(plugin.getDataFolder(), "messages.yml");
-        this.reload(); // Tự động nạp dữ liệu khi khởi tạo
+        this.reload();
     }
 
     /**
-     * Tải hoặc làm mới dữ liệu từ tệp messages.yml (Phục vụ cho lệnh /reload)
+     * Reloads the messages.yml file and caches the system prefix.
      */
     public void reload() {
         if (!configFile.exists()) {
@@ -32,36 +37,46 @@ public class MessageManager {
         }
 
         this.config = YamlConfiguration.loadConfiguration(configFile);
-
-        // Trích xuất và dịch màu trước cho Prefix hệ thống để tối ưu hiệu năng
         String rawPrefix = config.getString("system.prefix", "[FozmineSproof] ");
         this.prefix = ColorUtils.colorize(rawPrefix);
+
+        plugin.getLogger().log(Level.INFO,
+                "[FozmineSproof] Messages reloaded. Prefix: " + rawPrefix.trim());
     }
 
     /**
-     * Kiểu 1: Lấy tin nhắn ĐÃ BAO GỒM PREFIX và dịch màu hoàn chỉnh
+     * Returns a full message with the system prefix and color codes translated.
+     *
+     * @param path the message key
+     * @return colored message with prefix, or a fallback if missing
      */
     public String getMessage(String path) {
-        String rawMsg = config.getString(path);
-        if (rawMsg == null) {
+        String raw = config.getString(path);
+        if (raw == null) {
             return prefix + "§cMissing message path: " + path;
         }
-        return prefix + ColorUtils.colorize(rawMsg);
+        return prefix + ColorUtils.colorize(raw);
     }
 
     /**
-     * Kiểu 2: Chỉ lấy tin nhắn thô (ONLY MESSAGE) không kèm prefix, dùng khi chat trực tiếp từ Bot
+     * Returns a message without the system prefix (only the raw message, colored).
+     *
+     * @param path the message key
+     * @return colored message without prefix, or a fallback if missing
      */
     public String getOnlyMessage(String path) {
-        String rawMsg = config.getString(path);
-        if (rawMsg == null) {
+        String raw = config.getString(path);
+        if (raw == null) {
             return "§cMissing message path: " + path;
         }
-        return ColorUtils.colorize(rawMsg);
+        return ColorUtils.colorize(raw);
     }
 
     /**
-     * Kiểu 3: Lấy một danh sách các dòng văn bản (String List) phục vụ cho lệnh /help hoặc /info
+     * Returns a list of messages with all lines colorized.
+     *
+     * @param path the message list key
+     * @return a list of colored strings, or a fallback list if missing
      */
     public List<String> getMessageList(String path) {
         List<String> rawLines = config.getStringList(path);
@@ -69,10 +84,10 @@ public class MessageManager {
             return Collections.singletonList("§cMissing message list path: " + path);
         }
 
-        List<String> coloredLines = new ArrayList<>(rawLines.size());
+        List<String> colored = new ArrayList<>(rawLines.size());
         for (String line : rawLines) {
-            coloredLines.add(ColorUtils.colorize(line));
+            colored.add(ColorUtils.colorize(line));
         }
-        return coloredLines;
+        return colored;
     }
 }

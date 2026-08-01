@@ -1,4 +1,4 @@
-package org.phantam.fozminesproofcore.commands.subs;
+package org.phantam.fozminesproofcore.commands.subcommands;
 
 import org.bukkit.command.CommandSender;
 import java.util.List;

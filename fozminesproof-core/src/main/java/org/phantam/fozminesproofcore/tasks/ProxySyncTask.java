@@ -4,47 +4,63 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.phantam.fozminesproofapi.database.IFakePlayerDatabase;
 import org.phantam.fozminesproofcore.config.ConfigManager;
-import org.phantam.fozminesproofcore.database.DatabaseManager;
 
+import java.util.logging.Level;
+
+/**
+ * Periodically synchronises fake player statistics with the proxy database.
+ * Updates active and inactive bot counts for BungeeCord/Waterfall network visibility.
+ */
 public class ProxySyncTask extends BukkitRunnable {
 
     private final JavaPlugin plugin;
-    private final IFakePlayerDatabase iFakePlayerDatabase;
+    private final IFakePlayerDatabase database;
     private final ConfigManager configManager;
 
-    public ProxySyncTask(JavaPlugin plugin, IFakePlayerDatabase iFakePlayerDatabase, ConfigManager configManager) {
+    public ProxySyncTask(JavaPlugin plugin, IFakePlayerDatabase database, ConfigManager configManager) {
         this.plugin = plugin;
-        this.iFakePlayerDatabase = iFakePlayerDatabase;
+        this.database = database;
         this.configManager = configManager;
     }
 
     @Override
     public void run() {
         try {
-            int activeBots = iFakePlayerDatabase.getActiveBotCount();
-            int deactiveBots = iFakePlayerDatabase.getDeactiveBotCount();
+            int activeCount = database.getActiveBotCount();
+            int inactiveCount = database.getInactiveBotCount();
 
-            // Đẩy data xuống database bằng Thread Async này
-            iFakePlayerDatabase.sendProxySyncData(
+            database.sendProxySyncData(
                     configManager.getBungeeName(),
                     configManager.getRawDatabaseName(),
-                    activeBots,
-                    deactiveBots
+                    activeCount,
+                    inactiveCount
             );
-        } catch (Exception e) {
-            plugin.getLogger().severe("Lỗi khi đồng bộ dữ liệu Proxy: " + e.getMessage());
-        } finally {
-            // Kiểm tra nếu plugin vẫn đang hoạt động thì mới lập lịch vòng lặp tiếp theo
-            if (plugin.isEnabled()) {
-                // Lấy khoảng thời gian delay ngẫu nhiên mới (được tính bằng giây)
-                // Giả sử hàm getProxyUpdateInterval() nằm trong ConfigManager hoặc class Main
-                int nextDelaySeconds = configManager.getProxyUpdateInterval();
-                long nextDelayTicks = nextDelaySeconds * 20L;
 
-                // Tự chạy lại chính nó bất đồng bộ sau khoảng delay ngẫu nhiên mới
-                new ProxySyncTask(plugin, iFakePlayerDatabase, configManager)
-                        .runTaskLaterAsynchronously(plugin, nextDelayTicks);
+            plugin.getLogger().log(Level.FINE,
+                    "[ProxySyncTask] Synced proxy data: active=" + activeCount + ", inactive=" + inactiveCount);
+
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE,
+                    "[ProxySyncTask] Error syncing proxy data: " + e.getMessage(), e);
+        } finally {
+            // Reschedule only if the plugin is still enabled
+            if (plugin.isEnabled()) {
+                reschedule();
             }
         }
+    }
+
+    /**
+     * Schedules the next execution with a random interval from config.
+     */
+    private void reschedule() {
+        int delaySeconds = configManager.getProxyUpdateInterval();
+        long delayTicks = delaySeconds * 20L;
+
+        new ProxySyncTask(plugin, database, configManager)
+                .runTaskLaterAsynchronously(plugin, delayTicks);
+
+        plugin.getLogger().log(Level.FINE,
+                "[ProxySyncTask] Next sync scheduled in " + delaySeconds + " seconds.");
     }
 }

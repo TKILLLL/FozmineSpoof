@@ -1,41 +1,58 @@
 package org.phantam.fozminesproofcore.chat;
 
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.PluginLogger;
 import org.phantam.fozminesproofapi.model.FakePlayerData;
-import org.phantam.fozminesproofcore.database.FakePlayerManager;
+import org.phantam.fozminesproofcore.manager.FakePlayerManager;
+
 import java.util.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
+/**
+ * Selects random online bots eligible for chatting.
+ * <p>
+ * This class is responsible for filtering active fake players and returning a random subset
+ * of them as Bukkit Player objects. It uses the registry maintained by FakePlayerManager.
+ */
 public class BotSelector {
-    private final FakePlayerManager fakePlayerManager;
 
-    public BotSelector(FakePlayerManager fakePlayerManager) {
-        this.fakePlayerManager = fakePlayerManager;
+    private final FakePlayerManager playerManager;
+    private final Logger logger;
+
+    /**
+     * Constructs a BotSelector with the given manager and logger.
+     *
+     * @param playerManager the manager providing access to online bots
+     * @param logger        the logger to use for warnings; if null, uses Bukkit's logger
+     */
+    public BotSelector(FakePlayerManager playerManager, Logger logger) {
+        this.playerManager = playerManager;
+        this.logger = (logger != null) ? logger : java.util.logging.Logger.getLogger("Minecraft");
     }
 
     /**
-     * Lấy ra danh sách các Bot ngẫu nhiên đủ điều kiện để nói chuyện
+     * Selects up to {@code maxBotsToSelect} random bots from the currently online list.
+     *
+     * @param maxBotsToSelect maximum number of bots to return
+     * @return a list of Player objects, possibly empty; never null
      */
     public List<Player> selectRandomBots(int maxBotsToSelect) {
-        Collection<FakePlayerData> onlineData = fakePlayerManager.getOnlineBotsData();
-
+        Collection<FakePlayerData> onlineData = playerManager.getOnlineBotsData();
         if (onlineData == null || onlineData.isEmpty()) {
-            org.bukkit.Bukkit.getLogger().warning("[BotSelector] Không có bot nào trong registry!");
+            logger.warning("[BotSelector] No bots are currently online in the registry.");
             return Collections.emptyList();
         }
 
-        List<Player> availableBots = new ArrayList<>();
-
-        for (FakePlayerData data : onlineData) {
-            Player botPlayer = fakePlayerManager.getOnlineBotEntity(data.getName());
-            if (botPlayer != null && botPlayer.isValid()) {
-                availableBots.add(botPlayer);
-            } else {
-                org.bukkit.Bukkit.getLogger().warning("[BotSelector] Bot " + data.getName() + " không có entity hợp lệ.");
-            }
-        }
+        List<Player> availableBots = onlineData.stream()
+                .map(data -> playerManager.getOnlineBotEntity(data.getName()))
+                .filter(Objects::nonNull)
+                .filter(Player::isValid)
+                .collect(Collectors.toList());
 
         if (availableBots.isEmpty()) {
-            org.bukkit.Bukkit.getLogger().warning("[BotSelector] Không có bot nào có entity hợp lệ.");
+            logger.warning("[BotSelector] No valid bot entities found.");
             return Collections.emptyList();
         }
 

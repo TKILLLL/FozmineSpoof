@@ -6,50 +6,53 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Translates text using a free Google Translate API endpoint.
+ * <p>
+ * This service is designed to run asynchronously and includes fail-safe fallback
+ * to the original text if translation fails or the target language is 'none'.
+ */
 public class TranslatorService {
 
-    // Regex chuẩn để bóc tách chính xác phần tử chữ đã dịch đầu tiên từ mảng JSON phức hợp của Google Script
     private static final Pattern JSON_TEXT_PATTERN = Pattern.compile("^\\[\\[\\[\"([^\"]+)\"");
+    private static final Logger LOGGER = Logger.getLogger(TranslatorService.class.getName());
 
     /**
-     * Dịch thuật văn bản tự động thông qua Google Translate API tự do (Async Ready).
-     * Hàm này được thiết kế để chạy an toàn trên luồng bất đồng bộ (Async Thread).
+     * Translates the given text to the target language.
      *
-     * @param text Văn bản gốc (tiếng Anh) cần dịch.
-     * @param targetLang Ngôn ngữ đích (Ví dụ: "vi", "ja", "none").
-     * @return Văn bản đã dịch hoặc văn bản gốc nếu xảy ra lỗi/gặp cấu hình "none".
+     * @param text        the original text (typically English)
+     * @param targetLang  the target language code (e.g., "vi", "ja"). Use "none" to skip translation.
+     * @return the translated text, or the original text if translation fails or is disabled
      */
     public String translate(String text, String targetLang) {
         if (text == null || text.trim().isEmpty()) {
             return "";
         }
 
-        // Nếu cấu hình ngôn ngữ là "none" hoặc trống, giữ nguyên tiếng Anh gốc của file
         if (targetLang == null || targetLang.trim().equalsIgnoreCase("none")) {
             return text;
         }
 
         try {
-            // VÁ LỖI CẤU TRÚC: Điền đầy đủ Endpoint gtx tự do của Google Translate Script
-            String urlStr = "https://googleapis.com"
-                    + targetLang
-                    + "&dt=t&q="
-                    + URLEncoder.encode(text, StandardCharsets.UTF_8);
+            // Note: This is a free, unofficial endpoint. It may change or be rate-limited.
+            String encoded = URLEncoder.encode(text, StandardCharsets.UTF_8);
+            String urlStr = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl="
+                    + targetLang + "&dt=t&q=" + encoded;
 
             URL url = new URL(urlStr);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
-
-            // Đặt thời gian chờ phản hồi ngắn để tránh treo hàng đợi (Stuck Queue) nếu API Google bị bóp băng thông
             conn.setConnectTimeout(4000);
             conn.setReadTimeout(4000);
 
-            // Nếu Google từ chối kết nối (Không trả về mã thành công HTTP 200 OK), kích hoạt Fallback ngay
             if (conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
+                LOGGER.warning("[TranslatorService] HTTP error: " + conn.getResponseCode() + " - returning original text.");
                 return text;
             }
 
@@ -62,27 +65,29 @@ public class TranslatorService {
 
                 Matcher matcher = JSON_TEXT_PATTERN.matcher(response.toString());
                 if (matcher.find()) {
-                    // Trích xuất nhóm khớp số 1 và giải mã các ký tự đặc biệt/Unicode
                     return decodeUnicode(matcher.group(1));
                 }
             }
+
         } catch (Exception e) {
-            // Khối phòng vệ Fail-Safe: Tự động giữ nguyên chữ gốc nếu mất mạng hoặc API lỗi để luồng chat không bị đứng
-            return text;
+            LOGGER.log(Level.WARNING, "[TranslatorService] Translation failed: " + e.getMessage(), e);
         }
+
         return text;
     }
 
     /**
-     * Giải mã chuỗi chứa mã Unicode và làm sạch các ký tự escaping đặc biệt của JSON.
-     * Tối ưu hóa hiệu năng bằng cách nhảy cóc chỉ mục index, giảm tải việc cấp phát vùng nhớ rác cho RAM.
+     * Decodes Unicode escape sequences (e.g., \u00e9) in the given string.
+     *
+     * @param str the input string possibly containing Unicode escapes
+     * @return the decoded string
      */
     private String decodeUnicode(String str) {
         if (str == null || str.isEmpty()) {
             return "";
         }
 
-        // Sửa lỗi hiển thị: Tự động chuyển các ký tự escape dấu nháy của JSON về dạng ký tự thường
+        // Replace JSON escapes
         str = str.replace("\\\"", "\"").replace("\\\\", "\\");
 
         if (!str.contains("\\u")) {
@@ -95,22 +100,18 @@ public class TranslatorService {
 
         while (i < len) {
             char ch = str.charAt(i);
-
-            // Phát hiện mã Unicode hợp lệ
             if (ch == '\\' && i + 1 < len && str.charAt(i + 1) == 'u' && i + 5 < len) {
                 try {
-                    String unicodeHex = str.substring(i + 2, i + 6);
-                    int codePoint = Integer.parseInt(unicodeHex, 16);
-                    sb.append((char) codePoint);
-                    i += 6; // Nhảy cóc qua 6 ký tự
+                    String hex = str.substring(i + 2, i + 6);
+                    int code = Integer.parseInt(hex, 16);
+                    sb.append((char) code);
+                    i += 6;
                     continue;
-                } catch (NumberFormatException e) {
-                    // Nếu lỗi định dạng hex (Ví dụ chuỗi chứa "" lỗi), giữ nguyên chuỗi thô để xử lý tiếp
-                    sb.append(ch);
+                } catch (NumberFormatException ignored) {
+                    // fall through to append the character as-is
                 }
-            } else {
-                sb.append(ch);
             }
+            sb.append(ch);
             i++;
         }
         return sb.toString();

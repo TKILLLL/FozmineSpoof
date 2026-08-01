@@ -10,14 +10,16 @@ import net.minecraft.network.protocol.PacketFlow;
 import java.net.InetSocketAddress;
 
 /**
- * NetworkManager giả lập cho FakePlayer, cung cấp địa chỉ IP và kênh kết nối ảo
- * để các plugin có thể xem bot như một người chơi thực nhưng không gửi packet thật.
+ * Fake NetworkManager that provides a virtual connection for fake players.
+ * Allows plugins (e.g., ProtocolLib) to interact with the bot as if it were a real player,
+ * but prevents any actual packet transmission to avoid encoding errors.
  */
 public class FakeNetworkManager extends Connection {
 
     public FakeNetworkManager() {
         super(PacketFlow.SERVERBOUND);
 
+        // Create an embedded channel that is deliberately closed to block all I/O
         this.channel = new EmbeddedChannel() {
             @Override
             public boolean isOpen() {
@@ -38,28 +40,35 @@ public class FakeNetworkManager extends Connection {
 
     @Override
     public boolean isConnected() {
+        // Return false to prevent any actual network activity
         return false;
     }
 
     @Override
     public void send(Packet<?> packet) {
-        // NO-OP: Chặn gửi gói tin ra mạng
+        // No-op: block all packet sending
     }
 
     @Override
     public void send(Packet<?> packet, PacketSendListener listener) {
+        // If a listener is provided, immediately mark it as successful
+        // to prevent hanging callbacks.
         if (listener != null) {
             try {
                 listener.onSuccess();
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+                // Ignore any exceptions during listener callback
+            }
         }
     }
 
     @Override
     public void tick() {
+        // No tick logic needed
     }
 
     @Override
     public void handleDisconnection() {
+        // No disconnection logic needed
     }
 }

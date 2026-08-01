@@ -8,69 +8,83 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.logging.Logger;
 
+/**
+ * Loads and provides random chat messages from the configured YAML file.
+ * <p>
+ * The messages are stored in a thread-safe list to allow concurrent access.
+ */
 public class MessageLoader {
-    private final JavaPlugin plugin;
 
+    private final JavaPlugin plugin;
+    private final Logger logger;
     private final List<String> messagePool = new CopyOnWriteArrayList<>();
 
     public MessageLoader(JavaPlugin plugin) {
         this.plugin = plugin;
+        this.logger = plugin.getLogger();
     }
 
     /**
-     * Nạp hoặc làm mới danh sách tin nhắn ngẫu nhiên từ tệp tin chats/random-messages.yml
+     * Loads or reloads messages from the file {@code chats/random-messages.yml}.
+     * Creates a default file if not present.
      */
     public void loadMessages() {
         try {
-            File folder = new File(plugin.getDataFolder(), "chats");
-            if (!folder.exists()) {
-                folder.mkdirs();
-            }
-
+            ensureDefaultFileExists();
             File file = new File(plugin.getDataFolder(), "chats/random-messages.yml");
-            if (!file.exists()) {
-                plugin.saveResource("chats/random-messages.yml", false);
-                plugin.getLogger().info("[MessageLoader] Đã tạo file random-messages.yml mặc định.");
-            }
-
             YamlConfiguration config = YamlConfiguration.loadConfiguration(file);
             List<String> messages = config.getStringList("random-messages");
 
             messagePool.clear();
 
             if (messages != null && !messages.isEmpty()) {
-                List<String> validMessages = new ArrayList<>(messages.size());
+                List<String> valid = new ArrayList<>();
                 for (String msg : messages) {
                     if (msg != null && !msg.trim().isEmpty()) {
-                        validMessages.add(msg);
+                        valid.add(msg);
                     }
                 }
-                messagePool.addAll(validMessages);
+                messagePool.addAll(valid);
             }
 
             if (messagePool.isEmpty()) {
-                plugin.getLogger().warning("[MessageLoader] ⚠ Không có tin nhắn nào được load! Bot sẽ không thể chat.");
-                plugin.getLogger().warning("[MessageLoader] Vui lòng thêm ít nhất 1 tin nhắn vào chats/random-messages.yml");
+                logger.warning("[MessageLoader] No messages loaded! Bots will not be able to chat.");
+                logger.warning("[MessageLoader] Please add at least one message to chats/random-messages.yml");
             } else {
-                plugin.getLogger().info("[MessageLoader] ✅ Đã nạp thành công " + messagePool.size() + " tin nhắn chat.");
+                logger.info("[MessageLoader] Successfully loaded " + messagePool.size() + " chat messages.");
             }
 
         } catch (Exception e) {
-            plugin.getLogger().severe("[MessageLoader] 🚨 Lỗi khi nạp tệp chats/random-messages.yml: " + e.getMessage());
+            logger.severe("[MessageLoader] Failed to load chats/random-messages.yml: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
     /**
-     * Bốc ngẫu nhiên một tin nhắn từ kho dữ liệu
+     * Returns a random message from the pool, or null if none available.
+     *
+     * @return a random message, or null if the pool is empty
      */
     public String getRandomMessage() {
         if (messagePool.isEmpty()) {
             return null;
         }
-
         int randomIndex = ThreadLocalRandom.current().nextInt(messagePool.size());
         return messagePool.get(randomIndex);
+    }
+
+    private void ensureDefaultFileExists() {
+        File folder = new File(plugin.getDataFolder(), "chats");
+        if (!folder.exists()) {
+            folder.mkdirs();
+        }
+
+        File file = new File(plugin.getDataFolder(), "chats/random-messages.yml");
+        if (!file.exists()) {
+            plugin.saveResource("chats/random-messages.yml", false);
+            logger.info("[MessageLoader] Created default random-messages.yml file.");
+        }
     }
 }

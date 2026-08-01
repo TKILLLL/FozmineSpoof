@@ -1,72 +1,89 @@
 package org.phantam.fozminesproofcore.utils;
 
 import net.md_5.bungee.api.ChatColor;
+
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Utility class for colorizing Minecraft messages.
+ * Supports legacy color codes (&), standard hex (#RRGGBB), and Spigot hex (&x&r&g&b...).
+ */
 public final class ColorUtils {
 
-    // 1. Khớp định dạng Hex chuẩn: #RRGGBB hoặc &#RRGGBB
+    // Matches standard hex format: #RRGGBB or &#RRGGBB
     private static final Pattern HEX_PATTERN = Pattern.compile("&#?([a-fA-F0-9]{6})");
 
-    // 2. Khớp định dạng Vanilla Spigot Hex Legacy: &x&r&g&b&r&g&b (Ví dụ: &x&f&f&5&5&5&5)
+    // Matches Spigot legacy hex: &x&r&g&b&r&g&b (exactly 6 hex pairs after &x)
     private static final Pattern SPIGOT_HEX_PATTERN = Pattern.compile("&x(&[a-fA-F0-9]){6}");
 
     private ColorUtils() {
-        throw new UnsupportedOperationException("This is a utility class and cannot be instantiated");
+        throw new UnsupportedOperationException("Utility class cannot be instantiated");
     }
 
     /**
-     * Chuyển đổi toàn diện các hệ màu HEX (#, &#, &x) và màu truyền thống (&) thành chuỗi màu Minecraft.
-     * Thích hợp cho cả tin nhắn Chat, Tablist, NameTag của FakePlayer.
+     * Translates all color codes in a message to Minecraft-compatible formatting.
+     * Supports:
+     * <ul>
+     *   <li>Legacy codes: &amp;0-9, &amp;a-f, &amp;k-o, &amp;r</li>
+     *   <li>Hex codes: #RRGGBB or &amp;#RRGGBB</li>
+     *   <li>Spigot hex: &amp;x&amp;r&amp;g&amp;b&amp;r&amp;g&amp;b (case-insensitive)</li>
+     * </ul>
      *
-     * @param message Chuỗi văn bản thô.
-     * @return Chuỗi đã được xử lý màu hoàn chỉnh.
+     * @param message the raw message
+     * @return the colorized message, or empty string if null/empty
      */
     public static String colorize(String message) {
         if (message == null || message.isEmpty()) {
             return "";
         }
 
-        // BƯỚC 1: Xử lý định dạng Spigot Hex Legacy (&x&a&b&c&d&e&f) trước tiên để tránh bị xé lẻ mã màu
+        // Step 1: Handle Spigot legacy hex format (&x&r&g&b...) first to avoid corruption
         message = translateSpigotHex(message);
 
-        // BƯỚC 2: Xử lý các định dạng Hex phổ biến nhất (#RRGGBB và &#RRGGBB)
+        // Step 2: Handle standard hex (#RRGGBB or &#RRGGBB)
         message = translateStandardHex(message);
 
-        // BƯỚC 3: Xử lý mã màu truyền thống (&0-9, &a-f, &k-o, &r) cuối cùng
+        // Step 3: Translate legacy color codes (&0-9, &a-f, etc.)
         return ChatColor.translateAlternateColorCodes('&', message);
     }
 
     /**
-     * Chuyển đổi định dạng &#RRGGBB hoặc #RRGGBB thành ChatColor Bungee
+     * Translates standard hex patterns (#RRGGBB or &#RRGGBB) to BungeeCord ChatColor.
+     *
+     * @param text the input text
+     * @return the text with hex codes replaced by BungeeCord color objects
      */
     private static String translateStandardHex(String text) {
         Matcher matcher = HEX_PATTERN.matcher(text);
-        StringBuilder builder = new StringBuilder(text.length());
+        StringBuilder result = new StringBuilder(text.length());
 
         while (matcher.find()) {
-            String hexColor = "#" + matcher.group(1);
-            // Thay thế chuỗi Hex bằng mã màu hợp lệ của hệ thống BungeeCord
-            matcher.appendReplacement(builder, ChatColor.of(hexColor).toString());
+            String hexCode = "#" + matcher.group(1);
+            matcher.appendReplacement(result, ChatColor.of(hexCode).toString());
         }
-        return matcher.appendTail(builder).toString();
+        matcher.appendTail(result);
+        return result.toString();
     }
 
     /**
-     * Chuyển đổi định dạng phức tạp &x&1&2&3&4&5&6 thành mã màu Hex chuẩn của Bungee
+     * Translates Spigot legacy hex format (&x&r&g&b&r&g&b) to BungeeCord ChatColor.
+     *
+     * @param text the input text
+     * @return the text with legacy hex codes replaced by BungeeCord color objects
      */
     private static String translateSpigotHex(String text) {
         Matcher matcher = SPIGOT_HEX_PATTERN.matcher(text);
-        StringBuilder builder = new StringBuilder(text.length());
+        StringBuilder result = new StringBuilder(text.length());
 
         while (matcher.find()) {
-            // Lấy chuỗi khớp dạng &x&f&f&5&5&5&5, loại bỏ tất cả ký tự '&' và 'x' để lấy chuỗi hex "ff5555"
+            // Extract hex string from &x&f&f&5&5&5&5 -> remove '&' and 'x' -> "ff5555"
             String rawHex = matcher.group().replace("&", "").replace("x", "");
-            String hexColor = "#" + rawHex;
+            String hexCode = "#" + rawHex;
 
-            matcher.appendReplacement(builder, ChatColor.of(hexColor).toString());
+            matcher.appendReplacement(result, ChatColor.of(hexCode).toString());
         }
-        return matcher.appendTail(builder).toString();
+        matcher.appendTail(result);
+        return result.toString();
     }
 }

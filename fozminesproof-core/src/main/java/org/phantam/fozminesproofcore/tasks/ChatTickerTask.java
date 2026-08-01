@@ -11,15 +11,21 @@ import org.phantam.fozminesproofcore.config.ChatConfig;
 
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.logging.Level;
 
+/**
+ * Ticker task that periodically triggers bot chat cycles.
+ * Manages countdown timer and staggers messages across selected bots.
+ */
 public class ChatTickerTask extends BukkitRunnable {
+
     private final JavaPlugin plugin;
     private final ChatConfig chatConfig;
     private final BotSelector botSelector;
     private final BotChatProcessor chatProcessor;
     private final MessageLoader messageLoader;
 
-    private int ticksUntilNextChat = 0;
+    private int ticksUntilNextChat;
     private boolean isFirstRun = true;
 
     public ChatTickerTask(JavaPlugin plugin, ChatConfig chatConfig, BotSelector botSelector,
@@ -35,26 +41,34 @@ public class ChatTickerTask extends BukkitRunnable {
     @Override
     public void run() {
         if (!chatConfig.isEnabled()) {
-            plugin.getLogger().warning("[ChatSystem] Chat bị tắt, hủy task.");
+            plugin.getLogger().log(Level.WARNING,
+                    "[ChatTickerTask] Chat system is disabled. Cancelling task.");
             this.cancel();
             return;
         }
 
+        // Decrement by one second (20 ticks)
         ticksUntilNextChat -= 20;
 
         if (isFirstRun) {
-            plugin.getLogger().info("[ChatSystem] ChatTickerTask đã chạy lần đầu, còn " + (ticksUntilNextChat / 20) + " giây nữa.");
+            plugin.getLogger().log(Level.INFO,
+                    "[ChatTickerTask] First run. Next chat in " + (ticksUntilNextChat / 20) + " seconds.");
             isFirstRun = false;
         }
 
         if (ticksUntilNextChat <= 0) {
-            plugin.getLogger().info("[ChatSystem] Bắt đầu chu kỳ chat mới!");
+            plugin.getLogger().log(Level.INFO, "[ChatTickerTask] Starting new chat cycle.");
             executeChatCycle();
             resetCountdown();
-            plugin.getLogger().info("[ChatSystem] Chu kỳ tiếp theo sau " + (ticksUntilNextChat / 20) + " giây.");
+            plugin.getLogger().log(Level.INFO,
+                    "[ChatTickerTask] Next cycle in " + (ticksUntilNextChat / 20) + " seconds.");
         }
     }
 
+    /**
+     * Resets the countdown timer with a random interval from config.
+     * If the interval is 0 minutes, falls back to 10-59 seconds to avoid spam.
+     */
     private void resetCountdown() {
         int minutes = chatConfig.getRandomIntervalMinutes();
         int totalSeconds;
@@ -68,35 +82,46 @@ public class ChatTickerTask extends BukkitRunnable {
         this.ticksUntilNextChat = totalSeconds * 20;
     }
 
+    /**
+     * Selects bots and schedules their chat messages with staggered delays.
+     */
     private void executeChatCycle() {
         List<Player> speakingBots = botSelector.selectRandomBots(chatConfig.getRandomBotsPerInterval());
+
         if (speakingBots.isEmpty()) {
-            plugin.getLogger().warning("[ChatSystem] Không có bot nào online để thực hiện chat.");
+            plugin.getLogger().log(Level.WARNING,
+                    "[ChatTickerTask] No bots available to chat.");
             return;
         }
 
-        plugin.getLogger().info("[ChatSystem] Chọn " + speakingBots.size() + " bot để chat.");
+        plugin.getLogger().log(Level.INFO,
+                "[ChatTickerTask] Selected " + speakingBots.size() + " bot(s) to chat.");
 
-        int fixedDelaySeconds = chatConfig.getRandomDelaySeconds();
-        long currentStaggerDelaySeconds = 0;
+        int staggerSeconds = chatConfig.getRandomDelaySeconds();
+        long currentDelay = 0;
 
         for (Player bot : speakingBots) {
-            String rawEnglishMessage = messageLoader.getRandomMessage();
-            if (rawEnglishMessage == null) {
-                plugin.getLogger().warning("[ChatSystem] Không tìm thấy tin nhắn cho bot " + bot.getName());
+            String rawMessage = messageLoader.getRandomMessage();
+            if (rawMessage == null) {
+                plugin.getLogger().log(Level.WARNING,
+                        "[ChatTickerTask] No message available for bot: " + bot.getName());
                 continue;
             }
 
-            long delayTicks = currentStaggerDelaySeconds * 20L;
+            long delayTicks = currentDelay * 20L;
+            Bukkit.getScheduler().runTaskLater(plugin,
+                    () -> chatProcessor.processChatAsync(bot, rawMessage, chatConfig),
+                    delayTicks);
 
-            Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                chatProcessor.processChatAsync(bot, rawEnglishMessage, chatConfig);
-            }, delayTicks);
-
-            currentStaggerDelaySeconds += fixedDelaySeconds;
+            currentDelay += staggerSeconds;
         }
     }
 
+    /**
+     * Returns the remaining ticks until the next chat cycle.
+     *
+     * @return ticks remaining
+     */
     public int getTicksUntilNextChat() {
         return ticksUntilNextChat;
     }

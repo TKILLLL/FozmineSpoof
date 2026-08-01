@@ -5,70 +5,64 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.phantam.fozminesproofcore.FozmineSproofCore;
-import org.phantam.fozminesproofcore.commands.subs.*;
+import org.phantam.fozminesproofcore.commands.subcommands.*;
 import org.phantam.fozminesproofcore.config.MessageManager;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
+/**
+ * Central command manager for the /sproof command.
+ * Registers all subcommands and handles execution and tab completion.
+ */
 public class CommandManager implements CommandExecutor, TabCompleter {
 
     private final FozmineSproofCore plugin;
-
-    // TỐI ƯU HIỆU NĂNG: Sử dụng Map với khóa chữ thường để truy xuất lệnh ngay lập tức với tốc độ O(1)
     private final Map<String, SubCommand> subCommands = new HashMap<>();
 
     public CommandManager(FozmineSproofCore plugin) {
         this.plugin = plugin;
-
-        // Đăng ký tập trung toàn bộ hệ thống lệnh con (Sub-commands)
-        this.registerSubCommand(new AddCommand(plugin));
-        this.registerSubCommand(new SpawnCommand(plugin));
-        this.registerSubCommand(new DespawnCommand(plugin));
-        this.registerSubCommand(new RemoveCommand(plugin));
-        this.registerSubCommand(new ListCommand(plugin));
-        this.registerSubCommand(new InfoCommand(plugin));
-        this.registerSubCommand(new ReloadCommand(plugin));
+        registerSubCommand(new AddCommand(plugin));
+        registerSubCommand(new SpawnCommand(plugin));
+        registerSubCommand(new DespawnCommand(plugin));
+        registerSubCommand(new RemoveCommand(plugin));
+        registerSubCommand(new ListCommand(plugin));
+        registerSubCommand(new InfoCommand(plugin));
+        registerSubCommand(new ReloadCommand(plugin));
     }
 
-    /**
-     * Hàm phụ trợ gom khóa chữ thường để đăng ký lệnh an toàn vùng nhớ
-     */
     private void registerSubCommand(SubCommand cmd) {
-        this.subCommands.put(cmd.getName().toLowerCase(), cmd);
+        subCommands.put(cmd.getName().toLowerCase(), cmd);
     }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        MessageManager msgManager = plugin.getConfigManager().getMessages();
+        MessageManager messages = plugin.getConfigManager().getMessages();
 
-        // Trường hợp người dùng gõ lệnh trống: /sproof -> Tự động in bảng trợ giúp hướng dẫn
         if (args.length == 0) {
-            this.sendHelpMessage(sender, msgManager);
+            sendHelp(sender);
             return true;
         }
 
-        // Lấy trực tiếp lớp thực thi lệnh con từ Map chỉ trong 1 thao tác (Tốc độ tối đa)
         String subName = args[0].toLowerCase();
-        SubCommand sub = this.subCommands.get(subName);
+        SubCommand sub = subCommands.get(subName);
 
-        // Trường hợp gõ sai tên sub-command
         if (sub == null) {
-            sender.sendMessage(msgManager.getMessage("system.unknown-command"));
+            sender.sendMessage(messages.getMessage("system.unknown-command"));
             return true;
         }
 
-        // Kiểm tra phân quyền an toàn bảo mật hệ thống
         if (!sender.hasPermission(sub.getPermission())) {
-            sender.sendMessage(msgManager.getMessage("system.no-permission"));
+            sender.sendMessage(messages.getMessage("system.no-permission"));
             return true;
         }
 
-        // Ủy quyền thực thi cho lớp con biệt lập xử lý
         try {
             sub.execute(sender, args);
         } catch (Exception e) {
-            sender.sendMessage(msgManager.getOnlyMessage("system.prefix") + "§cĐã xảy ra lỗi cục bộ khi thực thi lệnh này!");
-            plugin.getLogger().severe("Lỗi thực thi lệnh con '/sproof " + subName + "': " + e.getMessage());
+            sender.sendMessage(messages.getOnlyMessage("system.prefix") +
+                    "§cAn error occurred while executing this command.");
+            plugin.getLogger().severe("Error executing subcommand '/sproof " + subName + "':");
             e.printStackTrace();
         }
         return true;
@@ -82,19 +76,17 @@ public class CommandManager implements CommandExecutor, TabCompleter {
 
         String input = args[0].toLowerCase();
 
-        // Xử lý Gợi ý cấp 1: Hiển thị danh sách các tên lệnh con (/sproof [Gợi ý tại đây])
+        // First argument: suggest subcommand names
         if (args.length == 1) {
-            List<String> completions = new ArrayList<>();
-            for (SubCommand sub : this.subCommands.values()) {
-                if (sub.getName().toLowerCase().startsWith(input) && sender.hasPermission(sub.getPermission())) {
-                    completions.add(sub.getName());
-                }
-            }
-            return completions;
+            return subCommands.values().stream()
+                    .filter(sub -> sub.getName().toLowerCase().startsWith(input))
+                    .filter(sub -> sender.hasPermission(sub.getPermission()))
+                    .map(SubCommand::getName)
+                    .collect(Collectors.toList());
         }
 
-        // Xử lý Gợi ý cấp 2+: Chuyển tiếp (Delegate) quyền gợi ý tham số sâu hơn cho chính lớp SubCommand đó tự lo
-        SubCommand sub = this.subCommands.get(input);
+        // Delegate to the subcommand for further arguments
+        SubCommand sub = subCommands.get(input);
         if (sub != null && sender.hasPermission(sub.getPermission())) {
             return sub.tabComplete(sender, args);
         }
@@ -103,31 +95,30 @@ public class CommandManager implements CommandExecutor, TabCompleter {
     }
 
     /**
-     * Dựng bảng menu hướng dẫn tự động hóa đa ngôn ngữ trích xuất trực tiếp từ file messages.yml
+     * Sends the formatted help message to the sender.
      */
-    private void sendHelpMessage(CommandSender sender, MessageManager msgManager) {
-        // Chỉ in tiêu đề dạng text thô, không kèm prefix hệ thống để giao diện cân đối, vuông vắn
-        sender.sendMessage(msgManager.getOnlyMessage("commands.help.header"));
+    private void sendHelp(CommandSender sender) {
+        MessageManager messages = plugin.getConfigManager().getMessages();
 
-        for (SubCommand sub : this.subCommands.values()) {
-            if (sender.hasPermission(sub.getPermission())) {
-                // Rút chuỗi mô tả động tương ứng với tên của sub-command trong file cấu hình ngôn ngữ
-                String descPath = "commands.help.list." + sub.getName().toLowerCase();
-                String description = msgManager.getOnlyMessage(descPath);
+        sender.sendMessage(messages.getOnlyMessage("commands.help.header"));
 
-                // Nếu lỡ quên chưa cấu hình dòng dịch trong file, lấy tạm mô tả mặc định cứng trong mã nguồn Java
-                if (description.startsWith("§cMissing")) {
-                    description = sub.getDescription();
-                }
-
-                // Ghép nối cấu trúc hiển thị chuẩn hóa
-                String helpLine = msgManager.getOnlyMessage("commands.help.format")
-                        .replace("%syntax%", sub.getSyntax())
-                        .replace("%description%", description);
-
-                sender.sendMessage(helpLine);
+        for (SubCommand sub : subCommands.values()) {
+            if (!sender.hasPermission(sub.getPermission())) {
+                continue;
             }
+
+            String descPath = "commands.help.list." + sub.getName().toLowerCase();
+            String description = messages.getOnlyMessage(descPath);
+            if (description.startsWith("§cMissing")) {
+                description = sub.getDescription();
+            }
+
+            String line = messages.getOnlyMessage("commands.help.format")
+                    .replace("%syntax%", sub.getSyntax())
+                    .replace("%description%", description);
+            sender.sendMessage(line);
         }
-        sender.sendMessage(msgManager.getOnlyMessage("commands.help.footer"));
+
+        sender.sendMessage(messages.getOnlyMessage("commands.help.footer"));
     }
 }

@@ -8,70 +8,104 @@
 #                                                 /_/                                  #
 #                                                                                      #
 #                         FOZMINESPROOF GLOBAL CONFIGURATION                           #
-#          Hệ thống quản lý FakePlayer tối ưu hiệu năng và chống lag TPS               #
+#          Optimised FakePlayer management system with minimal TPS impact              #
 #              Dev: phantam                                                            #
 #                                                                                      #
 # ######################################################################################
 
-# Cấu hình kết nối Cơ sở dữ liệu SQL
+# ================================================================================= #
+#                       DATABASE CONNECTION SETTINGS                                 #
+# ================================================================================= #
 Database:
+  # Enable MySQL database (false = use SQLite file-based storage)
   enable: false
-  # Tên bảng dữ liệu động (Tự động lọc bỏ ký tự đặc biệt độc hại)
+
+  # Table name for storing fake player data (auto-sanitised)
   name: ""
-  # Tên cơ sở dữ liệu trên hệ thống hosting
+
+  # Database name (for MySQL)
   database: ""
-  # Địa chỉ IP hoặc Domain kết nối đến máy chủ MySQL
+
+  # Database host (IP or domain)
   host: ""
-  # Cổng kết nối mặc định của MySQL
+
+  # Database port (default MySQL: 3306)
   port: 3306
-  # Tài khoản và mật khẩu truy cập dữ liệu
+
+  # Credentials
   user: ""
   password: ""
 
-  # Cấu hình kết nối với hệ thống Proxy (BungeeCord / Velocity)
+  # Proxy (BungeeCord / Velocity) bridging settings
   bridging-setting:
-    # true: Cho phép plugin FozmineSproof-bridge trên Proxy truy cập vào bảng này để lấy dữ liệu bot và cộng dồn.
-    # false: Khóa/Không cho phép Proxy đọc dữ liệu từ bảng này.
+    # Enable to allow the FozmineSproof-bridge plugin on the proxy to access this table
+    # and aggregate bot data across multiple servers.
     enable-proxy: false
-    # lấy name bungee
+
+    # Name of the bungee server (used as a key in the proxy sync table)
     bungee_name: "fozminesproof"
 
-# Cấu hình hành vi và thuộc tính hiển thị của FakePlayer
+# ================================================================================= #
+#                       FAKE PLAYER BEHAVIOR SETTINGS                               #
+# ================================================================================= #
 Fakeplayer-setting:
-  # Tên thế giới Void trống rỗng chuyên dụng để sinh bot ngầm định
+  # Name of the dedicated void world where bots will be spawned
   botworld: "botworld"
-  
-  # Bật/Tắt thông báo tin nhắn Join/Leave toàn hệ thống server khi bot nạp
+
+  # Show join/leave messages for bots in the global chat
   join-leave-message-enable: true
-  
-  # Khoảng thời gian giãn cách ngẫu nhiên khi sử dụng lệnh nạp/thu hồi loạt bằng dấu '*'
-  # Định dạng: 'min-max' tính bằng giây (Ví dụ: 0-1 giây)
+
+  # Random delay range (in seconds) between bulk spawn/despawn operations
+  # Format: "min-max" (e.g., "1-3" means 1 to 3 seconds)
   join-quit-interval: "1-3"
-  
-  # Nội dung thông báo hiển thị (Hỗ trợ mã màu & %fakeplayer_name%)
+
+  # Join and leave message formats (supports color codes & and %fakeplayer_name%)
   join-message: "&8[&a+&8] &e%fakeplayer_name%"
   leave-message: "&8[&a+&8] &e%fakeplayer_name%"
 
 # ================================================================================= #
-#                       FAKE PLAYER CHAT SYSTEM CONFIGURATION                       #
+#                       FAKE PLAYER CHAT SYSTEM                                     #
 # ================================================================================= #
 chat-system:
+  # Master toggle for the automatic chat system
   enabled: true
-  translation-target: "vi"
+
+  # Target language for message translation (e.g., "vi", "ja", "fr", or "none" to disable)
+  translation-target: "en"
+
+  # How often a chat cycle starts (minutes). Use "0-0" for immediate testing.
+  # Format: "min-max" for random range, or a single number for fixed interval
   interval-minutes: "0-0"
+
+  # Number of bots that will speak per cycle (random range or fixed)
   bots-per-interval: "1-1"
+
+  # Delay between each bot's message in the same cycle (seconds)
   delay-between-bots-seconds: "0-0"
+
+  # Custom message formatting (toggle on/off)
   message-format:
+    # If true, the plugin applies its own chat/tab format.
+    # If false, it delegates formatting to other chat plugins (e.g., LPC, EssentialsX).
     enable: false
+
+    # Chat format used when message-format is enabled
     chat-format: "&7[&a%fakeplayer_name%&7]&f: %fakeplayer_message%"
+
+    # Tablist format used when message-format is enabled
     tab-format: "%fake_vault_prefix%&f%fakeplayer_name%"
 
 # ================================================================================= #
-#                       PLACEHOLDERAPI EXTRA EXPANSION                             #
+#                       PLACEHOLDERAPI EXTRA EXPANSION                              #
 # ================================================================================= #
-# Danh sách các biến PAPI gốc muốn đánh lừa thông qua cầu nối %fake_<biến_gốc>%
-# Khi người chơi gọi %fake_server_online%, plugin sẽ lấy số người thật cộng dồn với số bot online
-# CHỈ SỬ DỤNG KHI BIẾN PAPI KHÔNG TRA VỀ ĐƯỢC GIÁ TRỊ BOT + PLAYER
+# This list defines which PlaceholderAPI placeholders should be intercepted
+# and augmented with fake player counts.
+#
+# When a player uses %fake_<placeholder>%, the plugin will:
+#   - Return the original placeholder's value (real players) + number of fake players
+#   - Useful for placeholders that do not automatically include NPCs
+#
+# Example: %fake_server_online% will return real player count + bot count
 parse-papi:
   - "server_online"
   - "bungee_lobby"

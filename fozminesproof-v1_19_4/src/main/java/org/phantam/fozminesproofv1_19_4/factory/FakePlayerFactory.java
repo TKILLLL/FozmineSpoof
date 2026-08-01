@@ -10,27 +10,49 @@ import org.phantam.fozminesproofv1_19_4.network.FakeNetworkManager;
 import org.phantam.fozminesproofv1_19_4.network.FakeServerGamePacketListenerImpl;
 
 import java.util.UUID;
+import java.util.logging.Level;
 
-public class FakePlayerFactory {
+/**
+ * Factory for creating fully initialised fake ServerPlayer instances.
+ * Sets up a fake network connection and injects a custom packet listener.
+ */
+public final class FakePlayerFactory {
+
+    private FakePlayerFactory() {
+        throw new UnsupportedOperationException("Utility class cannot be instantiated");
+    }
 
     /**
-     * Khởi tạo đối tượng ServerPlayer với kết nối mạng giả lập hoàn chỉnh
+     * Creates a fake player instance with a complete network simulation.
+     *
+     * @param server the Minecraft server instance
+     * @param level  the target world
+     * @param name   the player's name
+     * @param uuid   the player's UUID
+     * @param loc    spawn location
+     * @return a fully configured ServerPlayer (fake)
      */
-    public static ServerPlayer create(MinecraftServer server, ServerLevel level, String name, UUID uuid, Location loc) {
+    public static ServerPlayer create(MinecraftServer server, ServerLevel level,
+                                      String name, UUID uuid, Location loc) {
         GameProfile profile = new GameProfile(uuid, name);
 
+        // Attempt to fetch skin properties from Mojang API
         try {
             profile = server.getSessionService().fillProfileProperties(profile, true);
         } catch (Exception e) {
-            Bukkit.getLogger().warning("[Fozminesproof] Khong the tu dong tai skin cho " + name + " do loi ket noi Mojang!");
+            Bukkit.getLogger().log(Level.WARNING,
+                    "[FakePlayerFactory] Failed to fetch skin for " + name +
+                            ". Using default/offline skin.");
         }
 
+        // Create the custom player instance
         ServerPlayer fakePlayer = new FakeServerPlayer(server, level, profile);
 
+        // Inject fake network components
         FakeNetworkManager networkManager = new FakeNetworkManager();
-
         fakePlayer.connection = new FakeServerGamePacketListenerImpl(server, networkManager, fakePlayer);
 
+        // Set position and rotation
         fakePlayer.setPos(loc.getX(), loc.getY(), loc.getZ());
         fakePlayer.setRot(loc.getYaw(), loc.getPitch());
 

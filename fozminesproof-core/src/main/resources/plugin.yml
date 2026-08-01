@@ -2,7 +2,7 @@ name: fozminesproof-core
 version: '@version@'
 main: org.phantam.fozminesproofcore.FozmineSproofCore
 api-version: "1.19"
-description: A fakeplayer plugin
+description: Advanced fake player management system with minimal TPS impact
 author: phantam
 
 dependencies:
@@ -13,7 +13,7 @@ dependencies:
 
 commands:
   sproof:
-    description: Lệnh điều khiển chính của plugin FozmineSproof.
+    description: Main command for the FozmineSproof fake player system.
     aliases:
       - fsproof
       - fakeplayers
@@ -23,9 +23,9 @@ commands:
       - fakeplayer
       - fozminesproof
     permission: fozminesproof.admin
-    usage: /<command> [spawn|remove] <tên>
+    usage: /<command> [spawn|remove] <name>
 
 permissions:
   fozminesproof.admin:
-    description: Cho phép sử dụng toàn bộ hệ thống lệnh của FozmineSproof.
+    description: Grants full access to all FozmineSproof commands.
     default: op

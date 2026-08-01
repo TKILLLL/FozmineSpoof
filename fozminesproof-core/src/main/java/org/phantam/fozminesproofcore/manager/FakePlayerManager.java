@@ -1,4 +1,4 @@
-package org.phantam.fozminesproofcore.database;
+package org.phantam.fozminesproofcore.manager;
 
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -7,11 +7,16 @@ import org.phantam.fozminesproofapi.model.FakePlayerData;
 import org.phantam.fozminesproofapi.database.IFakePlayerDatabase;
 import org.phantam.fozminesproofcore.FozmineSproofCore;
 import org.phantam.fozminesproofcore.chat.FakePlayerBroadcaster;
-import org.phantam.fozminesproofcore.database.actions.*;
+import org.phantam.fozminesproofcore.database.executors.*;
 
 import java.util.Collection;
 import java.util.function.Consumer;
+import java.util.logging.Level;
 
+/**
+ * Central manager for fake player operations.
+ * Orchestrates actions (add, spawn, despawn, remove, reload) and maintains the registry.
+ */
 public class FakePlayerManager {
 
     private final IFakePlayerDatabase database;
@@ -35,15 +40,18 @@ public class FakePlayerManager {
         this.reloadAction = new ReloadSystemAction(plugin, database, registry);
     }
 
-    // --- HÀNH ĐỘNG ĐỒNG BỘ (giữ nguyên để tương thích) ---
+    // --- Synchronous actions (for backward compatibility) ---
 
-    public void addBot(String name, Location loc) {
-        addAction.execute(new AddBotAction.Request(name, loc));
+    public void addBot(String name, Location location) {
+        addAction.execute(new AddBotAction.Request(name, location));
     }
 
     /**
-     * Phương thức spawn đồng bộ (blocking) – dùng CompletableFuture với timeout.
-     * Khuyến cáo dùng spawnBotAsync để tránh lag.
+     * Synchronous spawn with a 5-second timeout.
+     * Prefer using {@link #spawnBotAsync(String, Consumer)} to avoid blocking the main thread.
+     *
+     * @param name bot name
+     * @return true if spawned within timeout
      */
     public boolean spawnBot(String name) {
         java.util.concurrent.CompletableFuture<Boolean> future = new java.util.concurrent.CompletableFuture<>();
@@ -56,7 +64,10 @@ public class FakePlayerManager {
     }
 
     /**
-     * Phương thức spawn bất đồng bộ – gọi AsyncPlayerPreLoginEvent từ luồng async.
+     * Asynchronously spawns a bot.
+     *
+     * @param name     bot name
+     * @param callback callback with success flag
      */
     public void spawnBotAsync(String name, Consumer<Boolean> callback) {
         spawnAction.executeAsync(name, callback);
@@ -74,7 +85,7 @@ public class FakePlayerManager {
         reloadAction.execute(null);
     }
 
-    // --- TRUY VẤN ---
+    // --- Queries ---
 
     public Player getOnlineBotEntity(String name) {
         return registry.getEntity(name);
@@ -92,84 +103,96 @@ public class FakePlayerManager {
         return registry.isOnline(name);
     }
 
-    // --- SHUTDOWN ---
+    // --- Shutdown ---
 
+    /**
+     * Despawns all currently online bots during plugin shutdown.
+     * Waits briefly for database operations to complete.
+     */
     public void despawnAllOnShutdown() {
         Collection<FakePlayerData> onlineData = this.getOnlineBotsData();
-        if (onlineData == null || onlineData.isEmpty()) return;
+        if (onlineData == null || onlineData.isEmpty()) {
+            return;
+        }
 
         java.util.List<FakePlayerData> targetBots = new java.util.ArrayList<>(onlineData);
-        org.bukkit.Bukkit.getLogger().info("[FozmineSproof] Phát hiện " + targetBots.size() + " bot đang hoạt động. Tiến hành thu hồi khẩn cấp...");
+        org.bukkit.Bukkit.getLogger().log(Level.INFO,
+                "[FozmineSproof] Found " + targetBots.size() + " online bots. Despawning...");
 
         for (FakePlayerData bot : targetBots) {
             if (bot == null || bot.getName() == null) continue;
             boolean success = this.despawnBot(bot.getName());
-            if (success) {
-                org.bukkit.Bukkit.getLogger().info(" [Shutdown Cleanup] -> Đang ngắt kết nối: " + bot.getName() + " (Thành công)");
-            } else {
-                org.bukkit.Bukkit.getLogger().warning(" [Shutdown Cleanup] -> Đang ngắt kết nối: " + bot.getName() + " (Thất bại)");
-            }
+            String status = success ? "Success" : "Failed";
+            org.bukkit.Bukkit.getLogger().log(success ? Level.INFO : Level.WARNING,
+                    "[Shutdown Cleanup] -> " + bot.getName() + " (" + status + ")");
         }
 
         try {
-            org.bukkit.Bukkit.getLogger().info("[FozmineSproof] Đang đợi dữ liệu SQL đồng bộ hoàn tất...");
+            org.bukkit.Bukkit.getLogger().log(Level.INFO,
+                    "[FozmineSproof] Waiting for SQL sync...");
             Thread.sleep(600);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
     }
 
-    // --- STARTUP ---
+    // --- Startup ---
 
+    /**
+     * Spawns all offline bots during plugin startup with staggered delays.
+     *
+     * @param configManager the config manager for interval settings
+     */
     public void spawnAllOnStartup(org.phantam.fozminesproofcore.config.ConfigManager configManager) {
         if (configManager == null) return;
 
-        java.util.List<String> allOfflineBots = this.getAllDatabaseBots().stream()
+        java.util.List<String> offlineNames = this.getAllDatabaseBots().stream()
                 .map(FakePlayerData::getName)
                 .filter(name -> !this.isBotOnline(name))
                 .collect(java.util.stream.Collectors.toList());
 
-        if (allOfflineBots.isEmpty()) {
-            org.bukkit.Bukkit.getLogger().info("[FozmineSproof] Không tìm thấy dữ liệu Bot nào dưới Database để nạp.");
+        if (offlineNames.isEmpty()) {
+            org.bukkit.Bukkit.getLogger().log(Level.INFO,
+                    "[FozmineSproof] No offline bots found to spawn.");
             return;
         }
 
-        org.bukkit.Bukkit.getLogger().info("[FozmineSproof] Phát hiện " + allOfflineBots.size()
-                + " Bot trong cơ sở dữ liệu. Bắt đầu xếp hàng nạp tự động...");
+        org.bukkit.Bukkit.getLogger().log(Level.INFO,
+                "[FozmineSproof] Found " + offlineNames.size() +
+                        " offline bots. Starting staggered spawn...");
 
-        java.util.Queue<String> startupQueue = new java.util.LinkedList<>(allOfflineBots);
+        java.util.Queue<String> queue = new java.util.LinkedList<>(offlineNames);
 
         new BukkitRunnable() {
             @Override
             public void run() {
-                if (startupQueue.isEmpty()) {
-                    org.bukkit.Bukkit.getLogger().info("[FozmineSproof] Đã hoàn tất tiến trình tự động phục hồi toàn bộ Bot khỏi hàng đợi khởi động!");
+                if (queue.isEmpty()) {
+                    org.bukkit.Bukkit.getLogger().log(Level.INFO,
+                            "[FozmineSproof] Startup spawn queue completed.");
                     return;
                 }
 
-                String nextBot = startupQueue.poll();
+                String next = queue.poll();
 
-                if (!isBotOnline(nextBot)) {
-                    spawnBotAsync(nextBot, success -> {
-                        if (success) {
-                            org.bukkit.Bukkit.getLogger().info(" [Startup Spawn] -> Đang nạp lại: " + nextBot + " (Thành công)");
-                        } else {
-                            org.bukkit.Bukkit.getLogger().warning(" [Startup Spawn] -> Đang nạp lại: " + nextBot + " (Thất bại)");
-                        }
+                if (!isBotOnline(next)) {
+                    spawnBotAsync(next, success -> {
+                        String status = success ? "Success" : "Failed";
+                        org.bukkit.Bukkit.getLogger().log(success ? Level.INFO : Level.WARNING,
+                                "[Startup Spawn] -> " + next + " (" + status + ")");
                     });
                 }
 
-                if (!startupQueue.isEmpty()) {
-                    long nextDelayTicks = configManager.getJoinQuitIntervalTicks();
-                    if (nextDelayTicks <= 0) nextDelayTicks = 20L;
+                if (!queue.isEmpty()) {
+                    long delay = configManager.getJoinQuitIntervalTicks();
+                    if (delay <= 0) delay = 20L;
 
-                    final BukkitRunnable currentTask = this;
+                    final BukkitRunnable current = this;
                     new BukkitRunnable() {
                         @Override
                         public void run() {
-                            currentTask.run();
+                            current.run();
                         }
-                    }.runTaskLater(org.bukkit.Bukkit.getPluginManager().getPlugin("fozminesproof-core"), nextDelayTicks);
+                    }.runTaskLater(org.bukkit.Bukkit.getPluginManager().getPlugin("fozminesproof-core"), delay);
                 }
             }
         }.runTaskLater(org.bukkit.Bukkit.getPluginManager().getPlugin("fozminesproof-core"), 40L);

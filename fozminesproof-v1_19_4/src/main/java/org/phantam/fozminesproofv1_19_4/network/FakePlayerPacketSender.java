@@ -13,6 +13,10 @@ import net.minecraft.server.players.PlayerList;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Broadcasts packets to all real players to show or hide a fake player.
+ * Excludes the fake player itself to prevent recursive packet loops.
+ */
 public class FakePlayerPacketSender {
 
     private final PlayerList playerList;
@@ -22,26 +26,33 @@ public class FakePlayerPacketSender {
     }
 
     /**
-     * Phát chuỗi gói tin hiển thị NPC ra toàn Server và ép hiển thị trên Tablist
+     * Sends all packets required to display a fake player to every real player.
+     * Includes tablist entry, entity spawn, and head rotation.
+     *
+     * @param fakePlayer the fake player to show
+     * @param name       the player name (unused but kept for clarity)
      */
     public void sendSpawnPackets(ServerPlayer fakePlayer, String name) {
-        // VÁ LỖI BIÊN DỊCH: Sử dụng phương thức tĩnh có sẵn trong mã nguồn bạn cung cấp để tạo gói tin khởi tạo Player
-        ClientboundPlayerInfoUpdatePacket tabPacket = ClientboundPlayerInfoUpdatePacket.createPlayerInitializing(List.of(fakePlayer));
+        ClientboundPlayerInfoUpdatePacket tabPacket =
+                ClientboundPlayerInfoUpdatePacket.createPlayerInitializing(List.of(fakePlayer));
 
-        // Tạo gói tin sinh khối thực thể mô hình 3D
         ClientboundAddEntityPacket spawnPacket = new ClientboundAddEntityPacket(fakePlayer);
 
-        // VÁ LỖI QUAY ĐẦU: Tạo gói tin ép góc nhìn của đầu Bot trùng khớp với cơ thể
-        ClientboundRotateHeadPacket rotateHeadPacket = new ClientboundRotateHeadPacket(fakePlayer, (byte) (fakePlayer.getYRot() * 256.0F / 360.0F));
+        ClientboundRotateHeadPacket headPacket =
+                new ClientboundRotateHeadPacket(fakePlayer,
+                        (byte) (fakePlayer.getYRot() * 256.0F / 360.0F));
 
-        // Gửi đồng loạt chuỗi dữ liệu tới toàn bộ người chơi thực tế đang trực tuyến
         broadcastExcept(fakePlayer.getUUID(), tabPacket);
         broadcastExcept(fakePlayer.getUUID(), spawnPacket);
-        broadcastExcept(fakePlayer.getUUID(), rotateHeadPacket);
+        broadcastExcept(fakePlayer.getUUID(), headPacket);
     }
 
     /**
-     * Phát chuỗi gói tin hủy bỏ NPC khỏi thế giới và xóa tên khỏi Tablist
+     * Sends packets to remove a fake player from all real players' client.
+     * Cleans up both the entity and the tablist entry.
+     *
+     * @param uuid     the UUID of the fake player
+     * @param entityId the entity ID of the fake player
      */
     public void sendDespawnPackets(UUID uuid, int entityId) {
         ClientboundRemoveEntitiesPacket destroyPacket = new ClientboundRemoveEntitiesPacket(entityId);
@@ -52,18 +63,21 @@ public class FakePlayerPacketSender {
     }
 
     /**
-     * Hàm phụ trợ phân phát Packet mạng đến mọi người chơi thực tế trừ Bot
+     * Broadcasts a packet to all real players except the one with the given UUID.
+     * Skips players whose connection uses an EmbeddedChannel (i.e., fake players).
+     *
+     * @param excludedUuid the UUID to exclude
+     * @param packet       the packet to send
      */
     private void broadcastExcept(UUID excludedUuid, Packet<?> packet) {
-        for (ServerPlayer realPlayer : playerList.players) {
-            if (realPlayer == null) continue;
+        for (ServerPlayer player : playerList.players) {
+            if (player == null) continue;
+            if (player.getUUID().equals(excludedUuid)) continue;
 
-            if (realPlayer.getUUID().equals(excludedUuid)) continue;
-
-            if (realPlayer.connection != null && realPlayer.connection.connection != null) {
-                // Kiểm tra chống gửi ngược gói tin vào mạng ảo EmbeddedChannel của Bot gây tràn bộ nhớ RAM ảo
-                if (!(realPlayer.connection.connection.channel instanceof EmbeddedChannel)) {
-                    realPlayer.connection.send(packet);
+            if (player.connection != null && player.connection.connection != null) {
+                // Never send packets back into an embedded channel (fake connection)
+                if (!(player.connection.connection.channel instanceof EmbeddedChannel)) {
+                    player.connection.send(packet);
                 }
             }
         }

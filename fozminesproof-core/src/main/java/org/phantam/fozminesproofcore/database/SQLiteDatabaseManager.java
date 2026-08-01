@@ -6,7 +6,12 @@ import org.phantam.fozminesproofapi.model.FakePlayerData;
 
 import java.sql.*;
 import java.util.*;
+import java.util.logging.Level;
 
+/**
+ * SQLite-based implementation of the fake player database.
+ * Lightweight, file-based storage suitable for single-server setups.
+ */
 public class SQLiteDatabaseManager implements IFakePlayerDatabase {
 
     private final String dbPath;
@@ -23,10 +28,12 @@ public class SQLiteDatabaseManager implements IFakePlayerDatabase {
         try {
             Class.forName("org.sqlite.JDBC");
             this.connection = DriverManager.getConnection("jdbc:sqlite:" + dbPath);
-            this.createTable();
+            createTable();
+            Bukkit.getLogger().log(Level.INFO,
+                    "[SQLiteDatabaseManager] SQLite connection established.");
         } catch (Exception e) {
-            Bukkit.getLogger().severe("❌ Lỗi khởi tạo kết nối SQLite: " + e.getMessage());
-            e.printStackTrace();
+            Bukkit.getLogger().log(Level.SEVERE,
+                    "[SQLiteDatabaseManager] Failed to initialize SQLite: " + e.getMessage(), e);
         }
     }
 
@@ -42,15 +49,12 @@ public class SQLiteDatabaseManager implements IFakePlayerDatabase {
                 "pitch REAL NOT NULL, " +
                 "is_active INTEGER DEFAULT 0" +
                 ");";
-
         try (Statement stmt = connection.createStatement()) {
             stmt.execute(sql);
-            // Tạo index riêng
-            String indexSql = "CREATE INDEX IF NOT EXISTS idx_active ON " + tableName + " (is_active);";
-            stmt.execute(indexSql);
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_active ON " + tableName + " (is_active);");
         } catch (SQLException e) {
-            Bukkit.getLogger().severe("❌ Lỗi tạo bảng SQLite '" + tableName + "': " + e.getMessage());
-            e.printStackTrace();
+            Bukkit.getLogger().log(Level.SEVERE,
+                    "[SQLiteDatabaseManager] Failed to create table: " + e.getMessage(), e);
         }
     }
 
@@ -59,9 +63,12 @@ public class SQLiteDatabaseManager implements IFakePlayerDatabase {
         try {
             if (connection != null && !connection.isClosed()) {
                 connection.close();
+                Bukkit.getLogger().log(Level.INFO,
+                        "[SQLiteDatabaseManager] SQLite connection closed.");
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            Bukkit.getLogger().log(Level.WARNING,
+                    "[SQLiteDatabaseManager] Error closing connection: " + e.getMessage(), e);
         }
     }
 
@@ -70,11 +77,10 @@ public class SQLiteDatabaseManager implements IFakePlayerDatabase {
         String query = "INSERT OR REPLACE INTO " + tableName +
                 " (name, uuid, world, x, y, z, yaw, pitch, is_active) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);";
-
         try (PreparedStatement ps = connection.prepareStatement(query)) {
             ps.setString(1, data.getName());
             ps.setString(2, data.getUuid().toString());
-            ps.setString(3, data.getWorld());
+            ps.setString(3, data.getWorldName());
             ps.setDouble(4, data.getX());
             ps.setDouble(5, data.getY());
             ps.setDouble(6, data.getZ());
@@ -83,7 +89,8 @@ public class SQLiteDatabaseManager implements IFakePlayerDatabase {
             ps.setInt(9, data.isActive() ? 1 : 0);
             ps.executeUpdate();
         } catch (SQLException e) {
-            Bukkit.getLogger().severe("⚠ Lỗi ghi dữ liệu FakePlayer '" + data.getName() + "': " + e.getMessage());
+            Bukkit.getLogger().log(Level.SEVERE,
+                    "[SQLiteDatabaseManager] Error saving bot '" + data.getName() + "': " + e.getMessage(), e);
         }
     }
 
@@ -98,7 +105,8 @@ public class SQLiteDatabaseManager implements IFakePlayerDatabase {
                 }
             }
         } catch (SQLException e) {
-            Bukkit.getLogger().warning("⚠ Lỗi khi truy vấn thông tin bot '" + name + "': " + e.getMessage());
+            Bukkit.getLogger().log(Level.WARNING,
+                    "[SQLiteDatabaseManager] Error loading bot '" + name + "': " + e.getMessage(), e);
         }
         return Optional.empty();
     }
@@ -113,7 +121,8 @@ public class SQLiteDatabaseManager implements IFakePlayerDatabase {
                 list.add(mapResultSet(rs));
             }
         } catch (SQLException e) {
-            Bukkit.getLogger().warning("⚠ Lỗi khi tải toàn bộ danh sách FakePlayer từ SQLite: " + e.getMessage());
+            Bukkit.getLogger().log(Level.WARNING,
+                    "[SQLiteDatabaseManager] Error loading all bots: " + e.getMessage(), e);
         }
         return Collections.unmodifiableList(list);
     }
@@ -125,64 +134,60 @@ public class SQLiteDatabaseManager implements IFakePlayerDatabase {
             ps.setString(1, name);
             ps.executeUpdate();
         } catch (SQLException e) {
-            Bukkit.getLogger().warning("⚠ Lỗi khi xóa dữ liệu bot '" + name + "': " + e.getMessage());
+            Bukkit.getLogger().log(Level.WARNING,
+                    "[SQLiteDatabaseManager] Error deleting bot '" + name + "': " + e.getMessage(), e);
         }
     }
 
     @Override
     public int getActiveBotCount() {
-        String sql = "SELECT COUNT(*) FROM " + tableName + " WHERE is_active = 1;";
-        try (Statement stmt = connection.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
-            if (rs.next()) {
-                return rs.getInt(1);
-            }
-        } catch (SQLException e) {
-            Bukkit.getLogger().severe("❌ Lỗi khi đếm số lượng Active Bot: " + e.getMessage());
-        }
-        return 0;
+        return countBots(true);
     }
 
     @Override
-    public int getDeactiveBotCount() {
-        String sql = "SELECT COUNT(*) FROM " + tableName + " WHERE is_active = 0;";
-        try (Statement stmt = connection.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
-            if (rs.next()) {
-                return rs.getInt(1);
-            }
-        } catch (SQLException e) {
-            Bukkit.getLogger().severe("❌ Lỗi khi đếm số lượng Deactive Bot: " + e.getMessage());
-        }
-        return 0;
+    public int getInactiveBotCount() {
+        return countBots(false);
     }
 
     @Override
-    public void sendProxySyncData(String bungee_name, String name, int activeBot, int deactiveBot) {
-        // SQLite không hỗ trợ UPSERT trực tiếp, dùng INSERT OR REPLACE
-        String sql = "INSERT OR REPLACE INTO " + bungee_name + " (name, active_bot, deactive_bot) " +
-                "VALUES (?, ?, ?);";
+    public void sendProxySyncData(String bungeeName, String name, int activeCount, int inactiveCount) {
+        String sql = "INSERT OR REPLACE INTO " + bungeeName +
+                " (name, active_bot, deactive_bot) VALUES (?, ?, ?);";
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, name);
-            ps.setInt(2, activeBot);
-            ps.setInt(3, deactiveBot);
+            ps.setInt(2, activeCount);
+            ps.setInt(3, inactiveCount);
             ps.executeUpdate();
         } catch (SQLException e) {
-            Bukkit.getLogger().severe("❌ Lỗi khi đồng bộ dữ liệu Proxy: " + e.getMessage());
+            Bukkit.getLogger().log(Level.SEVERE,
+                    "[SQLiteDatabaseManager] Error syncing proxy data: " + e.getMessage(), e);
         }
     }
 
     private FakePlayerData mapResultSet(ResultSet rs) throws SQLException {
-        return new FakePlayerData(
-                rs.getString("name"),
-                UUID.fromString(rs.getString("uuid")),
-                rs.getString("world"),
-                rs.getDouble("x"),
-                rs.getDouble("y"),
-                rs.getDouble("z"),
-                (float) rs.getDouble("yaw"),
-                (float) rs.getDouble("pitch"),
-                rs.getInt("is_active") == 1
-        );
+        return new FakePlayerData.Builder()
+                .name(rs.getString("name"))
+                .uuid(UUID.fromString(rs.getString("uuid")))
+                .world(rs.getString("world"))
+                .location(rs.getDouble("x"), rs.getDouble("y"), rs.getDouble("z"),
+                        (float) rs.getDouble("yaw"), (float) rs.getDouble("pitch"))
+                .active(rs.getInt("is_active") == 1)
+                .build();
+    }
+
+    private int countBots(boolean active) {
+        String sql = "SELECT COUNT(*) FROM " + tableName + " WHERE is_active = ?;";
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setInt(1, active ? 1 : 0);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                }
+            }
+        } catch (SQLException e) {
+            Bukkit.getLogger().log(Level.SEVERE,
+                    "[SQLiteDatabaseManager] Error counting " + (active ? "active" : "inactive") + " bots: " + e.getMessage(), e);
+        }
+        return 0;
     }
 }

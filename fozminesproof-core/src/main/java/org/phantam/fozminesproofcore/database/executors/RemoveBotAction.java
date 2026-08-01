@@ -1,8 +1,14 @@
-package org.phantam.fozminesproofcore.database.actions;
+package org.phantam.fozminesproofcore.database.executors;
 
 import org.phantam.fozminesproofapi.database.IFakePlayerDatabase;
 
+import java.util.logging.Level;
+
+/**
+ * Permanently removes a bot from both the world and the database.
+ */
 public class RemoveBotAction implements org.phantam.fozminesproofapi.action.IBotAction<String, Boolean> {
+
     private final IFakePlayerDatabase database;
     private final DespawnBotAction despawnAction;
 

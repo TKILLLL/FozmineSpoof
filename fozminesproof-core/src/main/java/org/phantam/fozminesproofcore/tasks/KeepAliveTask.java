@@ -3,6 +3,12 @@ package org.phantam.fozminesproofcore.tasks;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.phantam.fozminesproofcore.FozmineSproofCore;
 
+import java.util.logging.Level;
+
+/**
+ * Periodically sends keep-alive packets to refresh fake player visibility.
+ * This prevents client-side desync issues when players log in/out.
+ */
 public class KeepAliveTask extends BukkitRunnable {
 
     private final FozmineSproofCore plugin;
@@ -13,17 +19,19 @@ public class KeepAliveTask extends BukkitRunnable {
 
     @Override
     public void run() {
-        // Kiểm tra an toàn: Nếu plugin bị tắt hoặc Bridge bị dọn dẹp đột ngột, tự hủy nhiệm vụ ngầm
+        // Safety check: cancel if plugin is disabled or bridge is unavailable
         if (!plugin.isEnabled() || plugin.getBridge() == null) {
+            plugin.getLogger().log(Level.INFO,
+                    "[KeepAliveTask] Plugin disabled or bridge missing. Cancelling task.");
             this.cancel();
             return;
         }
 
         try {
-            // Đẩy gói tin làm mới hiển thị Bot và Tablist xuống Pipeline mạng Netty ảo
             plugin.getBridge().sendKeepAlivePackets();
         } catch (Exception e) {
-            plugin.getLogger().warning("⚠ Lỗi xảy ra khi gửi KeepAlive Packets cho Fake Players: " + e.getMessage());
+            plugin.getLogger().log(Level.WARNING,
+                    "[KeepAliveTask] Error sending keep-alive packets: " + e.getMessage(), e);
         }
     }
 }
