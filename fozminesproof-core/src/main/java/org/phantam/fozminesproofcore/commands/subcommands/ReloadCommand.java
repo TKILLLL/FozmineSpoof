@@ -5,7 +5,7 @@ import org.bukkit.command.CommandSender;
 import org.phantam.fozminesproofcore.FozmineSproofCore;
 import org.phantam.fozminesproofcore.config.ConfigManager;
 import org.phantam.fozminesproofcore.world.VoidWorldFactory;
-import org.phantam.fozminesproofcore.utils.DebugLogger;
+import org.phantam.fozminesproofapi.utils.DebugLogger;
 
 import java.util.Collections;
 import java.util.List;

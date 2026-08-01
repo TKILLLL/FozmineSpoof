@@ -8,7 +8,7 @@ import org.phantam.fozminesproofcore.chat.BotChatProcessor;
 import org.phantam.fozminesproofcore.chat.BotSelector;
 import org.phantam.fozminesproofcore.chat.MessageLoader;
 import org.phantam.fozminesproofcore.config.ChatConfig;
-import org.phantam.fozminesproofcore.utils.DebugLogger;
+import org.phantam.fozminesproofapi.utils.DebugLogger;
 
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;

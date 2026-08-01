@@ -5,7 +5,7 @@ import org.bukkit.World;
 import org.bukkit.WorldCreator;
 import org.bukkit.generator.ChunkGenerator;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.phantam.fozminesproofcore.utils.DebugLogger;
+import org.phantam.fozminesproofapi.utils.DebugLogger;
 
 import java.util.Random;
 import java.util.logging.Level;

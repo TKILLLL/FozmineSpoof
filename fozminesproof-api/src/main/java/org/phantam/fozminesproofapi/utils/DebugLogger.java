@@ -1,4 +1,4 @@
-package org.phantam.fozminesproofcore.utils;
+package org.phantam.fozminesproofapi.utils;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;

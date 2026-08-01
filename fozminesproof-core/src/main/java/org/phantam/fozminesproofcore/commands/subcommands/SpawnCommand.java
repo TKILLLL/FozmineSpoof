@@ -5,7 +5,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.phantam.fozminesproofapi.model.FakePlayerData;
 import org.phantam.fozminesproofcore.FozmineSproofCore;
 import org.phantam.fozminesproofcore.config.MessageManager;
-import org.phantam.fozminesproofcore.utils.DebugLogger;
+import org.phantam.fozminesproofapi.utils.DebugLogger;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;

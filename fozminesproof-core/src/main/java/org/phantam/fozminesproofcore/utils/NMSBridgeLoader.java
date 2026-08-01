@@ -40,7 +40,7 @@ public final class NMSBridgeLoader {
      */
     public static FozminesproofApi loadBridge(Logger logger) {
         String rawVersion = Bukkit.getServer().getMinecraftVersion();
-        DebugLogger.log(logger, "NMSBridgeLoader: detected server version '%s'", rawVersion);
+        org.phantam.fozminesproofapi.utils.DebugLogger.log(logger, "NMSBridgeLoader: detected server version '%s'", rawVersion);
 
         String versionKey = VERSION_MAP.get(rawVersion);
 
@@ -49,12 +49,12 @@ public final class NMSBridgeLoader {
                     "[NMSBridgeLoader] Unsupported Minecraft version: " + rawVersion);
             logger.log(Level.SEVERE,
                     "[NMSBridgeLoader] Supported versions: " + VERSION_MAP.keySet());
-            DebugLogger.log(logger, "NMSBridgeLoader: unsupported version '%s'", rawVersion);
+            org.phantam.fozminesproofapi.utils.DebugLogger.log(logger, "NMSBridgeLoader: unsupported version '%s'", rawVersion);
             return null;
         }
 
         String className = "org.phantam.fozminesproofv" + versionKey + ".NMSBridge_v" + versionKey;
-        DebugLogger.log(logger, "NMSBridgeLoader: attempting to load class '%s'", className);
+        org.phantam.fozminesproofapi.utils.DebugLogger.log(logger, "NMSBridgeLoader: attempting to load class '%s'", className);
 
         try {
             Class<?> clazz = Class.forName(className);
@@ -63,12 +63,12 @@ public final class NMSBridgeLoader {
             if (instance instanceof FozminesproofApi) {
                 logger.log(Level.INFO,
                         "[NMSBridgeLoader] Successfully loaded bridge for version: " + rawVersion);
-                DebugLogger.log(logger, "NMSBridgeLoader: successfully loaded bridge for %s", rawVersion);
+                org.phantam.fozminesproofapi.utils.DebugLogger.log(logger, "NMSBridgeLoader: successfully loaded bridge for %s", rawVersion);
                 return (FozminesproofApi) instance;
             } else {
                 logger.log(Level.SEVERE,
                         "[NMSBridgeLoader] Class " + className + " does not implement FozminesproofApi");
-                DebugLogger.log(logger, "NMSBridgeLoader: class %s does not implement FozminesproofApi", className);
+                org.phantam.fozminesproofapi.utils.DebugLogger.log(logger, "NMSBridgeLoader: class %s does not implement FozminesproofApi", className);
                 return null;
             }
 
@@ -77,19 +77,19 @@ public final class NMSBridgeLoader {
                     "[NMSBridgeLoader] Bridge class not found: " + className);
             logger.log(Level.SEVERE,
                     "[NMSBridgeLoader] Ensure the version module is present in the classpath.");
-            DebugLogger.log(logger, "NMSBridgeLoader: class not found: %s", className);
+            org.phantam.fozminesproofapi.utils.DebugLogger.log(logger, "NMSBridgeLoader: class not found: %s", className);
             return null;
 
         } catch (NoSuchMethodException e) {
             logger.log(Level.SEVERE,
                     "[NMSBridgeLoader] No default constructor found in " + className);
-            DebugLogger.log(logger, "NMSBridgeLoader: no default constructor in %s", className);
+            org.phantam.fozminesproofapi.utils.DebugLogger.log(logger, "NMSBridgeLoader: no default constructor in %s", className);
             return null;
 
         } catch (Exception e) {
             logger.log(Level.SEVERE,
                     "[NMSBridgeLoader] Reflection error while loading bridge: " + e.getMessage(), e);
-            DebugLogger.log(logger, "NMSBridgeLoader: reflection error: %s", e.getMessage());
+            org.phantam.fozminesproofapi.utils.DebugLogger.log(logger, "NMSBridgeLoader: reflection error: %s", e.getMessage());
             return null;
         }
     }

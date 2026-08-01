@@ -15,7 +15,7 @@ import org.phantam.fozminesproofcore.manager.FakePlayerManager;
 import org.phantam.fozminesproofcore.tasks.KeepAliveTask;
 import org.phantam.fozminesproofcore.tasks.ProxySyncTask;
 import org.phantam.fozminesproofcore.utils.ColorUtils;
-import org.phantam.fozminesproofcore.utils.DebugLogger;
+import org.phantam.fozminesproofapi.utils.DebugLogger;
 import org.phantam.fozminesproofcore.utils.NMSBridgeLoader;
 import org.phantam.fozminesproofcore.world.VoidWorldFactory;
 

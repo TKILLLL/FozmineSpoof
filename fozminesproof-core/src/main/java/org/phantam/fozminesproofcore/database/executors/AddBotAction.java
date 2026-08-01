@@ -4,7 +4,7 @@ import org.bukkit.Location;
 import org.phantam.fozminesproofapi.model.FakePlayerData;
 import org.phantam.fozminesproofapi.database.IFakePlayerDatabase;
 import org.phantam.fozminesproofcore.FozmineSproofCore;
-import org.phantam.fozminesproofcore.utils.DebugLogger;
+import org.phantam.fozminesproofapi.utils.DebugLogger;
 
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;

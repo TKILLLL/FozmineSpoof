@@ -2,7 +2,7 @@ package org.phantam.fozminesproofcore.tasks;
 
 import org.bukkit.scheduler.BukkitRunnable;
 import org.phantam.fozminesproofcore.FozmineSproofCore;
-import org.phantam.fozminesproofcore.utils.DebugLogger;
+import org.phantam.fozminesproofapi.utils.DebugLogger;
 
 import java.util.logging.Level;
 

@@ -3,7 +3,7 @@ package org.phantam.fozminesproofcore.chat;
 import org.bukkit.entity.Player;
 import org.phantam.fozminesproofapi.model.FakePlayerData;
 import org.phantam.fozminesproofcore.manager.FakePlayerManager;
-import org.phantam.fozminesproofcore.utils.DebugLogger;
+import org.phantam.fozminesproofapi.utils.DebugLogger;
 
 import java.util.*;
 import java.util.logging.Logger;

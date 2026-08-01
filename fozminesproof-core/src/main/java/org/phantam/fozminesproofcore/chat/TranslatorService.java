@@ -1,6 +1,6 @@
 package org.phantam.fozminesproofcore.chat;
 
-import org.phantam.fozminesproofcore.utils.DebugLogger;
+import org.phantam.fozminesproofapi.utils.DebugLogger;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;

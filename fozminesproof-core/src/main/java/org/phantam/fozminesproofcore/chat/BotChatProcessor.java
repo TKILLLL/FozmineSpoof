@@ -8,7 +8,7 @@ import org.phantam.fozminesproofcore.config.ChatConfig;
 import org.phantam.fozminesproofcore.config.ConfigManager;
 import org.phantam.fozminesproofcore.manager.FakePlayerManager;
 import org.phantam.fozminesproofcore.utils.ColorUtils;
-import org.phantam.fozminesproofcore.utils.DebugLogger;
+import org.phantam.fozminesproofapi.utils.DebugLogger;
 
 import java.util.ArrayList;
 import java.util.List;

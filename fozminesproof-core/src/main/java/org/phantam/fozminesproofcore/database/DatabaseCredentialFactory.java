@@ -2,7 +2,7 @@ package org.phantam.fozminesproofcore.database;
 
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.phantam.fozminesproofcore.utils.DebugLogger;
+import org.phantam.fozminesproofapi.utils.DebugLogger;
 
 /**
  * Factory for creating database credentials and sanitising table names.

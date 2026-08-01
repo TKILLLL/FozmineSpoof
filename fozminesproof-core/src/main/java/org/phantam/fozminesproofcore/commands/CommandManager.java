@@ -7,7 +7,7 @@ import org.bukkit.command.TabCompleter;
 import org.phantam.fozminesproofcore.FozmineSproofCore;
 import org.phantam.fozminesproofcore.commands.subcommands.*;
 import org.phantam.fozminesproofcore.config.MessageManager;
-import org.phantam.fozminesproofcore.utils.DebugLogger;
+import org.phantam.fozminesproofapi.utils.DebugLogger;
 
 import java.util.*;
 import java.util.stream.Collectors;

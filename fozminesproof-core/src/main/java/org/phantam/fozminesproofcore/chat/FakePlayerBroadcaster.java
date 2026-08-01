@@ -3,7 +3,7 @@ package org.phantam.fozminesproofcore.chat;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.phantam.fozminesproofcore.config.ConfigManager;
-import org.phantam.fozminesproofcore.utils.DebugLogger;
+import org.phantam.fozminesproofapi.utils.DebugLogger;
 
 import java.util.logging.Logger;
 

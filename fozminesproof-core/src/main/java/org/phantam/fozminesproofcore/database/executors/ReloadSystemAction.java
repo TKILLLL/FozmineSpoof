@@ -5,7 +5,7 @@ import org.phantam.fozminesproofapi.model.FakePlayerData;
 import org.phantam.fozminesproofapi.database.IFakePlayerDatabase;
 import org.phantam.fozminesproofcore.FozmineSproofCore;
 import org.phantam.fozminesproofcore.manager.FakePlayerRegistry;
-import org.phantam.fozminesproofcore.utils.DebugLogger;
+import org.phantam.fozminesproofapi.utils.DebugLogger;
 
 import java.util.Optional;
 import java.util.logging.Level;

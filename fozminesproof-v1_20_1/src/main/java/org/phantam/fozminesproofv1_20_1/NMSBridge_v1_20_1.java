@@ -15,7 +15,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.plugin.Plugin;
 import org.phantam.fozminesproofapi.FozminesproofApi;
-import org.phantam.fozminesproofcore.utils.DebugLogger;
+import org.phantam.fozminesproofapi.utils.DebugLogger;
 import org.phantam.fozminesproofv1_20_1.factory.FakePlayerFactory;
 import org.phantam.fozminesproofv1_20_1.network.FakePlayerPacketSender;
 

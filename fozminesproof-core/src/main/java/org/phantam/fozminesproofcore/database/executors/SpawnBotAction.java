@@ -1,6 +1,5 @@
 package org.phantam.fozminesproofcore.database.executors;
 
-import me.clip.placeholderapi.PlaceholderAPI;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -14,7 +13,7 @@ import org.phantam.fozminesproofcore.FozmineSproofCore;
 import org.phantam.fozminesproofcore.chat.FakePlayerBroadcaster;
 import org.phantam.fozminesproofcore.manager.FakePlayerRegistry;
 import org.phantam.fozminesproofcore.utils.ColorUtils;
-import org.phantam.fozminesproofcore.utils.DebugLogger;
+import org.phantam.fozminesproofapi.utils.DebugLogger;
 
 import java.net.InetAddress;
 import java.util.Optional;
@@ -126,13 +125,10 @@ public class SpawnBotAction implements org.phantam.fozminesproofapi.action.IBotA
                     Bukkit.broadcastMessage(ColorUtils.colorize(joinEvent.getJoinMessage()));
                 }
 
-                // Set tablist name with PlaceholderAPI support
-                String tabFormat = plugin.getConfigManager().getTabFormat()
-                        .replace("%fakeplayer_name%", updatedData.getName());
-                if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
-                    tabFormat = PlaceholderAPI.setPlaceholders(entity, tabFormat);
-                }
-                entity.setPlayerListName(ColorUtils.colorize(tabFormat));
+                // Set tablist name to a simple colored name (no PlaceholderAPI, no complex format)
+                // You can customize this format as needed, e.g., "&a" + updatedData.getName() for green.
+                String tabName = "&a" + updatedData.getName(); // Simple green name
+                entity.setPlayerListName(ColorUtils.colorize(tabName));
 
                 // Register in registry
                 registry.register(updatedData, entity);
