@@ -1,5 +1,6 @@
 package org.phantam.fozminespoofcore.config;
 
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.phantam.fozminespoofapi.utils.DebugLogger;
@@ -7,7 +8,9 @@ import org.phantam.fozminespoofcore.utils.Range;
 
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 
 public class ConfigManager {
@@ -20,9 +23,9 @@ public class ConfigManager {
     private static final String LEAVE_MESSAGE = "Fakeplayer-setting.leave-message";
     private static final String FAKE_PLUGIN_NAME = "Fakeplayer-setting.fake-plugin-name";
     private static final String HIDE_IN_TAB = "Fakeplayer-setting.hide-in-tab";
-    private static final String JOIN_ACTIONS_FAKE_ENABLED = "Fakeplayer-setting.join-actions.fakeplayer.enabled";
+    private static final String JOIN_ACTIONS_FAKE_ENABLED = "Fakeplayer-setting.join-actions.fakeplayer.enable";
     private static final String JOIN_ACTIONS_FAKE_COMMANDS = "Fakeplayer-setting.join-actions.fakeplayer.commands";
-    private static final String JOIN_ACTIONS_CONSOLE_ENABLED = "Fakeplayer-setting.join-actions.console.enabled";
+    private static final String JOIN_ACTIONS_CONSOLE_ENABLED = "Fakeplayer-setting.join-actions.console.enable";
     private static final String JOIN_ACTIONS_CONSOLE_COMMANDS = "Fakeplayer-setting.join-actions.console.commands";
     private static final String LIFETIME_INTERVAL = "Fakeplayer-setting.lifetime-interval";
     private static final String BASE_AMOUNT = "Fakeplayer-setting.base-amount";
@@ -49,6 +52,10 @@ public class ConfigManager {
     private String fakePluginName;
     private boolean hideInTab;
     private boolean debug;
+
+    // Rank Weight Distribution
+    private boolean rankWeightEnabled;
+    private final Map<String, Integer> rankWeights = new LinkedHashMap<>();
 
     // Join actions
     private boolean fakePlayerJoinCommandsEnabled;
@@ -108,6 +115,26 @@ public class ConfigManager {
             fakePluginName = config.getString(FAKE_PLUGIN_NAME, "FozmineSpawner");
             hideInTab = config.getBoolean(HIDE_IN_TAB, false);
 
+            // Rank Weight Distribution
+            rankWeightEnabled = config.getBoolean("Fakeplayer-setting.rank-weight.enable", false);
+            rankWeights.clear();
+            if (config.isConfigurationSection("Fakeplayer-setting.rank-weight")) {
+                ConfigurationSection section = config.getConfigurationSection("Fakeplayer-setting.rank-weight");
+                if (section != null) {
+                    for (String key : section.getKeys(false)) {
+                        if (!key.equalsIgnoreCase("enable")) {
+                            int weight = section.getInt(key, 0);
+                            if (weight > 0) {
+                                rankWeights.put(key, weight);
+                            }
+                        }
+                    }
+                }
+            }
+            if (!rankWeights.containsKey("default")) {
+                rankWeights.put("default", 50);
+            }
+
             // Join actions
             fakePlayerJoinCommandsEnabled = config.getBoolean(JOIN_ACTIONS_FAKE_ENABLED, false);
             fakePlayerJoinCommands = config.getStringList(JOIN_ACTIONS_FAKE_COMMANDS);
@@ -120,7 +147,7 @@ public class ConfigManager {
             percentRate = config.getInt(PERCENT_RATE, 10);
 
             // Fluctuations (Peak Hours)
-            fluctuationEnabled = config.getBoolean("fluctuations.enabled", false);
+            fluctuationEnabled = config.getBoolean("fluctuations.enable", false);
             fluctuationTimezone = config.getString("fluctuations.timezone", "Asia/Ho_Chi_Minh");
             fluctuationActiveHours = config.getStringList("fluctuations.active-hours");
             fluctuationBaseAmount = config.getInt("fluctuations.base-amount", 10);
@@ -168,7 +195,6 @@ public class ConfigManager {
                 LocalTime end = LocalTime.parse(parts[1].trim());
 
                 if (start.isBefore(end)) {
-                    // Khung giờ trong ngày (VD: 12:00-14:00)
                     if (!now.isBefore(start) && now.isBefore(end)) {
                         return true;
                     }
@@ -258,4 +284,6 @@ public class ConfigManager {
     public String getBungeeName() { return bungeeName; }
     public String getRawDatabaseName() { return rawDatabaseName; }
     public boolean isDatabaseEnabled() { return databaseEnabled; }
+    public boolean isRankWeightEnabled() { return rankWeightEnabled; }
+    public Map<String, Integer> getRankWeights() { return rankWeights; }
 }

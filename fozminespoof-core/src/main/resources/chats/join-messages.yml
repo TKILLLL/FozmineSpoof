@@ -1,0 +1,41 @@
+# ==================================================================================== #
+#                             JOIN MESSAGES CHAT                                       #
+# ==================================================================================== #
+# Configure fake player chat behaviors, greeting rules, and automated responses
+join-messages:
+  # Automated greetings triggered when a NEW player joins the server for the first time
+  new-player-greetings:
+    enabled: false
+
+    # Maximum number of fake players allowed to send a greeting simultaneously per join
+    max-burst: 3
+
+    # Random pool of welcoming phrases (Supports placeholders)
+    phrases:
+      - "welcome [name]"
+      - "Hey [name]!"
+      - "Hi [name]"
+      - "hey [name]"
+
+  # Automated greetings triggered when a player joins the server
+  player-greetings:
+    enabled: false
+    max-burst: 3
+    phrases:
+      - "welcome [name]"
+      - "Hey [name]!"
+      - "Hi [name]"
+      - "hey [name]"
+
+  # Periodic/casual chat logs sent by fake players upon entering the server
+  session-join-chats:
+    enabled: false
+    max-burst: 3
+    phrases:
+      - "hey guys"
+      - "hey guys!"
+      - "wassup folks"
+      - "hi everyone!"
+      - "hi everyone"
+      - "hello!"
+      - "hello guys"

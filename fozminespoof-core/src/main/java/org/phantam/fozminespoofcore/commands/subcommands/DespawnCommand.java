@@ -1,11 +1,11 @@
 package org.phantam.fozminespoofcore.commands.subcommands;
 
+import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
-import org.bukkit.scheduler.BukkitRunnable;
 import org.phantam.fozminespoofapi.model.FakePlayerData;
+import org.phantam.fozminespoofapi.utils.DebugLogger;
 import org.phantam.fozminespoofcore.FozmineSpoofCore;
 import org.phantam.fozminespoofcore.config.MessageManager;
-import org.phantam.fozminespoofapi.utils.DebugLogger;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -83,30 +83,31 @@ public class DespawnCommand implements SubCommand {
             return;
         }
 
-        long intervalTicks = Math.max(1L, plugin.getConfigManager().getJoinQuitIntervalTicks());
         sender.sendMessage(messages.getOnlyMessage("system.prefix") +
-                "§eStarting despawn queue for §6" + online.size() +
-                " §abots (delay: §f" + (intervalTicks / 20.0) + "s§e)...");
+                "§eStarting despawn queue for §6" + online.size() + " §abots...");
 
         Queue<String> queue = new LinkedList<>(online);
+        processDespawnQueue(sender, queue, messages);
+    }
 
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (queue.isEmpty() || !plugin.isEnabled()) {
-                    sender.sendMessage(messages.getOnlyMessage("system.prefix") + "§a| Despawn queue completed.");
-                    DebugLogger.log(plugin.getLogger(), "DespawnCommand: despawn all completed");
-                    this.cancel();
-                    return;
-                }
+    private void processDespawnQueue(CommandSender sender, Queue<String> queue, MessageManager messages) {
+        if (queue.isEmpty() || !plugin.isEnabled()) {
+            sender.sendMessage(messages.getOnlyMessage("system.prefix") + "§a| Despawn queue completed.");
+            DebugLogger.log(plugin.getLogger(), "DespawnCommand: despawn all completed");
+            return;
+        }
 
-                String next = queue.poll();
-                if (plugin.getFakePlayerManager().isBotOnline(next)) {
-                    boolean success = plugin.getFakePlayerManager().despawnBot(next);
-                    DebugLogger.logFine(plugin.getLogger(), "DespawnCommand: despawned %s, success=%s", next, success);
-                }
-            }
-        }.runTaskTimer(plugin, 20L, intervalTicks);
+        String next = queue.poll();
+        if (next != null && plugin.getFakePlayerManager().isBotOnline(next)) {
+            boolean success = plugin.getFakePlayerManager().despawnBot(next);
+            DebugLogger.logFine(plugin.getLogger(), "DespawnCommand: despawned %s, success=%s", next, success);
+        }
+
+        if (!queue.isEmpty()) {
+            long delayTicks = Math.max(1L, plugin.getConfigManager().getJoinQuitIntervalTicks());
+            Bukkit.getScheduler().runTaskLater(plugin, () ->
+                    processDespawnQueue(sender, queue, messages), delayTicks);
+        }
     }
 
     @Override

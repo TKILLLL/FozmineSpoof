@@ -70,6 +70,10 @@ public class DespawnBotAction implements IBotAction<String, Boolean> {
             }
         }
 
+        if (plugin.getConfigManager().isRankWeightEnabled() && plugin.getRankWeightManager() != null) {
+            plugin.getRankWeightManager().resetRank(name);
+        }
+
         if (lifecycle != null) {
             lifecycle.onBotDespawn(name);
         }

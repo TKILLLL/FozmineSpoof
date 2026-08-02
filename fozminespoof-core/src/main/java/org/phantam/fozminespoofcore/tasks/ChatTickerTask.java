@@ -4,6 +4,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.phantam.fozminespoofcore.FozmineSpoofCore;
 import org.phantam.fozminespoofcore.chat.BotChatProcessor;
 import org.phantam.fozminespoofcore.chat.BotSelector;
 import org.phantam.fozminespoofcore.chat.MessageLoader;
@@ -19,7 +20,7 @@ import java.util.logging.Level;
  */
 public class ChatTickerTask extends BukkitRunnable {
 
-    private final JavaPlugin plugin;
+    private final FozmineSpoofCore plugin;
     private final ChatConfig chatConfig;
     private final BotSelector botSelector;
     private final BotChatProcessor chatProcessor;
@@ -27,7 +28,7 @@ public class ChatTickerTask extends BukkitRunnable {
 
     private long ticksUntilNextChat;
 
-    public ChatTickerTask(JavaPlugin plugin, ChatConfig chatConfig, BotSelector botSelector,
+    public ChatTickerTask(FozmineSpoofCore plugin, ChatConfig chatConfig, BotSelector botSelector,
                           BotChatProcessor chatProcessor, MessageLoader messageLoader) {
         this.plugin = plugin;
         this.chatConfig = chatConfig;
@@ -65,6 +66,18 @@ public class ChatTickerTask extends BukkitRunnable {
     }
 
     private void executeChatCycle() {
+        // KIỂM TRA SỐ NGƯỜI CHƠI THẬT ONLINE
+        int totalOnline = Bukkit.getOnlinePlayers().size();
+        int botOnline = plugin.getFakePlayerManager().getOnlineBotsData().size();
+        int realPlayers = Math.max(0, totalOnline - botOnline);
+
+        if (realPlayers < chatConfig.getMinRealPlayers()) {
+            DebugLogger.log(plugin.getLogger(),
+                    "ChatTickerTask: skipping chat cycle, real players (%d) < required min-real-players (%d)",
+                    realPlayers, chatConfig.getMinRealPlayers());
+            return;
+        }
+
         List<Player> speakingBots = botSelector.selectRandomBots(chatConfig.getRandomBotsPerInterval());
 
         if (speakingBots.isEmpty()) {
@@ -76,9 +89,7 @@ public class ChatTickerTask extends BukkitRunnable {
 
         for (Player bot : speakingBots) {
             String rawMessage = messageLoader.getRandomMessage();
-            if (rawMessage == null) {
-                continue;
-            }
+            if (rawMessage == null) continue;
 
             final long scheduledDelay = accumDelayTicks;
             DebugLogger.logFine(plugin.getLogger(), "ChatTickerTask: scheduling %s to chat in %d ticks",

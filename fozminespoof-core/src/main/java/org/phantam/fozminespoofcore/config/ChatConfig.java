@@ -12,13 +12,15 @@ import java.util.concurrent.ThreadLocalRandom;
 public class ChatConfig {
 
     private final boolean enabled;
+    private final int minRealPlayers;
     private final String translationTarget;
     private final String intervalMinutesStr;
     private final String botsPerIntervalStr;
     private final String delayBetweenBotsSecondsStr;
 
     public ChatConfig(FileConfiguration config) {
-        this.enabled = config.getBoolean("chat-system.enabled", false);
+        this.enabled = config.getBoolean("chat-system.enable", config.getBoolean("chat-system.enabled", false));
+        this.minRealPlayers = Math.max(0, config.getInt("chat-system.min-real-players", 1));
         this.translationTarget = config.getString("chat-system.translation-target", "en");
 
         this.intervalMinutesStr = config.getString("chat-system.interval-minutes", "5-15");
@@ -30,27 +32,23 @@ public class ChatConfig {
         return enabled;
     }
 
+    public int getMinRealPlayers() {
+        return minRealPlayers;
+    }
+
     public String getTranslationTarget() {
         return translationTarget;
     }
 
-    /**
-     * Lấy thời gian chờ giữa các chu kỳ chat tính bằng Ticks (1 sec = 20 ticks)
-     * Đã sửa an toàn: Kiểm tra min >= max tránh lỗi ThreadLocalRandom
-     */
     public long getRandomIntervalTicks() {
         Range range = Range.parse(intervalMinutesStr, 2.0, 5.0);
         double min = range.getMin();
         double max = range.getMax();
-
         double minutes = (min >= max) ? min : ThreadLocalRandom.current().nextDouble(min, max);
         double seconds = Math.max(0.05, minutes * 60.0);
         return Math.max(1L, (long) (seconds * 20.0));
     }
 
-    /**
-     * Lấy số lượng bot sẽ phát biểu trong 1 chu kỳ chat
-     */
     public int getRandomBotsPerInterval() {
         Range range = Range.parse(botsPerIntervalStr, 1.0, 2.0);
         int min = (int) range.getMin();
@@ -59,9 +57,6 @@ public class ChatConfig {
         return ThreadLocalRandom.current().nextInt(min, max + 1);
     }
 
-    /**
-     * Lấy thời gian giãn cách giữa các bot phát biểu tính bằng Ticks (1 sec = 20 ticks)
-     */
     public long getRandomDelayTicks() {
         Range range = Range.parse(delayBetweenBotsSecondsStr, 2.0, 5.0);
         return range.getRandomTicks();

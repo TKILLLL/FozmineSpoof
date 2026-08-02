@@ -64,15 +64,32 @@ public class SpawnBotAction implements org.phantam.fozminespoofapi.action.IBotAc
             }
 
             Bukkit.getScheduler().runTask(plugin, () -> {
-                FakePlayerData updatedData = data.withActive(true);
+                Location forcedLocation = getForceBotWorldLocation();
+                if (forcedLocation == null) {
+                    plugin.getLogger().warning("[SpawnBotAction] Could not resolve botworld spawn location!");
+                    callback.accept(false);
+                    return;
+                }
 
-                // Async save to prevent main thread tick spikes
+                FakePlayerData updatedData = new FakePlayerData.Builder()
+                        .name(data.getName())
+                        .uuid(data.getUuid())
+                        .world(forcedLocation.getWorld().getName())
+                        .location(forcedLocation.getX(), forcedLocation.getY(), forcedLocation.getZ(),
+                                forcedLocation.getYaw(), forcedLocation.getPitch())
+                        .active(true)
+                        .build();
+
                 Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> database.saveFakePlayer(updatedData));
 
-                Player entity = spawnNpc(updatedData);
+                Player entity = spawnNpcInBotWorld(updatedData, forcedLocation);
                 if (entity == null) {
                     callback.accept(false);
                     return;
+                }
+
+                if (!entity.getWorld().getName().equalsIgnoreCase(forcedLocation.getWorld().getName())) {
+                    entity.teleport(forcedLocation);
                 }
 
                 registry.register(updatedData, entity);
@@ -88,6 +105,11 @@ public class SpawnBotAction implements org.phantam.fozminespoofapi.action.IBotAc
                     registry.unregister(name);
                     callback.accept(false);
                     return;
+                }
+
+                if (plugin.getConfigManager().isRankWeightEnabled() && plugin.getRankWeightManager() != null) {
+                    String chosenRank = plugin.getRankWeightManager().getRandomRank(plugin.getConfigManager().getRankWeights());
+                    plugin.getRankWeightManager().assignRank(entity, chosenRank);
                 }
 
                 if (plugin.getConfigManager().isJoinLeaveMessageEnable()) {
@@ -112,23 +134,27 @@ public class SpawnBotAction implements org.phantam.fozminespoofapi.action.IBotAc
         });
     }
 
-    private Player spawnNpc(FakePlayerData data) {
-        if (plugin.getBridge() == null) return null;
-
-        String worldName = data.getWorldName();
-        if (worldName == null || worldName.isEmpty()) {
-            worldName = plugin.getConfigManager().getBotWorldName();
-        }
-
+    /**
+     * Ép buộc lấy tọa độ tại thế giới botworld cấu hình trong config.yml
+     */
+    private Location getForceBotWorldLocation() {
+        String worldName = plugin.getConfigManager().getBotWorldName();
         World world = Bukkit.getWorld(worldName);
+
         if (world == null && !Bukkit.getWorlds().isEmpty()) {
             world = Bukkit.getWorlds().get(0);
         }
+
         if (world == null) return null;
 
-        Location loc = new Location(world, data.getX(), data.getY(), data.getZ(), data.getYaw(), data.getPitch());
+        return world.getSpawnLocation();
+    }
+
+    private Player spawnNpcInBotWorld(FakePlayerData data, Location forcedLocation) {
+        if (plugin.getBridge() == null || forcedLocation == null) return null;
+
         boolean hideTab = plugin.getConfigManager().isHideInTab();
-        return plugin.getBridge().spawnPlayer(data.getName(), data.getUuid(), loc, hideTab);
+        return plugin.getBridge().spawnPlayer(data.getName(), data.getUuid(), forcedLocation, hideTab);
     }
 
     public void setLifecycleManager(BotLifecycleManager lifecycle) {

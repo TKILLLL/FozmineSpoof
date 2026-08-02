@@ -177,6 +177,7 @@ public class BotLifecycleManager {
         int realPlayers = Bukkit.getOnlinePlayers().size();
         int botCount = manager.getOnlineBotsData().size();
 
+        // Tự động chuyển đổi theo khung giờ cao điểm
         int effectiveBase = config.getEffectiveBaseAmount();
         int effectivePercent = config.getEffectivePercentRate();
 

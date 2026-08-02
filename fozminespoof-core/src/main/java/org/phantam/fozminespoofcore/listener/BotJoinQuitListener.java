@@ -17,12 +17,28 @@ public class BotJoinQuitListener implements Listener {
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
-    public void onBotJoin(PlayerJoinEvent event) {
+    public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
+        String name = player.getName();
+
         if (isBot(player)) {
             if (plugin.getConfigManager().isJoinLeaveMessageEnable()) {
-                // Ẩn tin nhắn Join mặc định của hệ thống / Essentials / CMI
                 event.setJoinMessage(null);
+            }
+
+            if (plugin.getJoinChatProcessor() != null) {
+                plugin.getJoinChatProcessor().handleBotSessionJoin(player);
+            }
+        } else {
+            boolean isBotName = plugin.getFakePlayerManager().getAllDatabaseBots().stream()
+                    .anyMatch(b -> b != null && b.getName() != null && b.getName().equalsIgnoreCase(name));
+
+            if (isBotName && plugin.getConfigManager().isRankWeightEnabled() && plugin.getRankWeightManager() != null) {
+                plugin.getRankWeightManager().resetRank(name);
+            }
+
+            if (plugin.getJoinChatProcessor() != null) {
+                plugin.getJoinChatProcessor().handleRealPlayerJoin(player);
             }
         }
     }

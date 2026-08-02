@@ -101,11 +101,11 @@ public class AddCommand implements SubCommand {
     }
 
     private Location resolveSpawnLocation(CommandSender sender) {
-        if (sender instanceof Player player) return player.getLocation();
-
         String worldName = plugin.getConfigManager().getBotWorldName();
         World world = Bukkit.getWorld(worldName);
-        if (world == null && !Bukkit.getWorlds().isEmpty()) world = Bukkit.getWorlds().get(0);
+        if (world == null && !Bukkit.getWorlds().isEmpty()) {
+            world = Bukkit.getWorlds().get(0);
+        }
         return (world != null) ? world.getSpawnLocation() : null;
     }
 }

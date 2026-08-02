@@ -4,17 +4,20 @@ import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.phantam.fozminespoofapi.FozminespoofApi;
 import org.phantam.fozminespoofapi.database.IFakePlayerDatabase;
-import org.phantam.fozminespoofcore.chat.ChatScheduler;
-import org.phantam.fozminespoofcore.chat.MessageLoader;
+import org.phantam.fozminespoofcore.chat.*;
 import org.phantam.fozminespoofcore.commands.CommandManager;
 import org.phantam.fozminespoofcore.config.ConfigManager;
+import org.phantam.fozminespoofcore.config.InteractiveMessageConfig;
+import org.phantam.fozminespoofcore.config.JoinMessageConfig;
 import org.phantam.fozminespoofcore.database.DatabaseCredentialFactory;
 import org.phantam.fozminespoofcore.database.DatabaseManager;
 import org.phantam.fozminespoofcore.database.SQLiteDatabaseManager;
 import org.phantam.fozminespoofcore.listener.BotJoinQuitListener;
+import org.phantam.fozminespoofcore.listener.InteractiveChatListener;
 import org.phantam.fozminespoofcore.listener.PluginListInterceptor;
 import org.phantam.fozminespoofcore.manager.BotLifecycleManager;
 import org.phantam.fozminespoofcore.manager.FakePlayerManager;
+import org.phantam.fozminespoofcore.manager.RankWeightManager;
 import org.phantam.fozminespoofcore.tasks.KeepAliveTask;
 import org.phantam.fozminespoofcore.tasks.ProxySyncTask;
 import org.phantam.fozminespoofcore.utils.ColorUtils;
@@ -38,6 +41,10 @@ public class FozmineSpoofCore extends JavaPlugin {
     private MessageLoader messageLoader;
     private ChatScheduler chatScheduler;
     private BotLifecycleManager botLifecycleManager;
+    private RankWeightManager rankWeightManager;
+    private JoinMessageConfig joinMessageConfig;
+    private JoinChatProcessor joinChatProcessor;
+    private InteractiveMessageConfig interactiveMessageConfig;
 
     @Override
     public void onEnable() {
@@ -68,10 +75,11 @@ public class FozmineSpoofCore extends JavaPlugin {
             logConsole("&#00F2FE[3/8] &#10B981Database storage engine initialized and ready.");
 
             // 4. Initialize Managers
-            logConsole("&#00F2FE[4/8] &#3B82F6Initializing FakePlayer Registry & Lifecycle Manager...");
+            logConsole("&#00F2FE[4/8] &#3B82F6Initializing FakePlayer Registry, Lifecycle & Rank Weight Manager...");
             this.fakePlayerManager = new FakePlayerManager(this, this.database);
             this.botLifecycleManager = new BotLifecycleManager(this, this.fakePlayerManager, this.configManager);
             this.fakePlayerManager.setLifecycleManager(this.botLifecycleManager);
+            this.rankWeightManager = new RankWeightManager(this);
             logConsole("&#00F2FE[4/8] &#10B981Manager subsystem linked.");
 
             // 5. Generate Isolated Void World
@@ -168,6 +176,9 @@ public class FozmineSpoofCore extends JavaPlugin {
         this.messageLoader = new MessageLoader(this);
         this.messageLoader.loadMessages();
 
+        this.joinMessageConfig = new JoinMessageConfig(this);
+        this.interactiveMessageConfig = new InteractiveMessageConfig(this);
+
         this.chatScheduler = new ChatScheduler(
                 this,
                 this.fakePlayerManager,
@@ -175,6 +186,19 @@ public class FozmineSpoofCore extends JavaPlugin {
                 this.configManager
         );
         this.chatScheduler.start(this.configManager.getChatConfig());
+
+        this.joinChatProcessor = new JoinChatProcessor(
+                this,
+                new BotSelector(this.fakePlayerManager, getLogger()),
+                new BotChatProcessor(this, this.fakePlayerManager, this.configManager)
+        );
+
+        InteractiveChatListener interactiveListener = new InteractiveChatListener(
+                this,
+                new BotSelector(this.fakePlayerManager, getLogger()),
+                new BotChatProcessor(this, this.fakePlayerManager, this.configManager)
+        );
+        getServer().getPluginManager().registerEvents(interactiveListener, this);
     }
 
     private void registerExternalExtensions() {
@@ -262,4 +286,10 @@ public class FozmineSpoofCore extends JavaPlugin {
     public MessageLoader getMessageLoader() { return this.messageLoader; }
     public ChatScheduler getChatScheduler() { return this.chatScheduler; }
     public BotLifecycleManager getBotLifecycleManager() { return botLifecycleManager; }
+    public RankWeightManager getRankWeightManager() { return rankWeightManager; }
+    public JoinMessageConfig getJoinMessageConfig() { return joinMessageConfig; }
+    public JoinChatProcessor getJoinChatProcessor() { return joinChatProcessor; }
+    public InteractiveMessageConfig getInteractiveMessageConfig() {
+        return interactiveMessageConfig;
+    }
 }
