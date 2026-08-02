@@ -5,13 +5,17 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.phantam.fozminespoofapi.FozminespoofApi;
 import org.phantam.fozminespoofapi.database.IFakePlayerDatabase;
 import org.phantam.fozminespoofcore.chat.*;
+import org.phantam.fozminespoofcore.chat.ai.AiChatProcessor;
+import org.phantam.fozminespoofcore.chat.ai.AiPersonalityManager;
 import org.phantam.fozminespoofcore.commands.CommandManager;
+import org.phantam.fozminespoofcore.config.AiConfig;
 import org.phantam.fozminespoofcore.config.ConfigManager;
 import org.phantam.fozminespoofcore.config.InteractiveMessageConfig;
 import org.phantam.fozminespoofcore.config.JoinMessageConfig;
 import org.phantam.fozminespoofcore.database.DatabaseCredentialFactory;
 import org.phantam.fozminespoofcore.database.DatabaseManager;
 import org.phantam.fozminespoofcore.database.SQLiteDatabaseManager;
+import org.phantam.fozminespoofcore.listener.AiChatListener;
 import org.phantam.fozminespoofcore.listener.BotJoinQuitListener;
 import org.phantam.fozminespoofcore.listener.InteractiveChatListener;
 import org.phantam.fozminespoofcore.listener.PluginListInterceptor;
@@ -45,6 +49,11 @@ public class FozmineSpoofCore extends JavaPlugin {
     private JoinMessageConfig joinMessageConfig;
     private JoinChatProcessor joinChatProcessor;
     private InteractiveMessageConfig interactiveMessageConfig;
+    private AiConfig aiConfig;
+    private AiPersonalityManager aiPersonalityManager;
+    private AiChatProcessor aiChatProcessor;
+    private org.bukkit.scheduler.BukkitTask keepAliveTaskHandle;
+    private org.bukkit.scheduler.BukkitTask tabUpdateTaskHandle;
 
     @Override
     public void onEnable() {
@@ -179,6 +188,10 @@ public class FozmineSpoofCore extends JavaPlugin {
         this.joinMessageConfig = new JoinMessageConfig(this);
         this.interactiveMessageConfig = new InteractiveMessageConfig(this);
 
+        this.aiConfig = new AiConfig(this);
+        this.aiPersonalityManager = new AiPersonalityManager(this);
+        this.aiChatProcessor = new AiChatProcessor(this, this.aiConfig, this.aiPersonalityManager);
+
         this.chatScheduler = new ChatScheduler(
                 this,
                 this.fakePlayerManager,
@@ -199,6 +212,14 @@ public class FozmineSpoofCore extends JavaPlugin {
                 new BotChatProcessor(this, this.fakePlayerManager, this.configManager)
         );
         getServer().getPluginManager().registerEvents(interactiveListener, this);
+
+        AiChatListener aiListener = new AiChatListener(
+                this,
+                this.aiConfig,
+                this.aiChatProcessor,
+                new BotSelector(this.fakePlayerManager, getLogger())
+        );
+        getServer().getPluginManager().registerEvents(aiListener, this);
     }
 
     private void registerExternalExtensions() {
@@ -213,11 +234,17 @@ public class FozmineSpoofCore extends JavaPlugin {
     }
 
     private void startKeepAliveTask() {
-        new KeepAliveTask(this).runTaskTimer(this, 100L, 200L);
+        if (keepAliveTaskHandle != null) {
+            keepAliveTaskHandle.cancel();
+        }
+        keepAliveTaskHandle = new KeepAliveTask(this).runTaskTimer(this, 100L, 200L);
     }
 
     private void startTabUpdateScheduler() {
-        new org.bukkit.scheduler.BukkitRunnable() {
+        if (tabUpdateTaskHandle != null) {
+            tabUpdateTaskHandle.cancel();
+        }
+        tabUpdateTaskHandle = new org.bukkit.scheduler.BukkitRunnable() {
             @Override
             public void run() {
                 if (fakePlayerManager == null || fakePlayerManager.getOnlineBotsData().isEmpty()) {
@@ -292,4 +319,7 @@ public class FozmineSpoofCore extends JavaPlugin {
     public InteractiveMessageConfig getInteractiveMessageConfig() {
         return interactiveMessageConfig;
     }
+    public AiConfig getAiConfig() { return aiConfig; }
+    public AiPersonalityManager getAiPersonalityManager() { return aiPersonalityManager; }
+    public AiChatProcessor getAiChatProcessor() { return aiChatProcessor; }
 }

@@ -95,12 +95,12 @@ public class FakePlayerPacketSender {
      * @param packet       the packet to send
      */
     private void broadcastExcept(UUID excludedUuid, Packet<?> packet) {
-        for (ServerPlayer player : playerList.players) {
+        ServerPlayer[] playersCopy = playerList.players.toArray(new ServerPlayer[0]);
+        for (ServerPlayer player : playersCopy) {
             if (player == null) continue;
             if (player.getUUID().equals(excludedUuid)) continue;
 
             if (player.connection != null && player.connection.connection != null) {
-                // Never send packets back into an embedded channel (fake connection)
                 if (!(player.connection.connection.channel instanceof EmbeddedChannel)) {
                     player.connection.send(packet);
                 }

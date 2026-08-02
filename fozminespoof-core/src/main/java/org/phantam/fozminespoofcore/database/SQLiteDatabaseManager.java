@@ -8,16 +8,15 @@ import org.phantam.fozminespoofcore.database.queries.*;
 import java.sql.*;
 import java.util.Collection;
 import java.util.Optional;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 
-/**
- * Optimized SQLite-based implementation using WAL Mode and Memory Cache.
- */
 public class SQLiteDatabaseManager implements IFakePlayerDatabase {
 
     private final String dbPath;
     private final String tableName;
     private Connection connection;
+    private final ReentrantLock dbLock = new ReentrantLock();
 
     public SQLiteDatabaseManager(String dbPath, String tableName) {
         this.dbPath = dbPath;
@@ -26,10 +25,10 @@ public class SQLiteDatabaseManager implements IFakePlayerDatabase {
 
     @Override
     public void setup() {
+        dbLock.lock();
         try {
             Class.forName("org.sqlite.JDBC");
-            // Set busy_timeout = 5000ms to avoid locked exceptions
-            this.connection = DriverManager.getConnection("jdbc:sqlite:" + dbPath + "?busy_timeout=5000");
+            this.connection = DriverManager.getConnection("jdbc:sqlite:" + dbPath + "?busy_timeout=10000");
 
             try (Statement stmt = connection.createStatement()) {
                 stmt.execute("PRAGMA journal_mode=WAL;");
@@ -42,10 +41,12 @@ public class SQLiteDatabaseManager implements IFakePlayerDatabase {
             Bukkit.getLogger().log(Level.INFO, "[SQLiteDatabaseManager] SQLite WAL mode connection established successfully.");
         } catch (Exception e) {
             Bukkit.getLogger().log(Level.SEVERE, "[SQLiteDatabaseManager] Failed to initialize SQLite: " + e.getMessage(), e);
+        } finally {
+            dbLock.unlock();
         }
     }
 
-    private void createTable() {
+    private void createTable() throws SQLException {
         String sql = "CREATE TABLE IF NOT EXISTS " + tableName + " (" +
                 "name TEXT NOT NULL PRIMARY KEY, " +
                 "uuid TEXT NOT NULL, " +
@@ -61,13 +62,12 @@ public class SQLiteDatabaseManager implements IFakePlayerDatabase {
         try (Statement stmt = connection.createStatement()) {
             stmt.execute(sql);
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_active ON " + tableName + " (is_active);");
-        } catch (SQLException e) {
-            Bukkit.getLogger().log(Level.SEVERE, "[SQLiteDatabaseManager] Failed to create table: " + e.getMessage(), e);
         }
     }
 
     @Override
-    public synchronized void close() {
+    public void close() {
+        dbLock.lock();
         try {
             if (connection != null && !connection.isClosed()) {
                 connection.close();
@@ -75,96 +75,126 @@ public class SQLiteDatabaseManager implements IFakePlayerDatabase {
             }
         } catch (SQLException e) {
             Bukkit.getLogger().log(Level.WARNING, "[SQLiteDatabaseManager] Error closing connection: " + e.getMessage(), e);
+        } finally {
+            dbLock.unlock();
         }
     }
 
     @Override
-    public synchronized void saveFakePlayer(FakePlayerData data) {
+    public void saveFakePlayer(FakePlayerData data) {
+        dbLock.lock();
         try {
             new InsertPlayerSQLiteQuery(tableName, data).execute(connection);
         } catch (SQLException e) {
             Bukkit.getLogger().log(Level.SEVERE, "[SQLiteDatabaseManager] Error saving bot '" + data.getName() + "': " + e.getMessage(), e);
+        } finally {
+            dbLock.unlock();
         }
     }
 
     @Override
-    public synchronized void saveFakePlayers(Collection<FakePlayerData> players) {
+    public void saveFakePlayers(Collection<FakePlayerData> players) {
         if (players == null || players.isEmpty()) return;
+        dbLock.lock();
         try {
             new InsertPlayersBatchSQLiteQuery(tableName, players).execute(connection);
         } catch (SQLException e) {
-            Bukkit.getLogger().log(Level.SEVERE, "[SQLiteDatabaseManager] Batch save failed, falling back: " + e.getMessage(), e);
             for (FakePlayerData data : players) {
-                saveFakePlayer(data);
+                try {
+                    new InsertPlayerSQLiteQuery(tableName, data).execute(connection);
+                } catch (Exception ignored) {}
             }
+        } finally {
+            dbLock.unlock();
         }
     }
 
     @Override
-    public synchronized Optional<FakePlayerData> loadFakePlayer(String name) {
+    public Optional<FakePlayerData> loadFakePlayer(String name) {
+        dbLock.lock();
         try {
             return new SelectPlayerQuery(tableName, name).execute(connection);
         } catch (SQLException e) {
             Bukkit.getLogger().log(Level.WARNING, "[SQLiteDatabaseManager] Error loading bot '" + name + "': " + e.getMessage(), e);
+        } finally {
+            dbLock.unlock();
         }
         return Optional.empty();
     }
 
     @Override
-    public synchronized Collection<FakePlayerData> loadAllPlayers() {
+    public Collection<FakePlayerData> loadAllPlayers() {
+        dbLock.lock();
         try {
             return new SelectAllPlayersQuery(tableName).execute(connection);
         } catch (SQLException e) {
             Bukkit.getLogger().log(Level.WARNING, "[SQLiteDatabaseManager] Error loading all bots: " + e.getMessage(), e);
+        } finally {
+            dbLock.unlock();
         }
         return java.util.Collections.emptyList();
     }
 
     @Override
-    public synchronized Collection<FakePlayerData> loadInactivePlayers() {
+    public Collection<FakePlayerData> loadInactivePlayers() {
+        dbLock.lock();
         try {
             return new SelectInactivePlayersQuery(tableName).execute(connection);
         } catch (SQLException e) {
             Bukkit.getLogger().log(Level.WARNING, "[SQLiteDatabaseManager] Error loading inactive bots: " + e.getMessage(), e);
+        } finally {
+            dbLock.unlock();
         }
         return java.util.Collections.emptyList();
     }
 
     @Override
-    public synchronized void deleteFakePlayer(String name) {
+    public void deleteFakePlayer(String name) {
+        dbLock.lock();
         try {
             new DeletePlayerQuery(tableName, name).execute(connection);
         } catch (SQLException e) {
             Bukkit.getLogger().log(Level.WARNING, "[SQLiteDatabaseManager] Error deleting bot '" + name + "': " + e.getMessage(), e);
+        } finally {
+            dbLock.unlock();
         }
     }
 
     @Override
-    public synchronized int getActiveBotCount() {
+    public int getActiveBotCount() {
+        dbLock.lock();
         try {
             return new CountActiveBotsQuery(tableName).execute(connection);
         } catch (SQLException e) {
             Bukkit.getLogger().log(Level.SEVERE, "[SQLiteDatabaseManager] Error counting active bots: " + e.getMessage(), e);
+        } finally {
+            dbLock.unlock();
         }
         return 0;
     }
 
     @Override
-    public synchronized int getInactiveBotCount() {
+    public int getInactiveBotCount() {
+        dbLock.lock();
         try {
             return new CountInactiveBotsQuery(tableName).execute(connection);
         } catch (SQLException e) {
             Bukkit.getLogger().log(Level.SEVERE, "[SQLiteDatabaseManager] Error counting inactive bots: " + e.getMessage(), e);
+        } finally {
+            dbLock.unlock();
         }
         return 0;
     }
 
     @Override
-    public synchronized void sendProxySyncData(String bungeeName, String name, int activeCount, int inactiveCount) {
+    public void sendProxySyncData(String bungeeName, String name, int activeCount, int inactiveCount) {
+        dbLock.lock();
         try {
             new ProxySyncSQLiteQuery("proxy_sync_" + bungeeName, name, activeCount, inactiveCount).execute(connection);
         } catch (SQLException e) {
             Bukkit.getLogger().log(Level.SEVERE, "[SQLiteDatabaseManager] Error syncing proxy data: " + e.getMessage(), e);
+        } finally {
+            dbLock.unlock();
         }
     }
 }

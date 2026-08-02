@@ -1,6 +1,5 @@
 package org.phantam.fozminespoofcore.chat;
 
-import org.bukkit.plugin.java.JavaPlugin;
 import org.phantam.fozminespoofcore.FozmineSpoofCore;
 import org.phantam.fozminespoofcore.config.ChatConfig;
 import org.phantam.fozminespoofcore.config.ConfigManager;
@@ -15,7 +14,7 @@ import java.util.logging.Logger;
  */
 public class ChatScheduler {
 
-    private final JavaPlugin plugin;
+    private final FozmineSpoofCore plugin;
     private final MessageLoader messageLoader;
     private final BotSelector botSelector;
     private final BotChatProcessor chatProcessor;

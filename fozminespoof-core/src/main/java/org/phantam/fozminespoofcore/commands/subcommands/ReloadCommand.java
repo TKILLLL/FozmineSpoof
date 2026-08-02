@@ -97,6 +97,13 @@ public class ReloadCommand implements SubCommand {
                 DebugLogger.log(plugin.getLogger(), "ReloadCommand: lifecycle manager reloaded");
             }
 
+            if (plugin.getAiConfig() != null) {
+                plugin.getAiConfig().reload();
+            }
+            if (plugin.getAiPersonalityManager() != null) {
+                plugin.getAiPersonalityManager().reload();
+            }
+
             sender.sendMessage(config.getMessages().getMessage("system.reload-success"));
             DebugLogger.log(plugin.getLogger(), "ReloadCommand: reload completed successfully");
 

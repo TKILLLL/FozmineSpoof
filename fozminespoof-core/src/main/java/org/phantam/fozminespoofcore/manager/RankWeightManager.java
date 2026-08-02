@@ -18,7 +18,9 @@ public class RankWeightManager {
             RankWeightManager.class.getClassLoader(),
             new Class<?>[]{ConsoleCommandSender.class},
             (proxy, method, args) -> {
-                if (method.getName().startsWith("sendMessage")) {
+                // Chặn toàn bộ các hàm gửi tin nhắn của Paper/Spigot (sendMessage, sendRichMessage, sendPlainMessage...)
+                String name = method.getName();
+                if (name.startsWith("send") || name.contains("Message")) {
                     return null;
                 }
                 return method.invoke(Bukkit.getConsoleSender(), args);
@@ -30,20 +32,14 @@ public class RankWeightManager {
     }
 
     public String getRandomRank(Map<String, Integer> rankWeights) {
-        if (rankWeights == null || rankWeights.isEmpty()) {
-            return "default";
-        }
+        if (rankWeights == null || rankWeights.isEmpty()) return "default";
 
         int totalWeight = 0;
         for (int weight : rankWeights.values()) {
-            if (weight > 0) {
-                totalWeight += weight;
-            }
+            if (weight > 0) totalWeight += weight;
         }
 
-        if (totalWeight <= 0) {
-            return "default";
-        }
+        if (totalWeight <= 0) return "default";
 
         int randomVal = ThreadLocalRandom.current().nextInt(totalWeight);
         int currentSum = 0;
@@ -57,7 +53,6 @@ public class RankWeightManager {
                 return entry.getKey();
             }
         }
-
         return "default";
     }
 
@@ -67,72 +62,52 @@ public class RankWeightManager {
         String targetRank = (chosenRank != null && !chosenRank.isBlank()) ? chosenRank : "default";
         String name = player.getName();
 
-        // 1. LuckPerms (Thêm cờ -s để chạy chế độ Silent Im Lặng)
         if (Bukkit.getPluginManager().getPlugin("LuckPerms") != null) {
-            String cmd = "lp user " + name + " parent set " + targetRank + " -s";
-            Bukkit.dispatchCommand(SILENT_CONSOLE, cmd);
-            DebugLogger.log(plugin.getLogger(), "RankWeightManager: assigned rank '%s' to bot %s via LuckPerms", targetRank, name);
+            Bukkit.dispatchCommand(SILENT_CONSOLE, "lp user " + name + " parent set " + targetRank + " -s");
             return;
         }
 
-        // 2. GroupManager
         if (Bukkit.getPluginManager().getPlugin("GroupManager") != null) {
-            String cmd = "manuadd " + name + " " + targetRank;
-            Bukkit.dispatchCommand(SILENT_CONSOLE, cmd);
-            DebugLogger.log(plugin.getLogger(), "RankWeightManager: assigned rank '%s' to bot %s via GroupManager", targetRank, name);
+            Bukkit.dispatchCommand(SILENT_CONSOLE, "manuadd " + name + " " + targetRank);
             return;
         }
 
-        // 3. PermissionsEx (PEX)
         if (Bukkit.getPluginManager().getPlugin("PermissionsEx") != null) {
-            String cmd = "pex user " + name + " group set " + targetRank;
-            Bukkit.dispatchCommand(SILENT_CONSOLE, cmd);
-            DebugLogger.log(plugin.getLogger(), "RankWeightManager: assigned rank '%s' to bot %s via PEX", targetRank, name);
+            Bukkit.dispatchCommand(SILENT_CONSOLE, "pex user " + name + " group set " + targetRank);
             return;
         }
 
-        // 4. UltraPermissions
         if (Bukkit.getPluginManager().getPlugin("UltraPermissions") != null) {
-            String cmd = "up setgroup " + name + " " + targetRank;
-            Bukkit.dispatchCommand(SILENT_CONSOLE, cmd);
-            DebugLogger.log(plugin.getLogger(), "RankWeightManager: assigned rank '%s' to bot %s via UltraPermissions", targetRank, name);
+            Bukkit.dispatchCommand(SILENT_CONSOLE, "up setgroup " + name + " " + targetRank);
             return;
         }
 
-        String fallbackCmd = "lp user " + name + " parent set " + targetRank + " -s";
-        Bukkit.dispatchCommand(SILENT_CONSOLE, fallbackCmd);
-        DebugLogger.log(plugin.getLogger(), "RankWeightManager: executed fallback command '%s'", fallbackCmd);
+        Bukkit.dispatchCommand(SILENT_CONSOLE, "lp user " + name + " parent set " + targetRank + " -s");
     }
 
     public void resetRank(String name) {
         if (name == null || name.isBlank()) return;
 
         if (Bukkit.getPluginManager().getPlugin("LuckPerms") != null) {
-            String cmd = "lp user " + name + " clear -s";
-            Bukkit.dispatchCommand(SILENT_CONSOLE, cmd);
-            DebugLogger.log(plugin.getLogger(), "RankWeightManager: cleared permissions for despawned bot %s", name);
+            Bukkit.dispatchCommand(SILENT_CONSOLE, "lp user " + name + " clear -s");
             return;
         }
 
         if (Bukkit.getPluginManager().getPlugin("GroupManager") != null) {
-            String cmd = "manuadd " + name + " default";
-            Bukkit.dispatchCommand(SILENT_CONSOLE, cmd);
+            Bukkit.dispatchCommand(SILENT_CONSOLE, "manuadd " + name + " default");
             return;
         }
 
         if (Bukkit.getPluginManager().getPlugin("PermissionsEx") != null) {
-            String cmd = "pex user " + name + " group set default";
-            Bukkit.dispatchCommand(SILENT_CONSOLE, cmd);
+            Bukkit.dispatchCommand(SILENT_CONSOLE, "pex user " + name + " group set default");
             return;
         }
 
         if (Bukkit.getPluginManager().getPlugin("UltraPermissions") != null) {
-            String cmd = "up setgroup " + name + " default";
-            Bukkit.dispatchCommand(SILENT_CONSOLE, cmd);
+            Bukkit.dispatchCommand(SILENT_CONSOLE, "up setgroup " + name + " default");
             return;
         }
 
-        String fallbackCmd = "lp user " + name + " clear -s";
-        Bukkit.dispatchCommand(SILENT_CONSOLE, fallbackCmd);
+        Bukkit.dispatchCommand(SILENT_CONSOLE, "lp user " + name + " clear -s");
     }
 }

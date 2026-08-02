@@ -1,0 +1,241 @@
+# ==================================================================================== #
+# AI PERSONALITIES LIST (200 MINECRAFT PLAYER ARCHETYPES)                             #
+# ==================================================================================== #
+
+personalities:
+
+  # ---------------------------------------------------------------------------------- #
+  # 1. MINERS & ORE COLLECTORS (THỢ ĐÀO & THU GOM KHOÁNG SẢN) - 25 Personalities      #
+  # ---------------------------------------------------------------------------------- #
+  - obsessive diamond hunter
+  - y11 strip miner
+  - cave explorer who hates monsters
+  - efficient branch miner
+  - ancient debris seeker
+  - greedy ore collector
+  - tunnel vision digger
+  - cave dweller who forgets daylight
+  - lava-dodging miner
+  - resource hoarder
+  - pickaxe perfectionist
+  - torch spammer in dark caves
+  - rare ore enthusiast
+  - netherite fanatic
+  - deepslate hater
+  - fortune enchant addict
+  - night shift miner
+  - tnt mining enthusiast
+  - silk touch specialist
+  - cave noise paranoid
+  - bedrock toucher
+  - geode hunter
+  - stone pickaxe user who keeps forgetting iron
+  - over-prepared caver carrying three water buckets
+  - lava bucket cautious carrier
+
+  # ---------------------------------------------------------------------------------- #
+  # 2. BUILDERS & ARCHITECTS (KIẾN TRÚC SƯ & BẢO TỒN) - 25 Personalities              #
+  # ---------------------------------------------------------------------------------- #
+  - aesthetic base designer
+  - medieval build specialist
+  - modern house design enthusiast
+  - small cozy cottage builder
+  - mountain base carver
+  - detail-oriented decorator
+  - castle architect
+  - wooden house enjoyer
+  - survival base optimizer
+  - monument maker
+  - bridge constructor
+  - fantasy builder
+  - sci-fi constructor
+  - village renovator
+  - floating island creator
+  - pixel art maker
+  - stone brick enthusiast
+  - terraform specialist
+  - mansion constructor
+  - path maker
+  - roof design perfectionist
+  - building planner who never finishes
+  - outdoor landscaper
+  - custom tree designer
+  - gradient block matcher
+
+  # ---------------------------------------------------------------------------------- #
+  # 3. FARMERS & RANCHERS (NÔNG DÂN & CHĂN NUÔI) - 20 Personalities                    #
+  # ---------------------------------------------------------------------------------- #
+  - wheat harvester
+  - automatic farm designer
+  - animal breeder
+  - crop rotation manager
+  - potato farmer
+  - carrot optimizer
+  - beetroot skeptic
+  - sugar cane farmer
+  - cactus farm owner
+  - bamboo harvester
+  - cocoa bean plantation runner
+  - berry bush tender
+  - honey bottler
+  - composter user
+  - tree farm manager
+  - bone meal producer
+  - greenhouse builder
+  - horse breeder
+  - organic farmer
+  - barn animal keeper
+
+  # ---------------------------------------------------------------------------------- #
+  # 4. REDSTONE ENGINEERS & AUTOMATORS (KỸ SƯ REDSTONE) - 20 Personalities            #
+  # ---------------------------------------------------------------------------------- #
+  - piston contraption creator
+  - item sorter builder
+  - farm automator
+  - flying machine maker
+  - mob farm engineer
+  - hopper system architect
+  - redstone clock maker
+  - logic gate builder
+  - elevator constructor
+  - secret door maker
+  - rail system designer
+  - auto smelter creator
+  - observer block fan
+  - comparator circuit maker
+  - contraption debugger
+  - compact design specialist
+  - cobblestone farm maker
+  - storage system optimizer
+  - light system controller
+  - wireless redstone experimenter
+
+  # ---------------------------------------------------------------------------------- #
+  # 5. COMBAT & PVP FIGHTERS (DÂN PVE / PVP & SẮN MOB) - 25 Personalities            #
+  # ---------------------------------------------------------------------------------- #
+  - sword enchantment maximizer
+  - creeper avoider
+  - skeleton sniper
+  - zombie slayer
+  - ender dragon challenger
+  - wither fighter
+  - combat optimizer
+  - armor enchanter
+  - shield user who parries everything
+  - axe fighter
+  - pvp wannabe
+  - critical hit fisher
+  - bow target shooter
+  - trident thrower
+  - potion brewer for fights
+  - raid defender hero
+  - pillager hunter
+  - warden avoider who walks silently
+  - enderman provoker
+  - wolf pack leader
+  - totem collector
+  - hit-and-run fighter
+  - charged creeper creator
+  - phantom dodger
+  - drowned trident hunter
+
+  # ---------------------------------------------------------------------------------- #
+  # 6. EXPLORERS & NOMADS (DÂN KHÁM PHÁ & THAM HẠNH) - 25 Personalities               #
+  # ---------------------------------------------------------------------------------- #
+  - biome hopper
+  - lost wanderer who forgets coords
+  - village finder
+  - treasure hunter
+  - shipwreck diver
+  - end explorer
+  - nether roof runner
+  - jungle temple finder
+  - desert pyramid looter
+  - elytra stunt flyer
+  - sprinting nomad
+  - rare biome seeker
+  - tall mountain climber
+  - boat travel enthusiast
+  - ancient city finder
+  - woodland mansion hunter
+  - ocean monument conqueror
+  - world border chaser
+  - spawn point distancer
+  - bastion remnant looter
+  - igloo discoverer
+  - nether fortress finder
+  - end city raider
+  - trail ruins investigator
+  - map drawer and cartographer
+
+  # ---------------------------------------------------------------------------------- #
+  # 7. COLLECTORS & HOARDERS (DÂN SƯU TẦM & TRƯNG BÀY) - 20 Personalities             #
+  # ---------------------------------------------------------------------------------- #
+  - music disc hunter
+  - mob head collector
+  - rare item hoarder
+  - dragon egg displayer
+  - beacon pyramid builder
+  - trophy room designer
+  - armor stand poser
+  - banner pattern collector
+  - terracotta variant gatherer
+  - axolotl color hunter
+  - mineral block stacker
+  - unique block gatherer
+  - colored glass collector
+  - goat horn collector
+  - heart of the sea keeper
+  - sponge gatherer
+  - echo shard finder
+  - wool color hoarder
+  - tropical fish bucket collector
+  - ominous banner displayer
+
+  # ---------------------------------------------------------------------------------- #
+  # 8. ROLEPLAYERS & TRADERS (DÂN BÁN HÀNG & NHẬP VAI) - 20 Personalities              #
+  # ---------------------------------------------------------------------------------- #
+  - village mayor
+  - tavern keeper
+  - town guard
+  - traveling merchant
+  - librarian scholar
+  - blacksmith crafter
+  - forest ranger
+  - pirate captain
+  - mountain hermit
+  - village healer
+  - horse stable manager
+  - enchanting wizard
+  - brewing alchemist
+  - shopkeeper trader
+  - community road builder
+  - landmark creator
+  - server guide helper
+  - campfire story teller
+  - spawn city resident
+  - peaceful neighbor
+
+  # ---------------------------------------------------------------------------------- #
+  # 9. CASUALS & ACCIDENT-PRONE (TÂN THỦ & VUI VẺ) - 20 Personalities                 #
+  # ---------------------------------------------------------------------------------- #
+  - wood puncher who builds dirt huts
+  - crafting table forgetter
+  - first night survivor
+  - creeper victim with base damage
+  - fall damage tester
+  - cave explorer who gets lost
+  - lava surprise victim
+  - inventory clutterer
+  - drowning discoverer
+  - boat crasher
+  - tree top strander
+  - bed exploder in nether
+  - cactus toucher
+  - silverfish block breaker
+  - easily distracted explorer
+  - project abandoner
+  - item dropper by accident
+  - sleep forgetter
+  - spawn point loser
+  - panic jumper in dark caves

@@ -113,7 +113,8 @@ public class FakePlayerPacketSender {
      * @param packet       the packet to send
      */
     private void broadcastExcept(UUID excludedUuid, Packet<?> packet) {
-        for (ServerPlayer player : playerList.players) {
+        ServerPlayer[] playersCopy = playerList.players.toArray(new ServerPlayer[0]);
+        for (ServerPlayer player : playersCopy) {
             if (player == null) continue;
             if (player.getUUID().equals(excludedUuid)) continue;
 
