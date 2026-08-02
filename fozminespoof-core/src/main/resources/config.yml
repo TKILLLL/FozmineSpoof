@@ -1,0 +1,185 @@
+#########################################################################################
+#                                                                                       #
+#     ______                      _                 _____                        ______ #
+#    / ____/___  ____  ____ ___  (_)___  ___       / ___/____   ____  ____  ____/ ____/ #
+#   / /_  / __ \/_  / / __ `__ \/ / __ \/ _ \      \__ \/ __ \ / __ \/ __ \/ __ \/ /_   #
+#  / __/ / /_/ / / /_/ / / / / / / / / /  __/     ___/ / /_/ // /_/ / /_/ / /_/ / __/   #
+# /_/    \____/ /___/_/ /_/ /_/_/_/ /_/\___/    /____/ .___/ \____/\____/\____/_/       #
+#                                                  /_/                                  #
+#                                                                                       #
+#                       FOZMINESPOOF GLOBAL CONFIGURATION                               #
+#        Next-Generation Ultra-Realistic FakePlayer System for Paper/Spigot             #
+#                             Developer: phantam                                        #
+#                                                                                       #
+#########################################################################################
+
+# ==================================================================================== #
+#                          1. DATABASE & PROXY BRIDGING                                #
+# ==================================================================================== #
+Database:
+  # Connection Storage Engine:
+  #   false = SQLite (High-performance local database file, zero configuration needed).
+  #   true  = MySQL  (Recommended for multi-server networks and cross-server sync).
+  enable: false
+
+  # Custom database table name for fake player storage.
+  # Automatically sanitised to prevent SQL injection vulnerabilities.
+  name: "fozminespoof_players"
+
+  # MySQL Database Connection Details (Only active if 'enable' is set to true)
+  database: "minecraft_db"
+  host: "127.0.0.1"
+  port: 3306
+  user: "root"
+  password: "your_secure_password"
+
+  # Proxy Bridging Settings (BungeeCord / Velocity / Waterfall)
+  bridging-setting:
+    # Enable proxy sync to allow the FozmineSpoof-Bridge proxy plugin to aggregate
+    # player counts and tablists seamlessly across your entire proxy network.
+    enable-proxy: false
+
+    # Unique identifier for this server node inside the proxy sync matrix.
+    bungee_name: "survival-server-01"
+
+
+# ==================================================================================== #
+#                       2. FAKE PLAYER BEHAVIOR & LIFECYCLE                            #
+# ==================================================================================== #
+Fakeplayer-setting:
+  # TabList Visibility:
+  #   false = Show fake players in the TabList alongside real players (Hyper-realistic).
+  #   true  = Completely hide fake players from the TabList.
+  hide-in-tab: false
+
+  # Dedicated Void World for Fake Player Entity Processing:
+  # Keeps bot entities loaded in an isolated void environment to preserve server TPS.
+  botworld: "botworld"
+
+  # Plugin Interceptor Brand Masking:
+  # Masks fake player system details under /plugins or query commands.
+  # Set to "none" to disable intercepter injection.
+  fake-plugin-name: "FozmineSpawner"
+
+  # Realistic Join/Quit Broadcast Messages:
+  #   true  = Broadcast custom join and leave messages when bots connect/disconnect.
+  #   false = Mute all connection broadcasts.
+  join-leave-message-enable: true
+
+  # Connection Broadcast Formats (Supports Standard Formatting & Color Codes '&')
+  # Placeholders:
+  #   %fakeplayer_name% - Displays the dynamic bot username.
+  join-message: "&8[&a+&8] &e%fakeplayer_name%"
+  leave-message: "&8[&c-&8] &e%fakeplayer_name%"
+
+  # Join/Quit Delay Interval (in Seconds):
+  # Controls the human-like delay between consecutive bot spawns or despawns.
+  # Supports exact decimal values (e.g., "0.5-2.5" or "1-5").
+  join-quit-interval: "1-5"
+
+  # Bot Lifetime Duration (in Seconds):
+  # Simulates human session length before logging out naturally.
+  # Default: "1800-3600" (30 minutes to 60 minutes session time per bot).
+  lifetime-interval: "1800-3600"
+
+  # Minimum Active Bot Threshold:
+  # The guaranteed baseline number of fake players online at all times.
+  base-amount: 10
+
+  # Dynamic Player Scaling Rate (% Ratio):
+  # Dynamically scales additional bots based on active REAL human player count.
+  # Formula: Total Bots = base-amount + (Real Players * percent-rate / 100)
+  # Example: 10 base + 10% of 20 real players = 12 total bots online.
+  percent-rate: 10
+
+  # Automated Join Command Execution Pipeline:
+  join-actions:
+    # Commands executed BY the Fake Player upon joining the server.
+    # Essential for authentication plugins (AuthMe, nLogin, ORA) to bypass registration gates.
+    fakeplayer:
+      enabled: true
+      commands:
+        - "login defaultpassword123"
+        - "register defaultpassword123 defaultpassword123"
+
+    # Commands executed BY the CONSOLE upon bot connection.
+    # Placeholders:
+    #   %fakeplayer_name% - Target bot's name.
+    console:
+      enabled: false
+      commands:
+        - "lp user %fakeplayer_name% permission set fozminespoof.fakebot true"
+
+# ==================================================================================== #
+#                 5. DYNAMIC PEAK HOURS & PLAYER FLUCTUATIONS                          #
+# ==================================================================================== #
+# Configure dynamic player fluctuations and peak-hour settings
+fluctuations:
+  # Enable or disable automatic hourly player fluctuations
+  enabled: false
+
+  # Timezone used by the system to cross-reference real-time schedules
+  # Supported: "Vietnam", "Asia/Ho_Chi_Minh", "GMT+7", "UTC", "System"
+  timezone: "Vietnam"
+
+  # List of active fluctuation time frames (Uses 24-hour format HH:mm-HH:mm)
+  # Overnight schedules are fully supported (e.g., "22:00-02:00")
+  active-hours:
+    - "12:00-14:00"
+    - "18:00-23:00"
+
+  # Base amount of fixed fake players to maintain during these active hours
+  base-amount: 10
+
+  # Percentage of additional fake players added based on real online players (%)
+  percent-rate: 50
+
+# ==================================================================================== #
+#                       3. ADVANCED AI CHAT EMULATION SYSTEM                           #
+# ==================================================================================== #
+chat-system:
+  # Master Toggle for the Intelligent Bot Chat Simulation System:
+  # Allows fake players to speak naturally using pre-configured message pools.
+  enabled: true
+
+  # Auto-Translation Target Language Engine:
+  # Automatically translates chat pool messages into target language via Neural API.
+  # Use standard ISO 639-1 language codes ("en" = English, "vi" = Vietnamese, "de" = German).
+  # Set to "none" to disable translation processing.
+  translation-target: "en"
+
+  # Chat Frequency Cycle Interval (in Minutes):
+  # Interval range between automatic chat triggers.
+  # Supports decimal values for fast-paced testing (e.g., "0.5-2.0" or "5-15").
+  interval-minutes: "5-15"
+
+  # Bot Speaker Pool Size per Cycle:
+  # Random range of how many bots speak during each chat cycle.
+  bots-per-interval: "1-2"
+
+  # Inter-Bot Conversation Delay (in Seconds):
+  # Human-like staggered delay between different bots chatting in the same cycle.
+  # Supports decimal values (e.g., "1.5-3.5").
+  delay-between-bots-seconds: "2-5"
+
+  # Chat Formatting & Interception Override:
+  message-format:
+    # Format Engine Toggle:
+    #   false = Pass chat directly through the server's Chat Pipeline (Compatible with LPC, EssentialsX Chat, Towny).
+    #   true  = Force built-in format override below.
+    enable: false
+
+    # Built-In Chat Display Format:
+    # Placeholders:
+    #   %fakeplayer_name%    - Speaker's name.
+    #   %fakeplayer_message% - Message content.
+    chat-format: "&7[&a%fakeplayer_name%&7]&f: %fakeplayer_message%"
+
+
+# ==================================================================================== #
+#                       4. SYSTEM DIAGNOSTICS & DEBUGGING                              #
+# ==================================================================================== #
+# Verbose Logging Mode:
+# Enable for deep console trace logs during system setup or troubleshooting.
+# MUST BE SET TO 'false' IN PRODUCTION ENVIRONMENTS TO MAXIMISE TPS PERFORMANCE.
+debug: false
