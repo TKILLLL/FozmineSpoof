@@ -16,8 +16,8 @@ import org.bukkit.craftbukkit.util.CraftChatMessage;
 import org.bukkit.entity.Player;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.plugin.Plugin;
-import org.phantam.fozminesproofapi.FozminesproofApi;
-import org.phantam.fozminesproofapi.utils.DebugLogger;
+import org.phantam.fozminespoofapi.FozminespoofApi;
+import org.phantam.fozminespoofapi.utils.DebugLogger;
 import org.phantam.fozminesproofv1_21_1.factory.FakePlayerFactory;
 import org.phantam.fozminesproofv1_21_1.network.FakePlayerPacketSender;
 
@@ -26,7 +26,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 
-public class NMSBridge_v1_21_1 implements FozminesproofApi {
+public class NMSBridge_v1_21_1 implements FozminespoofApi {
 
     private final Map<UUID, ServerPlayer> activeFakePlayers = new ConcurrentHashMap<>();
     private Plugin pluginInstance;

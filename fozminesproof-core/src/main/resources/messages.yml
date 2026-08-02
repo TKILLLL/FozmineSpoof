@@ -1,70 +1,80 @@
-# ================================================================================= #
-#                       FOZMINESPROOF PLUGIN MESSAGES CONFIGURATION                 #
-#        Supports legacy color codes (&a, &b) and HEX colors (&#RRGGBB, #RRGGBB)   #
-# ================================================================================= #
+########################################################################################
+#                                                                                      #
+#                       FOZMINESPOOF SYSTEM MESSAGES CONFIGURATION                    #
+#        Supports legacy color codes (&a, &b) and HEX RGB colors (&#RRGGBB, #RRGGBB)  #
+#                             Developer: phantam                                       #
+#                                                                                      #
+########################################################################################
 
-# ================================================== #
-#              SYSTEM-WIDE MESSAGES                   #
-# ================================================== #
+# ==================================================================================== #
+#                          1. SYSTEM-WIDE CORE MESSAGES                                #
+# ==================================================================================== #
 system:
-  prefix: "&#4e73df&l[FozmineSproof] &r"
-  no-permission: "&#e74c3c❌ You do not have permission to execute this command!"
-  reload-success: "&#2ecc71✅ Configuration reloaded and FakePlayer system synchronised successfully."
-  only-player: "&#e74c3c⚠ This command can only be executed by a player in-game!"
-  unknown-command: "&#e74c3c⚠ Unknown command. Use &#f1c40f/sproof help &r&#e74c3cto see command list."
+  # Master Plugin Chat Prefix
+  prefix: "&#3B82F6&lFozmineSpoof &#00F2FE▸ &r"
 
-# ================================================== #
-#              COMMAND HELP MENU                      #
-# ================================================== #
+  # Error & Restriction Messages
+  no-permission: "&#EF4444 You do not have permission to execute this command!"
+  reload-success: "&#10B981 Configuration reloaded and fake player system synchronized successfully."
+  only-player: "&#F59E0B This command can only be executed by in-game players!"
+  unknown-command: "&#EF4444 Unknown subcommand. Use &#38BDF8/spoof &#EF4444to view command list."
+
+
+# ==================================================================================== #
+#                          2. COMMAND HELP MENU INTERFACE                              #
+# ==================================================================================== #
 commands:
   help:
-    header: "&#4e73df&m==================&r &#4e73df&lCOMMAND HELP &r&#4e73df&m=================="
-    format: "&#f1c40f/sproof %syntax% &7- &#ffffff%description%"
-    footer: "&#4e73df&m======================================================"
+    header: "&#3B82F6&m==================&#00F2FE&l [ COMMAND HELP ] &#3B82F6&m=================="
+    format: "&#38BDF8/spoof %syntax% &#94A3B8- &#FFFFFF%description%"
+    footer: "&#3B82F6&m=============================================================="
     list:
-      add: "add <name> | Create a new bot entry at your current location"
-      spawn: "spawn <name> | Activate and show the bot's 3D model"
-      despawn: "despawn <name> | Hide the bot's model from the world"
-      remove: "remove <name> | Permanently delete the bot from memory and SQL"
-      list: "list | Show all bots currently in the system"
-      info: "info <name> | View detailed coordinates and status of a bot"
-      reload: "reload | Refresh all system configurations"
+      add: "add <name> | Register a new fake player entry at your current location"
+      spawn: "spawn <name|*|amount> | Spawn and display fake player entity models"
+      despawn: "despawn <name|*> | Despawn and remove fake player models from world"
+      remove: "remove <name> | Permanently delete a fake player from database"
+      list: "list | Display all registered fake players and online statuses"
+      info: "info <name> | View detailed status, location, and UUID of a bot"
+      reload: "reload | Hot-reload configurations and synchronize database"
 
-# ================================================== #
-#              BOT-RELATED RESPONSES                 #
-# ================================================== #
+
+# ==================================================================================== #
+#                          3. FAKE PLAYER ACTION RESPONSES                             #
+# ==================================================================================== #
 bot:
-  # General errors
-  not-found: "&#e74c3c❌ No FakePlayer found with the name &e%fakeplayer_name%&#e74c3c in the database!"
-  already-exists: "&#e74c3c❌ A FakePlayer named &e%fakeplayer_name%&#e74c3c already exists!"
-  invalid-name: "&#e74c3c❌ Invalid bot name! Only letters, numbers, and underscores allowed (3-16 characters)."
+  # General Validation & Errors
+  not-found: "&#EF4444 Fake player &#F59E0B%fakeplayer_name% &#EF4444was not found in database!"
+  already-exists: "&#EF4444 A fake player named &#F59E0B%fakeplayer_name% &#EF4444already exists!"
+  invalid-name: "&#EF4444 Invalid bot name! Name must be 3-16 characters (letters, numbers, underscores only)."
 
-  # Add bot response
-  add-success: "&#2ecc71✅ Successfully created static bot &e%fakeplayer_name% &7(World: &b%world%&7)."
+  # Administrative Operations
+  add-success: "&#10B981 Successfully registered fake player &#F59E0B%fakeplayer_name% &#94A3B8(World: &#38BDF8%world%&#94A3B8)."
+  remove-success: "&#EF4444 Permanently removed fake player &#F59E0B%fakeplayer_name% &#EF4444from system and database."
 
-  # Spawn bot responses
-  spawn-success: "&#2ecc71🚀 Successfully spawned bot &e%fakeplayer_name%&#2ecc71 with 3D model!"
-  already-spawned: "&#f1c40f⚠ Bot &e%fakeplayer_name%&#f1c40f is already spawned and active."
+  # Spawning Pipeline Responses
+  spawn-success: "&#10B981 Successfully spawned fake player &#F59E0B%fakeplayer_name%&#10B981 into world!"
+  already-spawned: "&#F59E0B Fake player &#F59E0B%fakeplayer_name% &#F59E0Bis already online and active."
 
-  # Despawn bot responses
-  despawn-success: "&#e67e22💤 Successfully despawned bot &e%fakeplayer_name%&#e67e22."
-  already-despawned: "&#f1c40f⚠ Bot &e%fakeplayer_name%&#f1c40f is already despawned."
+  # Despawning Pipeline Responses
+  despawn-success: "&#F59E0B Successfully despawned fake player &#F59E0B%fakeplayer_name%&#F59E0B."
+  already-despawned: "&#F59E0B Fake player &#F59E0B%fakeplayer_name% &#F59E0Bis already offline."
 
-  # Remove bot response
-  remove-success: "&#e74c3c🗑 Permanently removed bot &e%fakeplayer_name%&#e74c3f from the system and SQL."
-
-  # Info command format
+  # Interactive Info GUI Display
   info-format:
-    - "&#4e73df&lBOT INFO: &e%fakeplayer_name%"
-    - " &7▪ Status: %status_formatted%"
-    - " &7▪ UUID: &b%uuid%"
-    - " &7▪ Location: &fX: %x% | Y: %y% | Z: %z% &7(&f%world%&7)"
-    - " &7▪ Rotation: &fYaw: %yaw% | Pitch: %pitch%"
-  status-online: "&#2ecc71● ONLINE"
-  status-offline: "&#7f8c8d○ OFFLINE"
+    - "&#3B82F6&m------------------&#00F2FE&l [ BOT DETAILS ] &#3B82F6&m------------------"
+    - " &#94A3B8▪ Username: &#38BDF8%fakeplayer_name%"
+    - " &#94A3B8▪ Status: %status_formatted%"
+    - " &#94A3B8▪ UUID: &#94A3B8%uuid%"
+    - " &#94A3B8▪ Location: &#38BDF8%world% &#94A3B8(X: &#FFFFFF%x%&#94A3B8, Y: &#FFFFFF%y%&#94A3B8, Z: &#FFFFFF%z%&#94A3B8)"
+    - " &#94A3B8▪ Rotation: &#94A3B8Yaw: &#FFFFFF%yaw%&#94A3B8, Pitch: &#FFFFFF%pitch%"
+    - "&#3B82F6&m--------------------------------------------------------"
 
-  # List command format
-  list-header: "&#4e73df&lFAKEPLAYER LIST (%online%/%total%):"
-  list-item-online: " &7- &e%fakeplayer_name% &7[%status_formatted%&7]"
-  list-item-offline: " &7- &7%fakeplayer_name% &7[%status_formatted%&7]"
-  list-empty: "&#f1c40f No FakePlayers have been created in the system yet."
+  # Status Formatting Badges
+  status-online: "&#10B981● ONLINE"
+  status-offline: "&#64748B○ OFFLINE"
+
+  # Interactive List Display
+  list-header: "&#3B82F6&lREGISTERED BOTS &#94A3B8(&#10B981%online%&#94A3B8/&#38BDF8%total%&#94A3B8 online):"
+  list-item-online: " &#94A3B8- &#38BDF8%fakeplayer_name% %status_formatted%"
+  list-item-offline: " &#94A3B8- &#64748B%fakeplayer_name% %status_formatted%"
+  list-empty: "&#F59E0B No fake players registered in the system yet. Use &#38BDF8/spoof add <name>&#F59E0B."

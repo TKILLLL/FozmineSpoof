@@ -14,16 +14,16 @@ repositories {
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.19.4-R0.1-SNAPSHOT")
 
-    implementation(project(":fozminesproof-api"))
+    implementation(project(":fozminespoof-api"))
 
-    implementation(project(path = ":fozminesproof-v1_19_4", configuration = "reobf"))
-    implementation(project(path = ":fozminesproof-v1_20_1", configuration = "reobf"))
-    implementation(project(path = ":fozminesproof-v1_20_2", configuration = "reobf"))
-    implementation(project(path = ":fozminesproof-v1_20_4", configuration = "reobf"))
-    implementation(project(path = ":fozminesproof-v1_20_6", configuration = "reobf"))
-    implementation(project(path = ":fozminesproof-v1_21_1", configuration = "reobf"))
-    implementation(project(path = ":fozminesproof-v1_21_4", configuration = "reobf"))
-    implementation(project(path = ":fozminesproof-v1_21_11", configuration = "reobf"))
+    implementation(project(path = ":fozminespoof-v1_19_4", configuration = "reobf"))
+    implementation(project(path = ":fozminespoof-v1_20_1", configuration = "reobf"))
+    implementation(project(path = ":fozminespoof-v1_20_2", configuration = "reobf"))
+    implementation(project(path = ":fozminespoof-v1_20_4", configuration = "reobf"))
+    implementation(project(path = ":fozminespoof-v1_20_6", configuration = "reobf"))
+    implementation(project(path = ":fozminespoof-v1_21_1", configuration = "reobf"))
+    implementation(project(path = ":fozminespoof-v1_21_4", configuration = "reobf"))
+    implementation(project(path = ":fozminespoof-v1_21_11", configuration = "reobf"))
 }
 
 java {

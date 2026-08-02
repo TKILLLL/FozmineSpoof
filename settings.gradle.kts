@@ -6,15 +6,15 @@ pluginManagement {
     }
 }
 
-rootProject.name = "FozmineSproof"
+rootProject.name = "FozmineSpoof"
 
-include("fozminesproof-api")
-include("fozminesproof-core")
-include("fozminesproof-v1_19_4")
-include("fozminesproof-v1_20_1")
-include("fozminesproof-v1_20_2")
-include("fozminesproof-v1_20_4")
-include("fozminesproof-v1_20_6")
-include("fozminesproof-v1_21_1")
-include("fozminesproof-v1_21_4")
-include("fozminesproof-v1_21_11")
+include("fozminespoof-api")
+include("fozminespoof-core")
+include("fozminespoof-v1_19_4")
+include("fozminespoof-v1_20_1")
+include("fozminespoof-v1_20_2")
+include("fozminespoof-v1_20_4")
+include("fozminespoof-v1_20_6")
+include("fozminespoof-v1_21_1")
+include("fozminespoof-v1_21_4")
+include("fozminespoof-v1_21_11")

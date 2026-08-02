@@ -1,24 +1,24 @@
-name: fozminesproof-core
+name: fozminespoof-core
 version: '@version@'
-main: org.phantam.fozminesproofcore.FozmineSproofCore
+main: org.phantam.fozminespoofcore.FozmineSpoofCore
 api-version: "1.19"
 description: Advanced fake player management system with minimal TPS impact
 author: phantam
 commands:
-  sproof:
-    description: Main command for the FozmineSproof fake player system.
+  spoof:
+    description: Main command for the Fozminespoof fake player system.
     aliases:
-      - fsproof
+      - fspoof
       - fakeplayers
       - fp
-      - sproof
+      - spoof
       - fplayer
       - fakeplayer
-      - fozminesproof
-    permission: fozminesproof.admin
+      - fozminespoof
+    permission: fozminespoof.admin
     usage: /<command> [spawn|remove] <name>
 
 permissions:
-  fozminesproof.admin:
-    description: Grants full access to all FozmineSproof commands.
+  fozminespoof.admin:
+    description: Grants full access to all Fozminespoof commands.
     default: op

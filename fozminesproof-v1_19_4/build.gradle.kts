@@ -4,7 +4,7 @@ plugins {
 }
 
 dependencies {
-    implementation(project(":fozminesproof-api"))
+    implementation(project(":fozminespoof-api"))
 
     paperweight.paperDevBundle("1.19.4-R0.1-SNAPSHOT")
 }
