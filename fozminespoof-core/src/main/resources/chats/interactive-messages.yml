@@ -1,12 +1,18 @@
 # ==================================================================================== #
-#                         AUTOMATED CHAT RESPONDER (UPGRADED)                          #
+#              FOZMINESPOOF - DYNAMIC KEYWORD CHAT RESPONDER ENGINE                    #
 # ==================================================================================== #
-# Hệ thống tự động phản hồi thông minh dựa trên từ khóa dành cho Fake Players.
+# Configure hyper-realistic, keyword-driven automated response rules for Fake Players.
+# Features advanced wildcard pattern matching, anti-spam cooldowns, and simulated typing.
 
 chat-interactions:
+
+  # ---------------------------------------------------------------------------------- #
+  # INTERACTION GROUP: Player Greetings & Welcome Automation                           #
+  # ---------------------------------------------------------------------------------- #
   player-greeting:
-    # Từ khóa người chơi thật gõ (Hệ thống tự động lọc dấu câu, khoảng trắng và chữ thường)
-    # Dấu * đại diện cho ký tự bất kỳ (Wildcard)
+    # Trigger Patterns: Keywords matched against real player chat messages.
+    # - Case-insensitive and automatically strips punctuation/whitespace.
+    # - Use asterisk (*) as a wildcard operator (e.g., *hello*world*).
     triggers:
       - "hey"
       - "wassup"
@@ -15,31 +21,39 @@ chat-interactions:
       - "xin chao"
       - "chao ae"
 
-    # Tỷ lệ kích hoạt (0.7 = 70% cơ hội bot sẽ trả lời, 30% bot sẽ lờ đi như người thật)
+    # Execution Probability: (Range: 0.0 to 1.0)
+    # 0.7 = 70% chance a bot will respond; 30% chance bots ignore it to mimic natural human behavior.
     chance: 0.7
 
-    # Thời gian hồi chiêu (Giây) để chống người chơi cố tình spam từ khóa
+    # Anti-Spam Rate Limiting (in Seconds):
     cooldowns:
-      global: 15       # Cả cụm từ khóa này phải chờ 15 giây mới được kích hoạt lại
-      per-player: 30   # Riêng người chơi vừa chat phải chờ 30 giây mới kích hoạt lại được
+      global: 15       # Minimum cooldown before this trigger group can be activated again server-wide
+      per-player: 30   # Individual player cooldown before they can trigger this group again
 
-    # Số lượng fake player tối đa được phép phản hồi cùng một lúc
+    # Dynamic Response Capacity:
+    # Maximum number of fake players allowed to reply simultaneously to a single matched trigger.
     max-burst: 2
 
-    # Khoảng thời gian giả lập tốc độ gõ phím (Min-Max tính bằng giây)
+    # Simulated Human Reaction Time (Range in Seconds: "Min-Max"):
+    # Staggers response delivery to simulate natural keyboard typing speeds.
     delay-range: "1.5-2.3"
 
-    # Chỉ kích hoạt tính năng này trong khung giờ người chơi online nhiều (24h format)
-    # Nếu muốn chạy 24/7 thì xóa dòng này hoặc để "00:00-23:59"
+    # Time Schedule Constraint (24-Hour Format: "HH:mm-HH:mm"):
+    # Restricts interaction execution to high-activity server hours.
+    # Set to "00:00-23:59" or "24/7" for continuous operation.
     active-hours: "08:00-23:30"
 
-    # Kho câu thoại phản hồi (Hỗ trợ biến [name] để gọi tên người chơi thật)
+    # Response Pool: Randomly selected reply messages.
+    # Placeholders: [name] or %name% - Automatically replaced with the real player's username.
     replies:
       - "welcome [name]"
       - "Hey [name]"
       - "Hi [name] khỏe không e"
       - "chao [name] nha"
 
+  # ---------------------------------------------------------------------------------- #
+  # INTERACTION GROUP: Economy & Shop Helper                                           #
+  # ---------------------------------------------------------------------------------- #
   shop-helper:
     triggers:
       - "*how*sell*"
@@ -57,6 +71,9 @@ chat-interactions:
       - "Gõ lệnh /shop để bán đồ nhanh nha [name]!"
       - "Dùng /shop nha bạn ơi"
 
+  # ---------------------------------------------------------------------------------- #
+  # INTERACTION GROUP: Store & Web Link Information                                    #
+  # ---------------------------------------------------------------------------------- #
   server-ip-info:
     triggers:
       - "*nap the*"
@@ -72,33 +89,39 @@ chat-interactions:
     replies:
       - "Ủng hộ server tại web: store.server.net nè [name]"
 
-    discord-info:
-      triggers:
-        - "*discord*"
-        - "*group zolo*"
-        - "*kenh chat*"
-      chance: 1.0
-      cooldowns:
-        global: 10
-        per-player: 20
-      max-burst: 1
-      delay-range: "1.5-2.5"
-      active-hours: "00:00-23:59"
-      replies:
-        - "Tham gia Discord của server tại: discord.gg/server cua ban nha [name]"
-        - "Link discord nè [name]: discord.gg/server"
+  # ---------------------------------------------------------------------------------- #
+  # INTERACTION GROUP: Discord & Community Channel Linker                              #
+  # ---------------------------------------------------------------------------------- #
+  discord-info:
+    triggers:
+      - "*discord*"
+      - "*group zolo*"
+      - "*kenh chat*"
+    chance: 1.0
+    cooldowns:
+      global: 10
+      per-player: 20
+    max-burst: 1
+    delay-range: "1.5-2.5"
+    active-hours: "00:00-23:59"
+    replies:
+      - "Tham gia Discord của server tại: discord.gg/server cua ban nha [name]"
+      - "Link discord nè [name]: discord.gg/server"
 
-    rule-helper:
-      triggers:
-        - "*luat server*"
-        - "*co duoc hack*"
-        - "*cam pvp*"
-      chance: 0.8
-      cooldowns:
-        global: 15
-        per-player: 30
-      max-burst: 1
-      delay-range: "2.0-3.0"
-      active-hours: "08:00-22:00"
-      replies:
-        - "Xem luật server tại /rules nha bạn [name], cấm hack/cheat nha!"
+  # ---------------------------------------------------------------------------------- #
+  # INTERACTION GROUP: Server Rules & Moderation Helper                                #
+  # ---------------------------------------------------------------------------------- #
+  rule-helper:
+    triggers:
+      - "*luat server*"
+      - "*co duoc hack*"
+      - "*cam pvp*"
+    chance: 0.8
+    cooldowns:
+      global: 15
+      per-player: 30
+    max-burst: 1
+    delay-range: "2.0-3.0"
+    active-hours: "08:00-22:00"
+    replies:
+      - "Xem luật server tại /rules nha bạn [name], cấm hack/cheat nha!"

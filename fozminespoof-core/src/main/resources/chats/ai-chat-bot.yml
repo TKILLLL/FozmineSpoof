@@ -2,31 +2,34 @@
 #                       FOZMINE SPOOF - AI CHATBOT CORE SYSTEM                         #
 #                            (COMMERCIAL MULTILINGUAL V2.0)                            #
 # ==================================================================================== #
+# Next-Generation AI Chat Simulation Engine for Fake Players.
+# Supports OpenAI (GPT), Google Gemini, and Local LLM Endpoints (Ollama, LM Studio).
 
 ai-settings:
-  # Bật/Tắt toàn bộ hệ thống AI Chatbot (true: Bật, false: Tắt)
+  # Master Toggle: Enable or disable the entire AI Chatbot Subsystem (true / false)
   enabled: false
 
-  # Lựa chọn Nhà cung cấp Mô hình AI (Hỗ trợ: "GPT", "GEMINI", "CUSTOM")
+  # AI Provider Selection: Choose the model engine to process responses ("GPT", "GEMINI", or "CUSTOM")
   model: "GPT"
 
-  # API Key chính thức (Bỏ trống nếu chọn CUSTOM chạy Local)
+  # API Authentication Key: Your official API key (Leave blank if using "CUSTOM" Local LLM)
   api-key: "YOUR_API_KEY_HERE"
 
   # ---------------------------------------------------------------------------------- #
-  # 1. CẤU HÌNH ĐA NGÔN NGỮ (LANGUAGE SETTINGS - COMMERCIAL FEATURE)                  #
+  # 1. MULTILINGUAL & REGIONAL SLANG SETTINGS                                         #
   # ---------------------------------------------------------------------------------- #
   language-settings:
-    # Chế độ nhận diện ngôn ngữ:
-    # - "auto": Tự động phát hiện ngôn ngữ của người chơi và đáp lại đúng ngôn ngữ đó.
-    # - "fixed": Ép buộc toàn bộ Bot chỉ sử dụng 1 ngôn ngữ cố định thiết lập bên dưới.
+    # Language Detection Mode:
+    # - "auto": Dynamically detects the real player's language and replies in the same language.
+    # - "fixed": Enforces a single static language defined in `default-language`.
     mode: "auto"
 
-    # Ngôn ngữ mặc định (Dùng cho cuộc gọi AI-to-AI hoặc khi không nhận diện được tin nhắn)
-    # Mã chuẩn ISO: "en" (English), "vi" (Vietnamese), "es" (Spanish), "zh" (Chinese), "de" (German), "fr" (French)...
+    # Default Language Fallback:
+    # Standard ISO code used for AI-to-AI chats or when player language is ambiguous ("en", "vi", "es", "zh", "de", "fr")
     default-language: "en"
 
-    # Hướng dẫn Slang văn hóa Gamer địa phương (Gợi ý ngữ điệu tự nhiên cho từng quốc gia)
+    # Regional Gamer Slang Hints:
+    # Guides the AI to use authentic local gaming terminology and tone per culture.
     language-hints:
       en: "Use casual English gamer slang (e.g., lol, bro, dia, obby, brb, ngl, smh)."
       vi: "Dùng từ ngữ chat game Tiếng Việt tự nhiên, teen-code nhẹ (VD: vcl, khoáng, acc, đi cave, farm, bro, vkl)."
@@ -35,33 +38,35 @@ ai-settings:
       de: "Verwende entspannten deutschen Gamer-Slang (z.B. lol, digga, erz, nh)."
 
   # ---------------------------------------------------------------------------------- #
-  # 2. CHUẨN HÓA ĐẦU RA THÔNG MINH (SMART LOCALIZED SANITIZATION)                      #
+  # 2. SMART LOCALIZED OUTPUT SANITIZATION                                             #
   # ---------------------------------------------------------------------------------- #
   output-sanitization:
-    # Chuyển toàn bộ tin nhắn thường của Bot về chữ viết thường
+    # Forces all standard bot outputs into lowercase for casual gamer realism
     force-lowercase: true
 
-    # Xóa bỏ dấu câu (!, ?, ., ,) ở cuối câu
+    # Strips trailing sentence punctuation (!, ?, ., ,)
     force-no-punctuation: true
 
-    # Cho phép đè quy tắc trên nếu speaking_styles quy định riêng (VD: VIẾT HOA TOÀN BỘ hoặc Dấu !!!)
+    # Allows assigned bot `speaking_styles` to override formatting rules (e.g., ALL CAPS or punctuation quirks)
     override-by-speaking-style: true
 
-    # Không ép xóa dấu/viết thường đối với tin nhắn cứu trợ @FozmineBot (giúp câu hướng dẫn dễ đọc)
+    # Bypasses formatting restrictions for @FozmineBot help responses for legibility
     disable-sanitization-for-help: true
 
-    # Tùy chọn xử lý ký tự UTF-8 / Non-ASCII:
-    # - "auto-detect": Tự động giữ dấu phù hợp ngữ cảnh từng quốc gia.
-    # - "strip-vietnamese-accent": Tự động chuyển tiếng Việt có dấu thành không dấu (cho chat thường).
-    # - "keep-all": Giữ nguyên tất cả ký tự gốc UTF-8.
+    # Non-ASCII / UTF-8 Character Handling:
+    # - "auto-detect": Preserves accents and characters matching the target language.
+    # - "strip-vietnamese-accent": Automatically removes diacritics for Vietnamese unaccented chat.
+    # - "keep-all": Retains all raw UTF-8 characters as generated.
     non-ascii-handling: "auto-detect"
 
   # ---------------------------------------------------------------------------------- #
-  # 3. MẢNG DỰ PHÒNG LỖI ĐA NGÔN NGỮ (MULTILINGUAL FALLBACK SYSTEM)                   #
+  # 3. MULTILINGUAL FALLBACK SYSTEM                                                   #
   # ---------------------------------------------------------------------------------- #
   fallback:
+    # Enable automatic pre-configured fallback responses if the API times out or fails
     enabled: true
-    # Tự động chọn câu trả lời dự phòng theo ngôn ngữ của người chơi khi API gặp sự cố/timeout
+
+    # Localized Quick Response Pools:
     default-responses:
       en:
         - "mining rn brb"
@@ -86,17 +91,19 @@ ai-settings:
         - "挂机一会儿"
 
   # ---------------------------------------------------------------------------------- #
-  # 4. CHẾ ĐỘ CHAT TƯƠNG TÁC (INTERACTION MODES)                                       #
+  # 4. INTERACTION MODES                                                               #
   # ---------------------------------------------------------------------------------- #
   interaction-modes:
-    # CHẾ ĐỘ 1: Người chơi thật chat -> Bot phản hồi ngẫu nhiên nếu nhắc tên
+    # MODE 1: Player-to-AI Natural Mentions
+    # Triggers when a real player mentions or fuzzy-matches a bot's name in public chat.
     player-to-ai:
       enabled: true
       response-chance: 0.15
-      # Độ tương đồng tên Bot (0.78 tránh bắt nhầm tên ngắn như Tom/Tim)
+      # Fuzzy Name Matching Threshold (0.78 prevents false triggers on short names like Tom/Tim)
       name-similarity-threshold: 0.78
 
-    # CHẾ ĐỘ 2: Bot tự khởi xướng trò chuyện với nhau
+    # MODE 2: AI-to-AI Autonomous Conversations
+    # Bots periodically initiate and respond to short casual conversations among themselves.
     ai-to-ai:
       enabled: false
       initiate-chance: 0.05
@@ -107,7 +114,8 @@ ai-settings:
         [TOPIC POOL] Mining trip, building a base, finding diamonds, fighting mobs, farming, or crafting.
         [CONSTRAINTS] Maximum 5 words. Lowercase only. No punctuation. Fast gamer style.
 
-    # CHẾ ĐỘ 3: Bot hướng dẫn cố định (@FozmineBot)
+    # MODE 3: Dedicated Server Guide Bot (@FozmineBot)
+    # Triggers when players tag the designated bot name to ask questions or request help.
     ai-help:
       enabled: true
       bot-name: "FozmineBot"
@@ -131,7 +139,7 @@ ai-settings:
             [CONSTRAINTS] Under 40 characters. Helpful, accurate, clear.
 
   # ---------------------------------------------------------------------------------- #
-  # 5. CẤU HÌNH PROMPT HỆ THỐNG (PROMPT ENGINEERING)                                  #
+  # 5. PROMPT ENGINEERING & SYSTEM RULES                                               #
   # ---------------------------------------------------------------------------------- #
   prompt-engineering:
     system-rule: |-
@@ -154,39 +162,40 @@ ai-settings:
       - Focus: Minecraft gameplay, mining, building, trading, or survival only.
 
   # ---------------------------------------------------------------------------------- #
-  # 6. ĐIỀU KIỆN & KHUNG GIỜ HOẠT ĐỘNG (CONDITIONS & TIMEZONE)                         #
+  # 6. CONDITIONS, ROUTING & SCHEDULES                                                 #
   # ---------------------------------------------------------------------------------- #
   chat-format:
-    method: "normal" # "normal" (sử dụng ChatEvent mặc định) hoặc "broadcast"
+    method: "normal" # "normal" (Passes through standard ChatEvent) or "broadcast"
     broadcast-format: "{bot}: &7{message}"
 
   conditions:
     answer-in-same-world: false
     max-hearing-distance: -1
 
-    # Múi giờ hệ thống áp dụng cho active-hours (VD: "UTC", "Asia/Ho_Chi_Minh", "America/New_York")
+    # System Timezone for active-hours calculation (e.g., "UTC", "Asia/Ho_Chi_Minh", "America/New_York")
     time-zone: "Asia/Ho_Chi_Minh"
 
-    # Khung giờ Bot được phép hoạt động (Tắt nửa đêm để tiết kiệm chi phí API)
+    # Operating Hours Schedule (24-hour format: "HH:mm-HH:mm"):
+    # Disables AI activity during late night hours to minimize API usage.
     active-hours: "06:00-02:00"
 
   # ---------------------------------------------------------------------------------- #
-  # 7. THỜI GIAN & COOLDOWNS (TIMING & LIMITS)                                         #
+  # 7. TIMING, DELAYS & COOLDOWNS                                                      #
   # ---------------------------------------------------------------------------------- #
   timing:
-    # Tốc độ giả lập gõ phím (giây) trước khi phát tin nhắn
+    # Simulated typing delay range (in seconds) before delivering the message
     typing-delay: "1-3"
 
     cooldowns:
-      receiver: "15-30"
-      sender: "20-40"
-      conversation-expiry: "60-90"
+      receiver: "15-30"       # Cooldown for receiver bot before engaging in new chats
+      sender: "20-40"         # Cooldown for sender before chatting again
+      conversation-expiry: "60-90" # Context memory expiration timer
 
     max-responses-per-session: "2-3"
     close-on-new-player-mention: true
 
   # ---------------------------------------------------------------------------------- #
-  # 8. CẤU HÌNH ENGINE AI PROVIDERS                                                    #
+  # 8. AI MODEL PROVIDER CONFIGURATIONS                                               #
   # ---------------------------------------------------------------------------------- #
   providers:
     gpt:
@@ -208,18 +217,18 @@ ai-settings:
       temperature: 0.45
 
   # ---------------------------------------------------------------------------------- #
-  # 9. BẢO MẬT & CHẶN PROMPT INJECTION (SECURITY SAFEGUARDS)                          #
+  # 9. SECURITY SAFEGUARDS & ANTI-JAILBREAK SHIELDS                                    #
   # ---------------------------------------------------------------------------------- #
   security-safeguards:
     abort-api-on-violation: true
     max-input-length: 80
 
-    # Chống spam rút tiền API
+    # Anti-Spam Rate Limiting (Protects commercial API accounts from exhaustion)
     rate-limiting:
       max-requests-per-minute: 2
-      punishment-command: "kick {player} &cSpam AI qua muc quy dinh!"
+      punishment-command: "kick {player} &cSpamming AI request limit exceeded!"
 
-    # Lọc đầu ra trước khi gửi lên màn hình chat public
+    # Output Filtration Firewall (Blocks AI phrases before broadcasting to public chat)
     output-filtration:
       block-code-blocks: true
       block-sensitive-words:
@@ -232,9 +241,9 @@ ai-settings:
         - "assistant"
         - "i am an ai"
 
-    # Danh sách từ khóa cấm ở đầu vào từ người chơi (Anti-Jailbreak & Anti-Exploit)
+    # Input Blacklist Keywords (Blocks coding requests, system commands, and prompt injection attempts)
     input-blacklist-keywords:
-      # Lập trình & Scripting
+      # Coding & Scripting
       - "code"
       - "script"
       - "java"
@@ -244,7 +253,7 @@ ai-settings:
       - "lap trinh"
       - "viet code"
 
-      # Quyền hạn & Hệ thống Server
+      # Admin Commands & Server Security
       - "op"
       - "admin"
       - "backdoor"
@@ -256,7 +265,7 @@ ai-settings:
       - "password"
       - "mat khau"
 
-      # Jailbreak & Override Prompt
+      # Jailbreak & Prompt Injection
       - "system prompt"
       - "ignore everything"
       - "quen het"

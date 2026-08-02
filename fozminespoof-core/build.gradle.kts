@@ -1,9 +1,20 @@
 import org.apache.tools.ant.filters.ReplaceTokens
+import org.gradle.jvm.toolchain.JavaLanguageVersion
+import org.gradle.jvm.toolchain.JavaToolchainService
 
 plugins {
     id("java-library")
     id("xyz.jpenilla.run-paper") version "3.0.2"
     id("com.gradleup.shadow") version "9.4.2"
+}
+
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath("com.guardsquare:proguard-gradle:7.6.1")
+    }
 }
 
 repositories {
@@ -30,6 +41,12 @@ java {
     toolchain.languageVersion.set(JavaLanguageVersion.of(17))
 }
 
+// ĐÃ FIX: Khai báo Service lấy JDK 17 ngoài phạm vi Task
+val javaToolchains = project.extensions.getByType<JavaToolchainService>()
+val java17Launcher = javaToolchains.launcherFor {
+    languageVersion.set(JavaLanguageVersion.of(17))
+}
+
 tasks {
     runServer {
         minecraftVersion("1.19.4")
@@ -46,14 +63,26 @@ tasks {
     }
 
     shadowJar {
-        archiveClassifier.set("")
-
+        archiveClassifier.set("raw")
         configurations.set(listOf(project.configurations.runtimeClasspath.get()))
-
         mergeServiceFiles()
     }
 
-    build {
+    register<proguard.gradle.ProGuardTask>("obfuscate") {
         dependsOn(shadowJar)
+
+        injars(shadowJar.get().archiveFile)
+        outjars(layout.buildDirectory.file("libs/${project.name}-${project.version}.jar"))
+
+        configuration("proguard-rules.pro")
+
+        val jdkHome = java17Launcher.get().metadata.installationPath.asFile.absolutePath
+        libraryjars("$jdkHome/jmods")
+
+        libraryjars(configurations.compileClasspath.get())
+    }
+
+    build {
+        dependsOn("obfuscate")
     }
 }
