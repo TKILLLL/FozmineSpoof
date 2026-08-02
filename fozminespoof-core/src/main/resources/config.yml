@@ -92,6 +92,12 @@ Fakeplayer-setting:
   # Example: 10 base + 10% of 20 real players = 12 total bots online.
   percent-rate: 10
 
+  # Assign random ranks to fake players based on relative weight distribution
+  rank-weight:
+    # Weights are relative and do not need to total 100
+    vip: 10
+    default: 50
+
   # Automated Join Command Execution Pipeline:
   join-actions:
     # Commands executed BY the Fake Player upon joining the server.
@@ -120,7 +126,7 @@ fluctuations:
 
   # Timezone used by the system to cross-reference real-time schedules
   # Supported: "Vietnam", "Asia/Ho_Chi_Minh", "GMT+7", "UTC", "System"
-  timezone: "Vietnam"
+  timezone: "Asia/Ho_Chi_Minh"
 
   # List of active fluctuation time frames (Uses 24-hour format HH:mm-HH:mm)
   # Overnight schedules are fully supported (e.g., "22:00-02:00")

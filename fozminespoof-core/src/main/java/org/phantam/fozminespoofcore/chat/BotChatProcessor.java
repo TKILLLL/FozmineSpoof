@@ -1,6 +1,5 @@
 package org.phantam.fozminespoofcore.chat;
 
-import me.clip.placeholderapi.PlaceholderAPI;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.phantam.fozminespoofcore.FozmineSpoofCore;
@@ -119,10 +118,6 @@ public class BotChatProcessor {
                 .replace("{message}", message)
                 .replace("{prefix}", "")
                 .replace("&r", "");
-
-        if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
-            formatted = PlaceholderAPI.setPlaceholders(bot, formatted);
-        }
         return formatted;
     }
 }

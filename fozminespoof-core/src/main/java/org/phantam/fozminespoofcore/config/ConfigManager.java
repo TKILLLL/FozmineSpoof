@@ -5,6 +5,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.phantam.fozminespoofapi.utils.DebugLogger;
 import org.phantam.fozminespoofcore.utils.Range;
 
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.logging.Level;
 
@@ -59,6 +61,13 @@ public class ConfigManager {
     private int baseAmount;
     private int percentRate;
 
+    // Fluctuations (Peak Hours)
+    private boolean fluctuationEnabled;
+    private String fluctuationTimezone;
+    private List<String> fluctuationActiveHours;
+    private int fluctuationBaseAmount;
+    private int fluctuationPercentRate;
+
     // Chat
     private ChatConfig chatConfig;
     private String chatFormat;
@@ -110,6 +119,13 @@ public class ConfigManager {
             baseAmount = config.getInt(BASE_AMOUNT, 10);
             percentRate = config.getInt(PERCENT_RATE, 10);
 
+            // Fluctuations (Peak Hours)
+            fluctuationEnabled = config.getBoolean("fluctuations.enabled", false);
+            fluctuationTimezone = config.getString("fluctuations.timezone", "Asia/Ho_Chi_Minh");
+            fluctuationActiveHours = config.getStringList("fluctuations.active-hours");
+            fluctuationBaseAmount = config.getInt("fluctuations.base-amount", 10);
+            fluctuationPercentRate = config.getInt("fluctuations.percent-rate", 50);
+
             // Chat
             messageFormatEnable = config.getBoolean(MSG_FORMAT_ENABLE, false);
             messageChatFormat = config.getString(MSG_CHAT_FORMAT, "&7[&a%fakeplayer_name%&7]&f: %fakeplayer_message%");
@@ -127,8 +143,79 @@ public class ConfigManager {
             }
 
         } catch (Exception e) {
-            plugin.getLogger().log(Level.SEVERE, "[Fozminespoof] Failed to load config.yml: " + e.getMessage(), e);
+            plugin.getLogger().log(Level.SEVERE, "[FozmineSpoof] Failed to load config.yml: " + e.getMessage(), e);
         }
+    }
+
+    // ---- Peak Hours / Fluctuation Logic ----
+
+    public boolean isFluctuationEnabled() {
+        return fluctuationEnabled;
+    }
+
+    public boolean isInFluctuationActiveHours() {
+        if (!fluctuationEnabled || fluctuationActiveHours == null || fluctuationActiveHours.isEmpty()) {
+            return false;
+        }
+        try {
+            ZoneId zoneId = parseZoneId(fluctuationTimezone);
+            LocalTime now = LocalTime.now(zoneId);
+
+            for (String rangeStr : fluctuationActiveHours) {
+                if (rangeStr == null || !rangeStr.contains("-")) continue;
+                String[] parts = rangeStr.split("-");
+                LocalTime start = LocalTime.parse(parts[0].trim());
+                LocalTime end = LocalTime.parse(parts[1].trim());
+
+                if (start.isBefore(end)) {
+                    // Khung giờ trong ngày (VD: 12:00-14:00)
+                    if (!now.isBefore(start) && now.isBefore(end)) {
+                        return true;
+                    }
+                } else {
+                    // Khung giờ qua đêm (VD: 22:00-02:00)
+                    if (!now.isBefore(start) || now.isBefore(end)) {
+                        return true;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            if (debug) {
+                DebugLogger.log(plugin.getLogger(), "ConfigManager: error checking fluctuation hours: %s", e.getMessage());
+            }
+        }
+        return false;
+    }
+
+    private ZoneId parseZoneId(String zoneStr) {
+        if (zoneStr == null || zoneStr.isBlank()) return ZoneId.of("Asia/Ho_Chi_Minh");
+        String normalized = zoneStr.trim();
+        if (normalized.equalsIgnoreCase("Vietnam") || normalized.equalsIgnoreCase("VN")) {
+            return ZoneId.of("Asia/Ho_Chi_Minh");
+        }
+        try {
+            return ZoneId.of(normalized);
+        } catch (Exception e) {
+            try {
+                return ZoneId.of("GMT" + (normalized.startsWith("+") || normalized.startsWith("-") ? normalized : "+" + normalized));
+            } catch (Exception ex) {
+                return ZoneId.systemDefault();
+            }
+        }
+    }
+
+    public int getEffectiveBaseAmount() {
+        if (isInFluctuationActiveHours()) {
+            return fluctuationBaseAmount;
+        }
+        return baseAmount;
+    }
+
+    public int getEffectivePercentRate() {
+        if (isInFluctuationActiveHours()) {
+            return fluctuationPercentRate;
+        }
+        return percentRate;
     }
 
     // ---- Time Parsers (Milliseconds / Ticks) ----

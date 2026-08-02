@@ -176,7 +176,11 @@ public class BotLifecycleManager {
 
         int realPlayers = Bukkit.getOnlinePlayers().size();
         int botCount = manager.getOnlineBotsData().size();
-        int target = config.getBaseAmount() + (int) (realPlayers * config.getPercentRate() / 100.0);
+
+        int effectiveBase = config.getEffectiveBaseAmount();
+        int effectivePercent = config.getEffectivePercentRate();
+
+        int target = effectiveBase + (int) (realPlayers * effectivePercent / 100.0);
 
         if (botCount < target) {
             spawnOneBot();
