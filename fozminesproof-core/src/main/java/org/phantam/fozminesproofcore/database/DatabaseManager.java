@@ -221,24 +221,29 @@ public class DatabaseManager implements IFakePlayerDatabase {
 
     @Override
     public void sendProxySyncData(String bungeeName, String name, int activeCount, int inactiveCount) {
-        DebugLogger.log(Bukkit.getLogger(), "DatabaseManager: sync proxy data: bungee=%s, name=%s, active=%d, inactive=%d",
-                bungeeName, name, activeCount, inactiveCount);
+        String createTableSql = "CREATE TABLE IF NOT EXISTS " + bungeeName + " (" +
+                "name VARCHAR(64) NOT NULL PRIMARY KEY, " +
+                "active_bot INT DEFAULT 0, " +
+                "deactive_bot INT DEFAULT 0)";
+        try (Connection con = dataSource.getConnection();
+             Statement stmt = con.createStatement()) {
+            stmt.execute(createTableSql);
+        } catch (SQLException e) {
+            Bukkit.getLogger().log(Level.SEVERE,
+                    "[DatabaseManager] Failed to create proxy sync table: " + e.getMessage(), e);
+            return;
+        }
 
         String sql = "INSERT INTO " + bungeeName +
                 " (name, active_bot, deactive_bot) VALUES (?, ?, ?) " +
                 "ON DUPLICATE KEY UPDATE active_bot = VALUES(active_bot), deactive_bot = VALUES(deactive_bot);";
-
-        try (Connection con = getConnection();
+        try (Connection con = dataSource.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
-
             ps.setString(1, name);
             ps.setInt(2, activeCount);
             ps.setInt(3, inactiveCount);
             ps.executeUpdate();
-            DebugLogger.logFine(Bukkit.getLogger(), "DatabaseManager: proxy sync data sent");
-
         } catch (SQLException e) {
-            DebugLogger.log(Bukkit.getLogger(), "DatabaseManager: error syncing proxy data: %s", e.getMessage());
             Bukkit.getLogger().log(Level.SEVERE,
                     "[DatabaseManager] Error syncing proxy data: " + e.getMessage(), e);
         }

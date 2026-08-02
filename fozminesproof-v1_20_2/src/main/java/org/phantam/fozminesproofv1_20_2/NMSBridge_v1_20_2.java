@@ -43,26 +43,22 @@ public class NMSBridge_v1_20_2 implements FozminesproofApi {
 
     @Override
     public Player spawnPlayer(String name, UUID uuid, Location loc, boolean hideTab) {
-        DebugLogger.log(Bukkit.getLogger(), "NMSBridge_v1_20_2: spawnPlayer(%s, %s, hideTab=%s)", name, uuid, hideTab);
-
         MinecraftServer server = ((CraftServer) Bukkit.getServer()).getServer();
         ServerLevel level = ((CraftWorld) loc.getWorld()).getHandle();
 
         ServerPlayer fakePlayer = FakePlayerFactory.create(server, level, name, uuid, loc);
         activeFakePlayers.put(uuid, fakePlayer);
 
-        Connection connection = fakePlayer.connection.connection;
-        CommonListenerCookie cookie = CommonListenerCookie.createInitial(fakePlayer.getGameProfile());
-        server.getPlayerList().placeNewPlayer(connection, fakePlayer, cookie);
-
         Player bukkitPlayer = fakePlayer.getBukkitEntity();
         bukkitPlayer.setMetadata("NPC", new FixedMetadataValue(getPluginInstance(), true));
 
+        Connection connection = fakePlayer.connection.connection;
+        CommonListenerCookie cookie = CommonListenerCookie.createInitial(fakePlayer.getGameProfile());
+
+        server.getPlayerList().placeNewPlayer(connection, fakePlayer, cookie);
+
         FakePlayerPacketSender packetSender = new FakePlayerPacketSender(server.getPlayerList());
         packetSender.sendSpawnPackets(fakePlayer, name, hideTab);
-
-        Bukkit.getLogger().log(Level.INFO, "[NMSBridge] Spawned fake player '" + name + "' in version 1.20.2");
-        DebugLogger.log(Bukkit.getLogger(), "NMSBridge_v1_20_2: spawnPlayer completed for %s", name);
 
         return bukkitPlayer;
     }
@@ -88,7 +84,6 @@ public class NMSBridge_v1_20_2 implements FozminesproofApi {
                 net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
         fakePlayer.discard();
 
-        Bukkit.getLogger().log(Level.INFO, "[NMSBridge] Despawned fake player with UUID: " + uuid);
         DebugLogger.log(Bukkit.getLogger(), "NMSBridge_v1_20_2: despawnPlayer completed for %s", uuid);
     }
 

@@ -103,8 +103,6 @@ public class DespawnCommand implements SubCommand {
                 String next = queue.poll();
                 if (plugin.getFakePlayerManager().isBotOnline(next)) {
                     boolean success = plugin.getFakePlayerManager().despawnBot(next);
-                    String status = success ? "§a(Success)" : "§c(Failed)";
-                    sender.sendMessage(" §7-> §6" + next + " " + status);
                     DebugLogger.logFine(plugin.getLogger(), "DespawnCommand: despawned %s, success=%s", next, success);
                 }
             }

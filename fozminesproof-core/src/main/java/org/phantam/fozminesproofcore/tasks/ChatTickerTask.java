@@ -55,20 +55,15 @@ public class ChatTickerTask extends BukkitRunnable {
         ticksUntilNextChat -= 20;
 
         if (isFirstRun) {
-            plugin.getLogger().log(Level.INFO,
-                    "[ChatTickerTask] First run. Next chat in " + (ticksUntilNextChat / 20) + " seconds.");
             DebugLogger.log(plugin.getLogger(), "ChatTickerTask: first run, remaining %d seconds",
                     ticksUntilNextChat / 20);
             isFirstRun = false;
         }
 
         if (ticksUntilNextChat <= 0) {
-            plugin.getLogger().log(Level.INFO, "[ChatTickerTask] Starting new chat cycle.");
             DebugLogger.log(plugin.getLogger(), "ChatTickerTask: executing chat cycle");
             executeChatCycle();
             resetCountdown();
-            plugin.getLogger().log(Level.INFO,
-                    "[ChatTickerTask] Next cycle in " + (ticksUntilNextChat / 20) + " seconds.");
             DebugLogger.log(plugin.getLogger(), "ChatTickerTask: next cycle in %d seconds",
                     ticksUntilNextChat / 20);
         }
@@ -101,14 +96,9 @@ public class ChatTickerTask extends BukkitRunnable {
         List<Player> speakingBots = botSelector.selectRandomBots(chatConfig.getRandomBotsPerInterval());
 
         if (speakingBots.isEmpty()) {
-            plugin.getLogger().log(Level.WARNING,
-                    "[ChatTickerTask] No bots available to chat.");
             DebugLogger.log(plugin.getLogger(), "ChatTickerTask: no bots selected for chat");
             return;
         }
-
-        plugin.getLogger().log(Level.INFO,
-                "[ChatTickerTask] Selected " + speakingBots.size() + " bot(s) to chat.");
 
         int staggerSeconds = chatConfig.getRandomDelaySeconds();
         long currentDelay = 0;

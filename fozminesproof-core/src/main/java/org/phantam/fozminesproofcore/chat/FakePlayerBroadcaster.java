@@ -7,9 +7,6 @@ import org.phantam.fozminesproofapi.utils.DebugLogger;
 
 import java.util.logging.Logger;
 
-/**
- * Broadcasts join/leave messages for fake players.
- */
 public class FakePlayerBroadcaster {
 
     private final ConfigManager configManager;
@@ -21,26 +18,44 @@ public class FakePlayerBroadcaster {
     }
 
     public void broadcastJoin(String botName) {
-        if (!configManager.isJoinLeaveMessageEnable() || configManager.getJoinMessage() == null) {
-            DebugLogger.logFine(logger, "FakePlayerBroadcaster: join message disabled or null");
+        if (!configManager.isJoinLeaveMessageEnable()) {
+            DebugLogger.log(logger, "broadcastJoin: disabled (config false)");
             return;
         }
-        String msg = configManager.getJoinMessage().replace("%fakeplayer_name%", botName);
-        DebugLogger.log(logger, "FakePlayerBroadcaster: broadcasting join: %s", msg);
+        String raw = configManager.getJoinMessage();
+        if (raw == null || raw.isEmpty()) {
+            DebugLogger.log(logger, "broadcastJoin: raw message is null/empty");
+            return;
+        }
+        String msg = raw.replace("%fakeplayer_name%", botName);
+        DebugLogger.log(logger, "broadcastJoin: broadcasting -> " + msg);
         broadcast(msg);
     }
 
     public void broadcastLeave(String botName) {
-        if (!configManager.isJoinLeaveMessageEnable() || configManager.getLeaveMessage() == null) {
-            DebugLogger.logFine(logger, "FakePlayerBroadcaster: leave message disabled or null");
+        DebugLogger.log(logger, "broadcastLeave: called for " + botName);
+        if (!configManager.isJoinLeaveMessageEnable()) {
+            DebugLogger.log(logger, "broadcastLeave: disabled (config false)");
             return;
         }
-        String msg = configManager.getLeaveMessage().replace("%fakeplayer_name%", botName);
-        DebugLogger.log(logger, "FakePlayerBroadcaster: broadcasting leave: %s", msg);
+        String raw = configManager.getLeaveMessage();
+        DebugLogger.log(logger, "broadcastLeave: raw message = '" + raw + "'");
+        if (raw == null || raw.isEmpty()) {
+            DebugLogger.log(logger, "broadcastLeave: raw message is null/empty, skipping");
+            return;
+        }
+        String msg = raw.replace("%fakeplayer_name%", botName);
+        DebugLogger.log(logger, "broadcastLeave: final message = '" + msg + "'");
         broadcast(msg);
     }
 
     private void broadcast(String message) {
-        Bukkit.broadcastMessage(ChatColor.translateAlternateColorCodes('&', message));
+        if (message == null || message.isEmpty()) {
+            DebugLogger.log(logger, "broadcast: message empty, skipping");
+            return;
+        }
+        String colored = ChatColor.translateAlternateColorCodes('&', message);
+        Bukkit.broadcastMessage(colored);
+        DebugLogger.log(logger, "broadcast: sent -> " + colored);
     }
 }

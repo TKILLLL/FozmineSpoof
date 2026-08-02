@@ -11,6 +11,8 @@ import org.phantam.fozminesproofcore.config.ConfigManager;
 import org.phantam.fozminesproofcore.database.DatabaseCredentialFactory;
 import org.phantam.fozminesproofcore.database.DatabaseManager;
 import org.phantam.fozminesproofcore.database.SQLiteDatabaseManager;
+import org.phantam.fozminesproofcore.listener.BotJoinQuitListener;
+import org.phantam.fozminesproofcore.listener.PluginListInterceptor;
 import org.phantam.fozminesproofcore.manager.FakePlayerManager;
 import org.phantam.fozminesproofcore.tasks.KeepAliveTask;
 import org.phantam.fozminesproofcore.tasks.ProxySyncTask;
@@ -217,8 +219,11 @@ public class FozmineSproofCore extends JavaPlugin {
         // Register Listner
         DebugLogger.log(getLogger(), "FozmineSproofCore: registering PluginListInterceptor");
         getServer().getPluginManager().registerEvents(
-                new org.phantam.fozminesproofcore.listener.PluginListInterceptor(configManager, this),
+                new PluginListInterceptor(configManager, this),
                 this
+        );
+        getServer().getPluginManager().registerEvents(
+                new BotJoinQuitListener(this), this
         );
         DebugLogger.logFine(getLogger(), "FozmineSproofCore: PluginListInterceptor registered");
     }

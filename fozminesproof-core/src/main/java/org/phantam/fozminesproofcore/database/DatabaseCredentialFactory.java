@@ -21,15 +21,10 @@ public final class DatabaseCredentialFactory {
      */
     public static String getSafeTableName(String rawName) {
         if (rawName == null || rawName.isEmpty()) {
-            DebugLogger.log(JavaPlugin.getPlugin(JavaPlugin.class).getLogger(),
-                    "DatabaseCredentialFactory: raw name null/empty, using default 'fozminesproof'");
             return "fozminesproof";
         }
         String sanitized = rawName.replaceAll("[^a-zA-Z0-9_]", "");
-        if (!sanitized.equals(rawName)) {
-            DebugLogger.log(JavaPlugin.getPlugin(JavaPlugin.class).getLogger(),
-                    "DatabaseCredentialFactory: sanitized table name '%s' from '%s'", sanitized, rawName);
-        }
+        // No debug log here to avoid classloader issues.
         return sanitized;
     }
 
@@ -45,7 +40,6 @@ public final class DatabaseCredentialFactory {
         int port = config.getInt("Database.port", 3306);
         String database = config.getString("Database.database", "minecraft");
         String user = config.getString("Database.user", "root");
-        // password not logged for security
 
         DebugLogger.log(plugin.getLogger(),
                 "DatabaseCredentialFactory: credentials: host=%s, port=%d, database=%s, user=%s",

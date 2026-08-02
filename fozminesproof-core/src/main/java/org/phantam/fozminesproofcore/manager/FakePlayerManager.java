@@ -152,10 +152,6 @@ public class FakePlayerManager {
 
         for (FakePlayerData bot : targetBots) {
             if (bot == null || bot.getName() == null) continue;
-            boolean success = this.despawnBot(bot.getName());
-            String status = success ? "Success" : "Failed";
-            plugin.getLogger().log(success ? Level.INFO : Level.WARNING,
-                    "[Shutdown Cleanup] -> " + bot.getName() + " (" + status + ")");
         }
 
         try {
@@ -214,8 +210,6 @@ public class FakePlayerManager {
                 if (!isBotOnline(next)) {
                     spawnBotAsync(next, success -> {
                         String status = success ? "Success" : "Failed";
-                        plugin.getLogger().log(success ? Level.INFO : Level.WARNING,
-                                "[Startup Spawn] -> " + next + " (" + status + ")");
                         DebugLogger.log(plugin.getLogger(), "FakePlayerManager: spawnAllOnStartup %s -> %s",
                                 next, status);
                     });
@@ -235,5 +229,17 @@ public class FakePlayerManager {
                 }
             }
         }.runTaskLater(plugin, 40L);
+    }
+
+    public void handleExternalQuit(String name) {
+        if (registry.isOnline(name)) {
+            registry.unregister(name);
+            org.bukkit.Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+                database.loadFakePlayer(name).ifPresent(data -> {
+                    database.saveFakePlayer(data.withActive(false));
+                });
+            });
+            DebugLogger.log(plugin.getLogger(), "FakePlayerManager: cleaned up external quit for %s", name);
+        }
     }
 }

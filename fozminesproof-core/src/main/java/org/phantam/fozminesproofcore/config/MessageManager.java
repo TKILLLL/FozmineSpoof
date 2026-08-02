@@ -48,7 +48,7 @@ public class MessageManager {
         }
 
         plugin.getLogger().log(Level.INFO,
-                "[FozmineSproof] Messages reloaded. Prefix: " + rawPrefix.trim());
+                "[FozmineSproof] Messages reloaded");
     }
 
     /**

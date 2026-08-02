@@ -47,9 +47,6 @@ public class AddBotAction implements org.phantam.fozminesproofapi.action.IBotAct
 
         database.saveFakePlayer(data);
 
-        plugin.getLogger().log(Level.INFO,
-                "[AddBotAction] Added bot '" + request.name() + "' to database (UUID: " + uuid + ")");
-
         DebugLogger.log(plugin.getLogger(), "AddBotAction: successfully added bot '%s'", request.name());
 
         return null;

@@ -60,7 +60,6 @@ public class NMSBridge_v1_19_4 implements FozminesproofApi {
         FakePlayerPacketSender packetSender = new FakePlayerPacketSender(server.getPlayerList());
         packetSender.sendSpawnPackets(fakePlayer, name, hideTab);
 
-        Bukkit.getLogger().log(Level.INFO, "[NMSBridge] Spawned fake player '" + name + "' in version 1.19.4");
         DebugLogger.log(Bukkit.getLogger(), "NMSBridge_v1_19_4: spawnPlayer completed for %s", name);
 
         return bukkitPlayer;
@@ -87,7 +86,6 @@ public class NMSBridge_v1_19_4 implements FozminesproofApi {
                 net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
         fakePlayer.discard();
 
-        Bukkit.getLogger().log(Level.INFO, "[NMSBridge] Despawned fake player with UUID: " + uuid);
         DebugLogger.log(Bukkit.getLogger(), "NMSBridge_v1_19_4: despawnPlayer completed for %s", uuid);
     }
 

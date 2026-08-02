@@ -28,7 +28,6 @@ public class BotSelector {
         Collection<FakePlayerData> onlineData = playerManager.getOnlineBotsData();
         if (onlineData == null || onlineData.isEmpty()) {
             DebugLogger.log(logger, "BotSelector: no online bots in registry");
-            logger.warning("[BotSelector] No bots are currently online in the registry.");
             return Collections.emptyList();
         }
 

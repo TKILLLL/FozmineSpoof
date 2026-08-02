@@ -62,7 +62,7 @@ Fakeplayer-setting:
   join-leave-message-enable: true
   # Join and leave message formats (supports color codes & and %fakeplayer_name%)
   join-message: "&8[&a+&8] &e%fakeplayer_name%"
-  leave-message: "&8[&a+&8] &e%fakeplayer_name%"
+  leave-message: "&8[&c-&8] &e%fakeplayer_name%"
 
   # Random delay range (in seconds) between bulk spawn/despawn operations
   # Format: "min-max" (e.g., "1-3" means 1 to 3 seconds)
