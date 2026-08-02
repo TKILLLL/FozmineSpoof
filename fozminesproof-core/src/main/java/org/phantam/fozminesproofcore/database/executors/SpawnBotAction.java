@@ -12,8 +12,10 @@ import org.phantam.fozminesproofcore.FozmineSproofCore;
 import org.phantam.fozminesproofcore.chat.FakePlayerBroadcaster;
 import org.phantam.fozminesproofcore.manager.FakePlayerRegistry;
 import org.phantam.fozminesproofapi.utils.DebugLogger;
+import org.phantam.fozminesproofcore.utils.JoinActionExecutor;
 
 import java.net.InetAddress;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -55,7 +57,6 @@ public class SpawnBotAction implements org.phantam.fozminesproofapi.action.IBotA
             InetAddress address = InetAddress.getLoopbackAddress();
             UUID uuid = data.getUuid();
 
-            // Kích hoạt AsyncPlayerPreLoginEvent
             AsyncPlayerPreLoginEvent preLoginEvent = new AsyncPlayerPreLoginEvent(
                     data.getName(), address, uuid
             );
@@ -68,12 +69,10 @@ public class SpawnBotAction implements org.phantam.fozminesproofapi.action.IBotA
                 return;
             }
 
-            // Spawn trên Main Thread
             Bukkit.getScheduler().runTask(plugin, () -> {
                 FakePlayerData updatedData = data.withActive(true);
                 database.saveFakePlayer(updatedData);
 
-                // NMS placeNewPlayer trong spawnNpc sẽ tự động kích hoạt PlayerJoinEvent
                 Player entity = spawnNpc(updatedData);
                 if (entity == null) {
                     plugin.getLogger().log(Level.SEVERE,
@@ -82,10 +81,8 @@ public class SpawnBotAction implements org.phantam.fozminesproofapi.action.IBotA
                     return;
                 }
 
-                // Đăng ký bot vào Registry ngay sau khi spawn
                 registry.register(updatedData, entity);
 
-                // Kích hoạt PlayerLoginEvent
                 PlayerLoginEvent loginEvent = new PlayerLoginEvent(entity, "", address);
                 Bukkit.getPluginManager().callEvent(loginEvent);
                 if (loginEvent.getResult() != PlayerLoginEvent.Result.ALLOWED) {
@@ -97,9 +94,23 @@ public class SpawnBotAction implements org.phantam.fozminesproofapi.action.IBotA
                     return;
                 }
 
-                // Phát custom join message nếu config bật
                 if (plugin.getConfigManager().isJoinLeaveMessageEnable()) {
                     broadcaster.broadcastJoin(entity.getName());
+                }
+
+                boolean fakeEnabled = plugin.getConfigManager().isFakePlayerJoinCommandsEnabled();
+                boolean consoleEnabled = plugin.getConfigManager().isConsoleJoinCommandsEnabled();
+
+                if (fakeEnabled || consoleEnabled) {
+                    List<String> fakeCommands = plugin.getConfigManager().getFakePlayerJoinCommands();
+                    List<String> consoleCommands = plugin.getConfigManager().getConsoleJoinCommands();
+
+                    if ((fakeCommands != null && !fakeCommands.isEmpty()) ||
+                            (consoleCommands != null && !consoleCommands.isEmpty())) {
+                        JoinActionExecutor.execute(entity, fakeCommands, consoleCommands, plugin.getLogger());
+                    } else {
+                        DebugLogger.logFine(plugin.getLogger(), "SpawnBotAction: join-actions enabled but no commands defined");
+                    }
                 }
 
                 DebugLogger.log(plugin.getLogger(), "SpawnBotAction: spawn completed successfully for %s", name);

@@ -68,10 +68,8 @@ public class DespawnBotAction implements IBotAction<String, Boolean> {
             }
         }
 
-        // Unregister khỏi registry
         registry.unregister(name);
 
-        // Remove khỏi NMS world
         if (plugin.getBridge() != null) {
             plugin.getBridge().despawnPlayer(updatedData.getUuid());
         }

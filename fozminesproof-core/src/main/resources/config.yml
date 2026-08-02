@@ -68,6 +68,17 @@ Fakeplayer-setting:
   # Format: "min-max" (e.g., "1-3" means 1 to 3 seconds)
   join-quit-interval: "1-3"
 
+  join-actions:
+    fakeplayer:
+      enabled: false
+      commands:
+        - "register test1234"
+        - "login test1234"
+    console:
+      enabled: false
+      commands:
+        - "give %fakeplayer_name% diamond 1"
+
 # ================================================================================= #
 #                       FAKE PLAYER CHAT SYSTEM                                     #
 # ================================================================================= #

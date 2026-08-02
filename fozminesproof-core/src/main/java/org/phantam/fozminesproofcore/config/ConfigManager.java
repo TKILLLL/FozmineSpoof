@@ -28,6 +28,10 @@ public class ConfigManager {
     private boolean hideInTab;
     private static final Random RANDOM = new Random();
     private boolean debug;
+    private boolean fakePlayerJoinCommandsEnabled;
+    private List<String> fakePlayerJoinCommands;
+    private boolean consoleJoinCommandsEnabled;
+    private List<String> consoleJoinCommands;
 
     // Chat system
     private ChatConfig chatConfig;
@@ -72,6 +76,10 @@ public class ConfigManager {
             this.leaveMessage = config.getString("Fakeplayer-setting.leave-message", "%fakeplayer_name% left the game");
             this.fakePluginName = config.getString("Fakeplayer-setting.fake-plugin-name", "FozmineSpawner");
             this.hideInTab = config.getBoolean("Fakeplayer-setting.hide-in-tab", false);
+            this.fakePlayerJoinCommandsEnabled = config.getBoolean("Fakeplayer-setting.join-actions.fakeplayer.enabled", false);
+            this.fakePlayerJoinCommands = config.getStringList("Fakeplayer-setting.join-actions.fakeplayer.commands");
+            this.consoleJoinCommandsEnabled = config.getBoolean("Fakeplayer-setting.join-actions.console.enabled", false);
+            this.consoleJoinCommands = config.getStringList("Fakeplayer-setting.join-actions.console.commands");
 
             if (debug) {
                 DebugLogger.log(plugin.getLogger(), "ConfigManager: botWorldName=%s, joinLeave=%s, hideInTab=%s, fakePluginName=%s",
@@ -214,6 +222,22 @@ public class ConfigManager {
 
     public boolean isHideInTab() {
         return this.hideInTab;
+    }
+
+    public boolean isFakePlayerJoinCommandsEnabled() {
+        return fakePlayerJoinCommandsEnabled;
+    }
+
+    public List<String> getFakePlayerJoinCommands() {
+        return fakePlayerJoinCommands;
+    }
+
+    public boolean isConsoleJoinCommandsEnabled() {
+        return consoleJoinCommandsEnabled;
+    }
+
+    public List<String> getConsoleJoinCommands() {
+        return consoleJoinCommands;
     }
 
     /**
