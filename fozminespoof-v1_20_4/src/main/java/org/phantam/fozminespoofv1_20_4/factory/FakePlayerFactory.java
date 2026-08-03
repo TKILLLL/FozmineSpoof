@@ -5,13 +5,11 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ClientInformation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.phantam.fozminespoofv1_20_4.network.FakeNetworkManager;
 import org.phantam.fozminespoofv1_20_4.network.FakeServerGamePacketListenerImpl;
 
 import java.util.UUID;
-import java.util.logging.Level;
 
 /**
  * Factory for creating fully initialised fake ServerPlayer instances.

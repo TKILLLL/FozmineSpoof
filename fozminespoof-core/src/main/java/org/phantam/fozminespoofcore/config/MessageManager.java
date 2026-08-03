@@ -3,8 +3,8 @@ package org.phantam.fozminespoofcore.config;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.phantam.fozminespoofcore.utils.ColorUtils;
 import org.phantam.fozminespoofapi.utils.DebugLogger;
+import org.phantam.fozminespoofcore.utils.ColorUtils;
 
 import java.io.File;
 import java.util.ArrayList;

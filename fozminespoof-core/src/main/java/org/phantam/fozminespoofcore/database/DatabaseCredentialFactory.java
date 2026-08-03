@@ -57,5 +57,6 @@ public final class DatabaseCredentialFactory {
      * @param user     username
      * @param password password
      */
-    public record DatabaseCredentials(String host, int port, String database, String user, String password) {}
+    public record DatabaseCredentials(String host, int port, String database, String user, String password) {
+    }
 }

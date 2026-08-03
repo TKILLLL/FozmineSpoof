@@ -2,12 +2,12 @@ package org.phantam.fozminespoofcore.chat;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.phantam.fozminespoofapi.utils.DebugLogger;
 import org.phantam.fozminespoofcore.FozmineSpoofCore;
 import org.phantam.fozminespoofcore.config.ChatConfig;
 import org.phantam.fozminespoofcore.config.ConfigManager;
 import org.phantam.fozminespoofcore.manager.FakePlayerManager;
 import org.phantam.fozminespoofcore.utils.ColorUtils;
-import org.phantam.fozminespoofapi.utils.DebugLogger;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -58,7 +58,11 @@ public class BotChatProcessor {
                         ? chatConfig.getTranslationTarget() : "en";
 
                 DebugLogger.logFine(logger, "BotChatProcessor: translating to %s", targetLang);
-                String translated = translator.translate(processed, targetLang);
+                String provider = chatConfig.getTranslationProvider();
+                String apiKey = chatConfig.getTranslationApiKey();
+
+                DebugLogger.logFine(logger, "BotChatProcessor: translating with provider '%s' to %s", provider, targetLang);
+                String translated = translator.translate(processed, targetLang, provider, apiKey);
 
                 if (translated == null || translated.trim().isEmpty()) {
                     DebugLogger.log(logger, "BotChatProcessor: translation result empty for %s", botName);

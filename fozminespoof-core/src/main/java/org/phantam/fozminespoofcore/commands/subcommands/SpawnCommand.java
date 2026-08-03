@@ -20,16 +20,24 @@ public class SpawnCommand implements SubCommand {
     }
 
     @Override
-    public String getName() { return "spawn"; }
+    public String getName() {
+        return "spawn";
+    }
 
     @Override
-    public String getDescription() { return "Spawn a fake player or multiple bots"; }
+    public String getDescription() {
+        return "Spawn a fake player or multiple bots";
+    }
 
     @Override
-    public String getSyntax() { return "/spoof spawn <name|*|number>"; }
+    public String getSyntax() {
+        return "/spoof spawn <name|*|number>";
+    }
 
     @Override
-    public String getPermission() { return "fozminespoof.admin"; }
+    public String getPermission() {
+        return "fozminespoof.admin";
+    }
 
     @Override
     public void execute(CommandSender sender, String[] args) {

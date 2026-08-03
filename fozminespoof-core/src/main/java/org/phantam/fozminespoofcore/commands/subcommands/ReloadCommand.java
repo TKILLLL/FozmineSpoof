@@ -21,16 +21,24 @@ public class ReloadCommand implements SubCommand {
     }
 
     @Override
-    public String getName() { return "reload"; }
+    public String getName() {
+        return "reload";
+    }
 
     @Override
-    public String getDescription() { return "Reload plugin configuration and bot system"; }
+    public String getDescription() {
+        return "Reload plugin configuration and bot system";
+    }
 
     @Override
-    public String getSyntax() { return "/spoof reload"; }
+    public String getSyntax() {
+        return "/spoof reload";
+    }
 
     @Override
-    public String getPermission() { return "fozminespoof.admin"; }
+    public String getPermission() {
+        return "fozminespoof.admin";
+    }
 
     @Override
     public void execute(CommandSender sender, String[] args) {

@@ -2,11 +2,11 @@ package org.phantam.fozminespoofcore.database.executors;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
-import org.phantam.fozminespoofapi.model.FakePlayerData;
 import org.phantam.fozminespoofapi.database.IFakePlayerDatabase;
+import org.phantam.fozminespoofapi.model.FakePlayerData;
+import org.phantam.fozminespoofapi.utils.DebugLogger;
 import org.phantam.fozminespoofcore.FozmineSpoofCore;
 import org.phantam.fozminespoofcore.manager.FakePlayerRegistry;
-import org.phantam.fozminespoofapi.utils.DebugLogger;
 
 import java.util.Optional;
 import java.util.logging.Level;

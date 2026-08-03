@@ -9,7 +9,8 @@ public final class StringUtils {
     private static final Pattern PUNCTUATION_PATTERN = Pattern.compile("[^\\w\\s]");
     private static final Pattern WHITESPACE_PATTERN = Pattern.compile("\\s+");
 
-    private StringUtils() {}
+    private StringUtils() {
+    }
 
     /**
      * Tách bỏ dấu Tiếng Việt và Latin (Ví dụ: "Xin chào các bạn!" -> "Xin chao cac ban!")

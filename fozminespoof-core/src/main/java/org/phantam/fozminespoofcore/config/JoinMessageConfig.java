@@ -70,15 +70,39 @@ public class JoinMessageConfig {
     }
 
     // Getters
-    public boolean isNewPlayerGreetingsEnabled() { return newPlayerGreetingsEnabled; }
-    public int getNewPlayerGreetingsMaxBurst() { return newPlayerGreetingsMaxBurst; }
-    public List<String> getNewPlayerGreetingsPhrases() { return newPlayerGreetingsPhrases; }
+    public boolean isNewPlayerGreetingsEnabled() {
+        return newPlayerGreetingsEnabled;
+    }
 
-    public boolean isPlayerGreetingsEnabled() { return playerGreetingsEnabled; }
-    public int getPlayerGreetingsMaxBurst() { return playerGreetingsMaxBurst; }
-    public List<String> getPlayerGreetingsPhrases() { return playerGreetingsPhrases; }
+    public int getNewPlayerGreetingsMaxBurst() {
+        return newPlayerGreetingsMaxBurst;
+    }
 
-    public boolean isSessionJoinChatsEnabled() { return sessionJoinChatsEnabled; }
-    public int getSessionJoinChatsMaxBurst() { return sessionJoinChatsMaxBurst; }
-    public List<String> getSessionJoinChatsPhrases() { return sessionJoinChatsPhrases; }
+    public List<String> getNewPlayerGreetingsPhrases() {
+        return newPlayerGreetingsPhrases;
+    }
+
+    public boolean isPlayerGreetingsEnabled() {
+        return playerGreetingsEnabled;
+    }
+
+    public int getPlayerGreetingsMaxBurst() {
+        return playerGreetingsMaxBurst;
+    }
+
+    public List<String> getPlayerGreetingsPhrases() {
+        return playerGreetingsPhrases;
+    }
+
+    public boolean isSessionJoinChatsEnabled() {
+        return sessionJoinChatsEnabled;
+    }
+
+    public int getSessionJoinChatsMaxBurst() {
+        return sessionJoinChatsMaxBurst;
+    }
+
+    public List<String> getSessionJoinChatsPhrases() {
+        return sessionJoinChatsPhrases;
+    }
 }

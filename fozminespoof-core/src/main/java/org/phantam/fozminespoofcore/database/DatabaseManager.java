@@ -191,11 +191,22 @@ public class DatabaseManager implements IFakePlayerDatabase {
         return 0;
     }
 
+    /**
+     * Periodically synchronises fake player statistics with the proxy database.
+     * <p>
+     * This task runs asynchronously and updates the proxy sync table with the
+     * current active and inactive bot counts for this server node. The interval
+     * is configurable via {@code Database.bridging-setting.update-interval}.
+     * </p>
+     *
+     * @author Phantam
+     * @version 2.0.0
+     */
     @Override
-    public void sendProxySyncData(String bungeeName, String name, int activeCount, int inactiveCount) {
+    public void sendProxySyncData(String bungeeName, String serverNodeName, int activeCount, int inactiveCount) {
         executeTask(() -> {
             try (Connection con = getConnection()) {
-                new ProxySyncQuery("proxy_sync_" + bungeeName, name, activeCount, inactiveCount).execute(con);
+                new ProxySyncQuery("proxy_sync_" + bungeeName, serverNodeName, activeCount, inactiveCount).execute(con);
             } catch (SQLException e) {
                 DebugLogger.log(Bukkit.getLogger(), "DatabaseManager: error syncing proxy data: %s", e.getMessage());
                 Bukkit.getLogger().log(Level.SEVERE, "[DatabaseManager] Error syncing proxy data: " + e.getMessage(), e);

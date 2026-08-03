@@ -3,7 +3,6 @@ package org.phantam.fozminespoofcore.manager;
 import org.bukkit.Bukkit;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
-import org.phantam.fozminespoofapi.utils.DebugLogger;
 import org.phantam.fozminespoofcore.FozmineSpoofCore;
 
 import java.lang.reflect.Proxy;
@@ -11,8 +10,6 @@ import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class RankWeightManager {
-
-    private final FozmineSpoofCore plugin;
 
     private static final ConsoleCommandSender SILENT_CONSOLE = (ConsoleCommandSender) Proxy.newProxyInstance(
             RankWeightManager.class.getClassLoader(),
@@ -26,6 +23,7 @@ public class RankWeightManager {
                 return method.invoke(Bukkit.getConsoleSender(), args);
             }
     );
+    private final FozmineSpoofCore plugin;
 
     public RankWeightManager(FozmineSpoofCore plugin) {
         this.plugin = plugin;

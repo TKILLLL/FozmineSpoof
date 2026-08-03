@@ -5,18 +5,34 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
 /**
- * Inserts or updates proxy sync data (SQLite version with INSERT OR REPLACE).
+ * Inserts or updates proxy sync data for SQLite databases.
+ * <p>
+ * This query uses {@code INSERT OR REPLACE} to atomically update
+ * the record for a specific server node.
+ * </p>
+ *
+ * @author Phantam
+ * @version 2.0.0
+ * @see ProxySyncQuery
  */
 public class ProxySyncSQLiteQuery implements Query<Void> {
 
     private final String tableName;
-    private final String name;
+    private final String serverNodeName;
     private final int activeCount;
     private final int inactiveCount;
 
-    public ProxySyncSQLiteQuery(String tableName, String name, int activeCount, int inactiveCount) {
+    /**
+     * Constructs a new ProxySyncSQLiteQuery.
+     *
+     * @param tableName      the proxy sync table name (prefixed with bungeeName)
+     * @param serverNodeName the unique identifier of this server node
+     * @param activeCount    current active bot count
+     * @param inactiveCount  current inactive bot count
+     */
+    public ProxySyncSQLiteQuery(String tableName, String serverNodeName, int activeCount, int inactiveCount) {
         this.tableName = tableName;
-        this.name = name;
+        this.serverNodeName = serverNodeName;
         this.activeCount = activeCount;
         this.inactiveCount = inactiveCount;
     }
@@ -32,7 +48,7 @@ public class ProxySyncSQLiteQuery implements Query<Void> {
 
         String sql = "INSERT OR REPLACE INTO " + tableName + " (name, active_bot, deactive_bot) VALUES (?, ?, ?);";
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
-            ps.setString(1, name);
+            ps.setString(1, serverNodeName);
             ps.setInt(2, activeCount);
             ps.setInt(3, inactiveCount);
             ps.executeUpdate();

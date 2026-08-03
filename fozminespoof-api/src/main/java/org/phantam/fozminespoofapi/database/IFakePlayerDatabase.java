@@ -10,6 +10,10 @@ import java.util.Optional;
  * <p>
  * Implementations are responsible for handling connection details and ensuring
  * thread-safety when accessing the underlying storage.
+ * </p>
+ *
+ * @author Phantam
+ * @version 2.0.0
  */
 public interface IFakePlayerDatabase {
 
@@ -33,7 +37,7 @@ public interface IFakePlayerDatabase {
      *
      * @param data the fake player data to save
      * @throws IllegalArgumentException if data is null
-     * @throws RuntimeException if a database error occurs
+     * @throws RuntimeException         if a database error occurs
      */
     void saveFakePlayer(FakePlayerData data);
 
@@ -75,19 +79,31 @@ public interface IFakePlayerDatabase {
      */
     int getInactiveBotCount();
 
+    /**
+     * Loads all inactive fake players (where active flag is false).
+     *
+     * @return a collection of inactive fake player data; never null
+     */
     Collection<FakePlayerData> loadInactivePlayers();
 
     /**
      * Sends a synchronization update to a proxy server (e.g., BungeeCord).
      * <p>
-     * This is used to keep the proxy informed about the current state of fake players.
+     * This method updates or inserts a record in the proxy sync table, allowing
+     * the proxy to know the current bot counts for this specific server node.
+     * </p>
      *
-     * @param bungeeName  the name of the BungeeCord channel or service
-     * @param name        the name of the target bot (optional)
-     * @param activeCount current number of active bots
-     * @param inactiveCount current number of inactive bots
+     * @param bungeeName      the name of the BungeeCord channel or service (used as table prefix)
+     * @param serverNodeName  the unique identifier of this server node (e.g., "survival-01")
+     * @param activeCount     current number of active bots on this node
+     * @param inactiveCount   current number of inactive bots on this node
      */
-    void sendProxySyncData(String bungeeName, String name, int activeCount, int inactiveCount);
+    void sendProxySyncData(String bungeeName, String serverNodeName, int activeCount, int inactiveCount);
 
+    /**
+     * Saves multiple fake player records in a batch operation.
+     *
+     * @param players the collection of fake player data to save
+     */
     void saveFakePlayers(Collection<FakePlayerData> players);
 }

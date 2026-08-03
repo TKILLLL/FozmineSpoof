@@ -12,24 +12,32 @@ import java.util.stream.Collectors;
 
 public class ListCommand implements SubCommand {
 
-    private final FozmineSpoofCore plugin;
     private static final int MAX_DISPLAY = 30;
+    private final FozmineSpoofCore plugin;
 
     public ListCommand(FozmineSpoofCore plugin) {
         this.plugin = plugin;
     }
 
     @Override
-    public String getName() { return "list"; }
+    public String getName() {
+        return "list";
+    }
 
     @Override
-    public String getDescription() { return "List all fake players in the database"; }
+    public String getDescription() {
+        return "List all fake players in the database";
+    }
 
     @Override
-    public String getSyntax() { return "/spoof list"; }
+    public String getSyntax() {
+        return "/spoof list";
+    }
 
     @Override
-    public String getPermission() { return "fozminespoof.admin"; }
+    public String getPermission() {
+        return "fozminespoof.admin";
+    }
 
     @Override
     public void execute(CommandSender sender, String[] args) {

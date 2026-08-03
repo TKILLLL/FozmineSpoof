@@ -5,7 +5,10 @@ import org.phantam.fozminespoofapi.database.IFakePlayerDatabase;
 import org.phantam.fozminespoofapi.model.FakePlayerData;
 import org.phantam.fozminespoofcore.database.queries.*;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.concurrent.locks.ReentrantLock;
@@ -15,8 +18,8 @@ public class SQLiteDatabaseManager implements IFakePlayerDatabase {
 
     private final String dbPath;
     private final String tableName;
-    private Connection connection;
     private final ReentrantLock dbLock = new ReentrantLock();
+    private Connection connection;
 
     public SQLiteDatabaseManager(String dbPath, String tableName) {
         this.dbPath = dbPath;
@@ -102,7 +105,8 @@ public class SQLiteDatabaseManager implements IFakePlayerDatabase {
             for (FakePlayerData data : players) {
                 try {
                     new InsertPlayerSQLiteQuery(tableName, data).execute(connection);
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) {
+                }
             }
         } finally {
             dbLock.unlock();
@@ -186,11 +190,22 @@ public class SQLiteDatabaseManager implements IFakePlayerDatabase {
         return 0;
     }
 
+    /**
+     * Periodically synchronises fake player statistics with the proxy database.
+     * <p>
+     * This task runs asynchronously and updates the proxy sync table with the
+     * current active and inactive bot counts for this server node. The interval
+     * is configurable via {@code Database.bridging-setting.update-interval}.
+     * </p>
+     *
+     * @author Phantam
+     * @version 2.0.0
+     */
     @Override
-    public void sendProxySyncData(String bungeeName, String name, int activeCount, int inactiveCount) {
+    public void sendProxySyncData(String bungeeName, String serverNodeName, int activeCount, int inactiveCount) {
         dbLock.lock();
         try {
-            new ProxySyncSQLiteQuery("proxy_sync_" + bungeeName, name, activeCount, inactiveCount).execute(connection);
+            new ProxySyncSQLiteQuery("proxy_sync_" + bungeeName, serverNodeName, activeCount, inactiveCount).execute(connection);
         } catch (SQLException e) {
             Bukkit.getLogger().log(Level.SEVERE, "[SQLiteDatabaseManager] Error syncing proxy data: " + e.getMessage(), e);
         } finally {

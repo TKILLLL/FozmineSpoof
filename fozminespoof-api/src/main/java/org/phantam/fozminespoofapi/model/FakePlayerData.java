@@ -35,6 +35,10 @@ public final class FakePlayerData {
         this.active = builder.active;
     }
 
+    public static Builder builder() {
+        return new Builder();
+    }
+
     public String getName() {
         return name;
     }
@@ -121,10 +125,6 @@ public final class FakePlayerData {
                 ", worldName='" + worldName + '\'' +
                 ", active=" + active +
                 '}';
-    }
-
-    public static Builder builder() {
-        return new Builder();
     }
 
     /**

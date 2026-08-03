@@ -34,6 +34,7 @@ public class ConfigManager {
     private static final String MSG_FORMAT_ENABLE = "chat-system.message-format.enable";
     private static final String MSG_CHAT_FORMAT = "chat-system.message-format.chat-format";
     private static final String CHAT_FORMAT = "chat-system.chat-format";
+    private static final String JOIN_LEAVE_FORMAT = "Fakeplayer-setting.join-leave-format";
 
     private static final String PROXY_ENABLE = "Database.bridging-setting.enable-proxy";
     private static final String BUNGEE_NAME = "Database.bridging-setting.bungee_name";
@@ -42,7 +43,7 @@ public class ConfigManager {
 
     private final JavaPlugin plugin;
     private final MessageManager messageManager;
-
+    private final Map<String, Integer> rankWeights = new LinkedHashMap<>();
     // Core
     private List<String> targetPlaceholders;
     private String botWorldName;
@@ -52,16 +53,14 @@ public class ConfigManager {
     private String fakePluginName;
     private boolean hideInTab;
     private boolean debug;
-
     // Rank Weight Distribution
     private boolean rankWeightEnabled;
-    private final Map<String, Integer> rankWeights = new LinkedHashMap<>();
-
     // Join actions
     private boolean fakePlayerJoinCommandsEnabled;
     private List<String> fakePlayerJoinCommands;
     private boolean consoleJoinCommandsEnabled;
     private List<String> consoleJoinCommands;
+    private String joinLeaveFormat;
 
     // Lifecycle
     private String lifetimeInterval;
@@ -114,6 +113,7 @@ public class ConfigManager {
             leaveMessage = config.getString(LEAVE_MESSAGE, "%fakeplayer_name% left the game");
             fakePluginName = config.getString(FAKE_PLUGIN_NAME, "FozmineSpawner");
             hideInTab = config.getBoolean(HIDE_IN_TAB, false);
+            joinLeaveFormat = config.getString(JOIN_LEAVE_FORMAT, "custom");
 
             // Rank Weight Distribution
             rankWeightEnabled = config.getBoolean("Fakeplayer-setting.rank-weight.enable", false);
@@ -262,28 +262,108 @@ public class ConfigManager {
 
     // ---- Getters ----
 
-    public boolean isDebug() { return debug; }
-    public MessageManager getMessages() { return messageManager; }
-    public String getBotWorldName() { return botWorldName; }
-    public boolean isJoinLeaveMessageEnable() { return joinLeaveMessageEnable; }
-    public String getJoinMessage() { return joinMessage; }
-    public String getLeaveMessage() { return leaveMessage; }
-    public String getFakePluginName() { return fakePluginName; }
-    public boolean isHideInTab() { return hideInTab; }
-    public boolean isFakePlayerJoinCommandsEnabled() { return fakePlayerJoinCommandsEnabled; }
-    public List<String> getFakePlayerJoinCommands() { return fakePlayerJoinCommands; }
-    public boolean isConsoleJoinCommandsEnabled() { return consoleJoinCommandsEnabled; }
-    public List<String> getConsoleJoinCommands() { return consoleJoinCommands; }
-    public String getLifetimeInterval() { return lifetimeInterval; }
-    public int getBaseAmount() { return baseAmount; }
-    public int getPercentRate() { return percentRate; }
-    public ChatConfig getChatConfig() { return chatConfig; }
-    public String getChatFormat() { return messageFormatEnable ? messageChatFormat : chatFormat; }
-    public boolean isMessageFormatEnable() { return messageFormatEnable; }
-    public Boolean isProxyEnable() { return proxyEnable; }
-    public String getBungeeName() { return bungeeName; }
-    public String getRawDatabaseName() { return rawDatabaseName; }
-    public boolean isDatabaseEnabled() { return databaseEnabled; }
-    public boolean isRankWeightEnabled() { return rankWeightEnabled; }
-    public Map<String, Integer> getRankWeights() { return rankWeights; }
+    public boolean isDebug() {
+        return debug;
+    }
+
+    public MessageManager getMessages() {
+        return messageManager;
+    }
+
+    public String getBotWorldName() {
+        return botWorldName;
+    }
+
+    public boolean isJoinLeaveMessageEnable() {
+        return joinLeaveMessageEnable;
+    }
+
+    public String getJoinMessage() {
+        return joinMessage;
+    }
+
+    public String getLeaveMessage() {
+        return leaveMessage;
+    }
+
+    public String getFakePluginName() {
+        return fakePluginName;
+    }
+
+    public boolean isHideInTab() {
+        return hideInTab;
+    }
+
+    public boolean isFakePlayerJoinCommandsEnabled() {
+        return fakePlayerJoinCommandsEnabled;
+    }
+
+    public List<String> getFakePlayerJoinCommands() {
+        return fakePlayerJoinCommands;
+    }
+
+    public boolean isConsoleJoinCommandsEnabled() {
+        return consoleJoinCommandsEnabled;
+    }
+
+    public List<String> getConsoleJoinCommands() {
+        return consoleJoinCommands;
+    }
+
+    public String getLifetimeInterval() {
+        return lifetimeInterval;
+    }
+
+    public int getBaseAmount() {
+        return baseAmount;
+    }
+
+    public int getPercentRate() {
+        return percentRate;
+    }
+
+    public ChatConfig getChatConfig() {
+        return chatConfig;
+    }
+
+    public String getChatFormat() {
+        return messageFormatEnable ? messageChatFormat : chatFormat;
+    }
+
+    public boolean isMessageFormatEnable() {
+        return messageFormatEnable;
+    }
+
+    public Boolean isProxyEnable() {
+        return proxyEnable;
+    }
+
+    public String getBungeeName() {
+        return bungeeName;
+    }
+
+    public String getRawDatabaseName() {
+        return rawDatabaseName;
+    }
+
+    public boolean isDatabaseEnabled() {
+        return databaseEnabled;
+    }
+
+    public boolean isRankWeightEnabled() {
+        return rankWeightEnabled;
+    }
+
+    public Map<String, Integer> getRankWeights() {
+        return rankWeights;
+    }
+
+    /**
+     * Gets the join/leave message format mode.
+     *
+     * @return "custom" for plugin-controlled messages, "normal" for default server messages
+     */
+    public String getJoinLeaveFormat() {
+        return joinLeaveFormat;
+    }
 }

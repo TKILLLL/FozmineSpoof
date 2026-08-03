@@ -19,16 +19,24 @@ public class DespawnCommand implements SubCommand {
     }
 
     @Override
-    public String getName() { return "despawn"; }
+    public String getName() {
+        return "despawn";
+    }
 
     @Override
-    public String getDescription() { return "Despawn a fake player (hide from the world)"; }
+    public String getDescription() {
+        return "Despawn a fake player (hide from the world)";
+    }
 
     @Override
-    public String getSyntax() { return "/spoof despawn <name|*>"; }
+    public String getSyntax() {
+        return "/spoof despawn <name|*>";
+    }
 
     @Override
-    public String getPermission() { return "fozminespoof.admin"; }
+    public String getPermission() {
+        return "fozminespoof.admin";
+    }
 
     @Override
     public void execute(CommandSender sender, String[] args) {

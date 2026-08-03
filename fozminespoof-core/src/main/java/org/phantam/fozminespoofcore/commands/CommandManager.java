@@ -4,12 +4,15 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
+import org.phantam.fozminespoofapi.utils.DebugLogger;
 import org.phantam.fozminespoofcore.FozmineSpoofCore;
 import org.phantam.fozminespoofcore.commands.subcommands.*;
 import org.phantam.fozminespoofcore.config.MessageManager;
-import org.phantam.fozminespoofapi.utils.DebugLogger;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public class CommandManager implements CommandExecutor, TabCompleter {

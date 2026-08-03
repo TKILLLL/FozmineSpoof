@@ -3,11 +3,14 @@ package org.phantam.fozminespoofcore.config;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.phantam.fozminespoofapi.utils.DebugLogger;
+import org.phantam.fozminespoofcore.utils.CryptoUtils;
 
 import java.io.File;
 import java.time.LocalTime;
 import java.time.ZoneId;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class AiConfig {
 
@@ -82,12 +85,24 @@ public class AiConfig {
     private List<String> blockSensitiveWords;
     private List<String> inputBlacklistKeywords;
 
+    /**
+     * Constructs a new AiConfig and loads the configuration.
+     *
+     * @param plugin the plugin instance
+     */
     public AiConfig(JavaPlugin plugin) {
         this.plugin = plugin;
         this.file = new File(plugin.getDataFolder(), "chats/ai-chat-bot.yml");
         this.reload();
     }
 
+    /**
+     * Reloads the configuration from disk.
+     * <p>
+     * This method clears all cached values and re-parses the YAML file.
+     * The API key is automatically decrypted if encrypted.
+     * </p>
+     */
     public void reload() {
         try {
             ensureDefaultFileExists();
@@ -95,7 +110,8 @@ public class AiConfig {
 
             enabled = config.getBoolean("ai-settings.enabled", false);
             modelProvider = config.getString("ai-settings.model", "GPT").toUpperCase();
-            apiKey = config.getString("ai-settings.api-key", "");
+            String rawApiKey = config.getString("ai-settings.api-key", "");
+            apiKey = decryptApiKey(rawApiKey);
 
             // Language
             langMode = config.getString("ai-settings.language-settings.mode", "auto");
@@ -208,9 +224,15 @@ public class AiConfig {
     private int parseRangeMin(String path, YamlConfiguration config, int def) {
         String val = config.getString(path, String.valueOf(def));
         if (val.contains("-")) {
-            try { return Integer.parseInt(val.split("-")[0].trim()); } catch (Exception ignored) {}
+            try {
+                return Integer.parseInt(val.split("-")[0].trim());
+            } catch (Exception ignored) {
+            }
         } else {
-            try { return Integer.parseInt(val.trim()); } catch (Exception ignored) {}
+            try {
+                return Integer.parseInt(val.trim());
+            } catch (Exception ignored) {
+            }
         }
         return def;
     }
@@ -231,50 +253,205 @@ public class AiConfig {
         }
     }
 
-    public record ProviderConfig(String modelName, int maxTokens, double temperature, double presencePenalty, double frequencyPenalty) {}
-    public record CustomProviderConfig(String apiUrl, String modelName, int maxTokens, double temperature) {}
+    /**
+     * Decrypts the API key if it is encrypted; otherwise returns the original value.
+     * <p>
+     * This method attempts to decrypt the key using AES. If decryption succeeds,
+     * the plaintext key is used. If it fails, the raw value is assumed to be plaintext
+     * and is returned as-is (backward compatibility).
+     * </p>
+     *
+     * @param rawKey the raw key from config (may be plaintext or encrypted)
+     * @return the decrypted key, or the original if decryption fails
+     */
+    private String decryptApiKey(String rawKey) {
+        if (rawKey == null || rawKey.isEmpty()) {
+            return rawKey;
+        }
+        String decrypted = CryptoUtils.decrypt(rawKey);
+        if (!decrypted.isEmpty()) {
+            // Successfully decrypted
+            return decrypted;
+        }
+        // Decryption failed – treat as plaintext
+        plugin.getLogger().info("[AiConfig] API key appears to be plaintext. "
+                + "For security, consider encrypting it using CryptoUtils.encrypt() and updating config.");
+        return rawKey;
+    }
 
     // Getters
-    public boolean isEnabled() { return enabled; }
-    public String getModelProvider() { return modelProvider; }
-    public String getApiKey() { return apiKey; }
-    public String getLangMode() { return langMode; }
-    public String getDefaultLanguage() { return defaultLanguage; }
-    public String getLanguageHint(String lang) { return languageHints.getOrDefault(lang, languageHints.getOrDefault("en", "Use casual gamer slang.")); }
-    public boolean isForceLowercase() { return forceLowercase; }
-    public boolean isForceNoPunctuation() { return forceNoPunctuation; }
-    public boolean isOverrideBySpeakingStyle() { return overrideBySpeakingStyle; }
-    public boolean isDisableSanitizationForHelp() { return disableSanitizationForHelp; }
-    public String getNonAsciiHandling() { return nonAsciiHandling; }
-    public boolean isFallbackEnabled() { return fallbackEnabled; }
-    public List<String> getFallbackResponses(String lang) { return fallbackResponses.getOrDefault(lang, fallbackResponses.getOrDefault("en", List.of("brb mining"))); }
-    public boolean isPlayerToAiEnabled() { return playerToAiEnabled; }
-    public double getPlayerToAiChance() { return playerToAiChance; }
-    public double getNameSimilarityThreshold() { return nameSimilarityThreshold; }
-    public boolean isAiToAiEnabled() { return aiToAiEnabled; }
-    public boolean isAiHelpEnabled() { return aiHelpEnabled; }
-    public String getAiHelpBotName() { return aiHelpBotName; }
-    public double getAiHelpResponseChance() { return aiHelpResponseChance; }
-    public String getAiHelpTagPrefix() { return aiHelpTagPrefix; }
-    public String getAiHelpMinecraftPrompt() { return aiHelpMinecraftPrompt; }
-    public String getAiHelpPluginPrompt() { return aiHelpPluginPrompt; }
-    public String getSystemRule() { return systemRule; }
-    public boolean isAnswerInSameWorld() { return answerInSameWorld; }
-    public int getMaxHearingDistance() { return maxHearingDistance; }
-    public String getTypingDelayStr() { return typingDelayStr; }
-    public int getCooldownReceiverSec() { return cooldownReceiverSec; }
-    public int getCooldownSenderSec() { return cooldownSenderSec; }
-    public int getConversationExpirySec() { return conversationExpirySec; }
-    public int getMaxResponsesPerSession() { return maxResponsesPerSession; }
-    public boolean isCloseOnNewPlayerMention() { return closeOnNewPlayerMention; }
-    public ProviderConfig getGptConfig() { return gptConfig; }
-    public ProviderConfig getGeminiConfig() { return geminiConfig; }
-    public CustomProviderConfig getCustomConfig() { return customConfig; }
-    public boolean isAbortApiOnViolation() { return abortApiOnViolation; }
-    public int getMaxInputLength() { return maxInputLength; }
-    public int getRateLimitMaxPerMin() { return rateLimitMaxPerMin; }
-    public String getPunishmentCommand() { return punishmentCommand; }
-    public boolean isBlockCodeBlocks() { return blockCodeBlocks; }
-    public List<String> getBlockSensitiveWords() { return blockSensitiveWords; }
-    public List<String> getInputBlacklistKeywords() { return inputBlacklistKeywords; }
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public String getModelProvider() {
+        return modelProvider;
+    }
+
+    public String getApiKey() {
+        return apiKey;
+    }
+
+    public String getLangMode() {
+        return langMode;
+    }
+
+    public String getDefaultLanguage() {
+        return defaultLanguage;
+    }
+
+    public String getLanguageHint(String lang) {
+        return languageHints.getOrDefault(lang, languageHints.getOrDefault("en", "Use casual gamer slang."));
+    }
+
+    public boolean isForceLowercase() {
+        return forceLowercase;
+    }
+
+    public boolean isForceNoPunctuation() {
+        return forceNoPunctuation;
+    }
+
+    public boolean isOverrideBySpeakingStyle() {
+        return overrideBySpeakingStyle;
+    }
+
+    public boolean isDisableSanitizationForHelp() {
+        return disableSanitizationForHelp;
+    }
+
+    public String getNonAsciiHandling() {
+        return nonAsciiHandling;
+    }
+
+    public boolean isFallbackEnabled() {
+        return fallbackEnabled;
+    }
+
+    public List<String> getFallbackResponses(String lang) {
+        return fallbackResponses.getOrDefault(lang, fallbackResponses.getOrDefault("en", List.of("brb mining")));
+    }
+
+    public boolean isPlayerToAiEnabled() {
+        return playerToAiEnabled;
+    }
+
+    public double getPlayerToAiChance() {
+        return playerToAiChance;
+    }
+
+    public double getNameSimilarityThreshold() {
+        return nameSimilarityThreshold;
+    }
+
+    public boolean isAiToAiEnabled() {
+        return aiToAiEnabled;
+    }
+
+    public boolean isAiHelpEnabled() {
+        return aiHelpEnabled;
+    }
+
+    public String getAiHelpBotName() {
+        return aiHelpBotName;
+    }
+
+    public double getAiHelpResponseChance() {
+        return aiHelpResponseChance;
+    }
+
+    public String getAiHelpTagPrefix() {
+        return aiHelpTagPrefix;
+    }
+
+    public String getAiHelpMinecraftPrompt() {
+        return aiHelpMinecraftPrompt;
+    }
+
+    public String getAiHelpPluginPrompt() {
+        return aiHelpPluginPrompt;
+    }
+
+    public String getSystemRule() {
+        return systemRule;
+    }
+
+    public boolean isAnswerInSameWorld() {
+        return answerInSameWorld;
+    }
+
+    public int getMaxHearingDistance() {
+        return maxHearingDistance;
+    }
+
+    public String getTypingDelayStr() {
+        return typingDelayStr;
+    }
+
+    public int getCooldownReceiverSec() {
+        return cooldownReceiverSec;
+    }
+
+    public int getCooldownSenderSec() {
+        return cooldownSenderSec;
+    }
+
+    public int getConversationExpirySec() {
+        return conversationExpirySec;
+    }
+
+    public int getMaxResponsesPerSession() {
+        return maxResponsesPerSession;
+    }
+
+    public boolean isCloseOnNewPlayerMention() {
+        return closeOnNewPlayerMention;
+    }
+
+    public ProviderConfig getGptConfig() {
+        return gptConfig;
+    }
+
+    public ProviderConfig getGeminiConfig() {
+        return geminiConfig;
+    }
+
+    public CustomProviderConfig getCustomConfig() {
+        return customConfig;
+    }
+
+    public boolean isAbortApiOnViolation() {
+        return abortApiOnViolation;
+    }
+
+    public int getMaxInputLength() {
+        return maxInputLength;
+    }
+
+    public int getRateLimitMaxPerMin() {
+        return rateLimitMaxPerMin;
+    }
+
+    public String getPunishmentCommand() {
+        return punishmentCommand;
+    }
+
+    public boolean isBlockCodeBlocks() {
+        return blockCodeBlocks;
+    }
+
+    public List<String> getBlockSensitiveWords() {
+        return blockSensitiveWords;
+    }
+
+    public List<String> getInputBlacklistKeywords() {
+        return inputBlacklistKeywords;
+    }
+
+    public record ProviderConfig(String modelName, int maxTokens, double temperature, double presencePenalty,
+                                 double frequencyPenalty) {
+    }
+
+    public record CustomProviderConfig(String apiUrl, String modelName, int maxTokens, double temperature) {
+    }
 }

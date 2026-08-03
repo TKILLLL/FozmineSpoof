@@ -125,9 +125,23 @@ public class InteractionConfig {
     }
 
     // Getters
-    public String getKey() { return key; }
-    public long getGlobalCooldownMs() { return globalCooldownMs; }
-    public long getPerPlayerCooldownMs() { return perPlayerCooldownMs; }
-    public int getMaxBurst() { return maxBurst; }
-    public List<String> getReplies() { return replies; }
+    public String getKey() {
+        return key;
+    }
+
+    public long getGlobalCooldownMs() {
+        return globalCooldownMs;
+    }
+
+    public long getPerPlayerCooldownMs() {
+        return perPlayerCooldownMs;
+    }
+
+    public int getMaxBurst() {
+        return maxBurst;
+    }
+
+    public List<String> getReplies() {
+        return replies;
+    }
 }

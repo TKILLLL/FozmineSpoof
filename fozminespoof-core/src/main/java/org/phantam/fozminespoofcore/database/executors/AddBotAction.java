@@ -1,10 +1,10 @@
 package org.phantam.fozminespoofcore.database.executors;
 
 import org.bukkit.Location;
-import org.phantam.fozminespoofapi.model.FakePlayerData;
 import org.phantam.fozminespoofapi.database.IFakePlayerDatabase;
-import org.phantam.fozminespoofcore.FozmineSpoofCore;
+import org.phantam.fozminespoofapi.model.FakePlayerData;
 import org.phantam.fozminespoofapi.utils.DebugLogger;
+import org.phantam.fozminespoofcore.FozmineSpoofCore;
 
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
@@ -55,5 +55,6 @@ public class AddBotAction implements org.phantam.fozminespoofapi.action.IBotActi
      * Request object containing the bot name and spawn location.
      * (Location is currently unused but kept for future extensions.)
      */
-    public record Request(String name, Location location) {}
+    public record Request(String name, Location location) {
+    }
 }

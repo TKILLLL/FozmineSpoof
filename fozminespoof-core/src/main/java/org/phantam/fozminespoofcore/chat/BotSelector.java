@@ -2,10 +2,13 @@ package org.phantam.fozminespoofcore.chat;
 
 import org.bukkit.entity.Player;
 import org.phantam.fozminespoofapi.model.FakePlayerData;
-import org.phantam.fozminespoofcore.manager.FakePlayerManager;
 import org.phantam.fozminespoofapi.utils.DebugLogger;
+import org.phantam.fozminespoofcore.manager.FakePlayerManager;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 

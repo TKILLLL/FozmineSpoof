@@ -27,7 +27,7 @@ public interface FozminespoofApi {
      * @param hideTab if true, the fake player will not appear in the tab list
      * @return the Bukkit Player representation of the spawned fake player
      * @throws IllegalArgumentException if any parameter is null or invalid
-     * @throws IllegalStateException   if spawning fails due to internal error
+     * @throws IllegalStateException    if spawning fails due to internal error
      */
     Player spawnPlayer(String name, UUID uuid, Location loc, boolean hideTab);
 

@@ -5,18 +5,34 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
 /**
- * Inserts or updates proxy sync data.
+ * Inserts or updates proxy sync data for MySQL databases.
+ * <p>
+ * This query uses {@code ON DUPLICATE KEY UPDATE} to atomically update
+ * the record for a specific server node.
+ * </p>
+ *
+ * @author Phantam
+ * @version 2.0.0
+ * @see ProxySyncSQLiteQuery
  */
 public class ProxySyncQuery implements Query<Void> {
 
     private final String tableName;
-    private final String name;
+    private final String serverNodeName;
     private final int activeCount;
     private final int inactiveCount;
 
-    public ProxySyncQuery(String tableName, String name, int activeCount, int inactiveCount) {
+    /**
+     * Constructs a new ProxySyncQuery.
+     *
+     * @param tableName      the proxy sync table name (prefixed with bungeeName)
+     * @param serverNodeName the unique identifier of this server node
+     * @param activeCount    current active bot count
+     * @param inactiveCount  current inactive bot count
+     */
+    public ProxySyncQuery(String tableName, String serverNodeName, int activeCount, int inactiveCount) {
         this.tableName = tableName;
-        this.name = name;
+        this.serverNodeName = serverNodeName;
         this.activeCount = activeCount;
         this.inactiveCount = inactiveCount;
     }
@@ -33,7 +49,7 @@ public class ProxySyncQuery implements Query<Void> {
         String sql = "INSERT INTO " + tableName + " (name, active_bot, deactive_bot) VALUES (?, ?, ?) " +
                 "ON DUPLICATE KEY UPDATE active_bot = VALUES(active_bot), deactive_bot = VALUES(deactive_bot);";
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
-            ps.setString(1, name);
+            ps.setString(1, serverNodeName);
             ps.setInt(2, activeCount);
             ps.setInt(3, inactiveCount);
             ps.executeUpdate();

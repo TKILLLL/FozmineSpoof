@@ -4,10 +4,9 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Player;
+import org.phantam.fozminespoofapi.utils.DebugLogger;
 import org.phantam.fozminespoofcore.FozmineSpoofCore;
 import org.phantam.fozminespoofcore.config.MessageManager;
-import org.phantam.fozminespoofapi.utils.DebugLogger;
 
 import java.util.Collections;
 import java.util.List;
@@ -15,24 +14,32 @@ import java.util.regex.Pattern;
 
 public class AddCommand implements SubCommand {
 
-    private final FozmineSpoofCore plugin;
     private static final Pattern VALID_NAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_]{3,16}$");
+    private final FozmineSpoofCore plugin;
 
     public AddCommand(FozmineSpoofCore plugin) {
         this.plugin = plugin;
     }
 
     @Override
-    public String getName() { return "add"; }
+    public String getName() {
+        return "add";
+    }
 
     @Override
-    public String getDescription() { return "Add a new fake player to the database (inactive, not spawned)"; }
+    public String getDescription() {
+        return "Add a new fake player to the database (inactive, not spawned)";
+    }
 
     @Override
-    public String getSyntax() { return "/spoof add <name>"; }
+    public String getSyntax() {
+        return "/spoof add <name>";
+    }
 
     @Override
-    public String getPermission() { return "fozminespoof.admin"; }
+    public String getPermission() {
+        return "fozminespoof.admin";
+    }
 
     @Override
     public void execute(CommandSender sender, String[] args) {

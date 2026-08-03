@@ -8,6 +8,15 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.phantam.fozminespoofcore.FozmineSpoofCore;
 
+/**
+ * Listener for bot join and quit events, handling message suppression and custom broadcasts.
+ * <p>
+ * This listener controls whether default join/quit messages are suppressed based on the
+ * {@code join-leave-format} configuration. When format is {@code "custom"}, messages are
+ * suppressed and custom messages are sent by the spawn/despawn actions. When format is
+ * {@code "normal"}, messages are left intact for the server or other plugins to handle.
+ * </p>
+ */
 public class BotJoinQuitListener implements Listener {
 
     private final FozmineSpoofCore plugin;
@@ -22,9 +31,14 @@ public class BotJoinQuitListener implements Listener {
         String name = player.getName();
 
         if (isBot(player)) {
-            if (plugin.getConfigManager().isJoinLeaveMessageEnable()) {
+            String format = plugin.getConfigManager().getJoinLeaveFormat();
+            boolean enable = plugin.getConfigManager().isJoinLeaveMessageEnable();
+
+            // Suppress default message only when format is "custom" and messages are enabled
+            if ("custom".equalsIgnoreCase(format) && enable) {
                 event.setJoinMessage(null);
             }
+            // If format is "normal", do nothing – let server/other plugins handle the message
 
             if (plugin.getJoinChatProcessor() != null) {
                 plugin.getJoinChatProcessor().handleBotSessionJoin(player);
@@ -47,9 +61,14 @@ public class BotJoinQuitListener implements Listener {
     public void onBotQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
         if (isBot(player)) {
-            if (plugin.getConfigManager().isJoinLeaveMessageEnable()) {
+            String format = plugin.getConfigManager().getJoinLeaveFormat();
+            boolean enable = plugin.getConfigManager().isJoinLeaveMessageEnable();
+
+            // Suppress default message only when format is "custom" and messages are enabled
+            if ("custom".equalsIgnoreCase(format) && enable) {
                 event.setQuitMessage(null);
             }
+            // If format is "normal", do nothing
 
             plugin.getFakePlayerManager().handleExternalQuit(player.getName());
         }

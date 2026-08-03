@@ -2,9 +2,9 @@ package org.phantam.fozminespoofcore.commands.subcommands;
 
 import org.bukkit.command.CommandSender;
 import org.phantam.fozminespoofapi.model.FakePlayerData;
+import org.phantam.fozminespoofapi.utils.DebugLogger;
 import org.phantam.fozminespoofcore.FozmineSpoofCore;
 import org.phantam.fozminespoofcore.config.MessageManager;
-import org.phantam.fozminespoofapi.utils.DebugLogger;
 
 import java.util.Collections;
 import java.util.List;
@@ -20,16 +20,24 @@ public class InfoCommand implements SubCommand {
     }
 
     @Override
-    public String getName() { return "info"; }
+    public String getName() {
+        return "info";
+    }
 
     @Override
-    public String getDescription() { return "Show detailed information of a fake player"; }
+    public String getDescription() {
+        return "Show detailed information of a fake player";
+    }
 
     @Override
-    public String getSyntax() { return "/spoof info <name>"; }
+    public String getSyntax() {
+        return "/spoof info <name>";
+    }
 
     @Override
-    public String getPermission() { return "fozminespoof.admin"; }
+    public String getPermission() {
+        return "fozminespoof.admin";
+    }
 
     @Override
     public void execute(CommandSender sender, String[] args) {

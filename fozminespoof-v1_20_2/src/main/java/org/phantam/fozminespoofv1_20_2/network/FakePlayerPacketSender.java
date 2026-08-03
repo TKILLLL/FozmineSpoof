@@ -2,11 +2,7 @@ package org.phantam.fozminespoofv1_20_2.network;
 
 import io.netty.channel.embedded.EmbeddedChannel;
 import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
-import net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket;
-import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
-import net.minecraft.network.protocol.game.ClientboundRemoveEntitiesPacket;
-import net.minecraft.network.protocol.game.ClientboundRotateHeadPacket;
+import net.minecraft.network.protocol.game.*;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.PlayerList;
 

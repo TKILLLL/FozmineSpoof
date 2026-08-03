@@ -18,7 +18,8 @@ public final class RsaVerifier {
                     "Oob3XRF9HZrQ4ZVGQDcTbzCaUYrudezR27Bq5VoBdZsRbueLh9T7rz60gh1I15oT\n" +
                     "NQIDAQAB";
 
-    private RsaVerifier() {}
+    private RsaVerifier() {
+    }
 
     public static boolean verify(String payload, String signatureBase64) {
         try {

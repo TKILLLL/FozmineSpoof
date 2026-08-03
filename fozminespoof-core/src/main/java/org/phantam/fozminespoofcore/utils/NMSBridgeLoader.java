@@ -63,7 +63,8 @@ public final class NMSBridgeLoader {
         if (rawVersion.startsWith("1.20.2") || rawVersion.startsWith("1.20.3")) return "1_20_2";
         if (rawVersion.startsWith("1.20.4") || rawVersion.startsWith("1.20.5")) return "1_20_4";
         if (rawVersion.startsWith("1.20.6")) return "1_20_6";
-        if (rawVersion.startsWith("1.21.1") || rawVersion.startsWith("1.21.2") || rawVersion.startsWith("1.21.3") || rawVersion.equals("1.21")) return "1_21_1";
+        if (rawVersion.startsWith("1.21.1") || rawVersion.startsWith("1.21.2") || rawVersion.startsWith("1.21.3") || rawVersion.equals("1.21"))
+            return "1_21_1";
         if (rawVersion.startsWith("1.21.4")) return "1_21_4";
         if (rawVersion.startsWith("1.21.")) return "1_21_11";
         return null;

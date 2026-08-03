@@ -1,6 +1,4 @@
 import org.apache.tools.ant.filters.ReplaceTokens
-import org.gradle.jvm.toolchain.JavaLanguageVersion
-import org.gradle.jvm.toolchain.JavaToolchainService
 
 plugins {
     id("java-library")

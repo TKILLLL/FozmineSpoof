@@ -2,9 +2,9 @@ package org.phantam.fozminespoofcore.commands.subcommands;
 
 import org.bukkit.command.CommandSender;
 import org.phantam.fozminespoofapi.model.FakePlayerData;
+import org.phantam.fozminespoofapi.utils.DebugLogger;
 import org.phantam.fozminespoofcore.FozmineSpoofCore;
 import org.phantam.fozminespoofcore.config.MessageManager;
-import org.phantam.fozminespoofapi.utils.DebugLogger;
 
 import java.util.Collections;
 import java.util.List;
@@ -19,16 +19,24 @@ public class RemoveCommand implements SubCommand {
     }
 
     @Override
-    public String getName() { return "remove"; }
+    public String getName() {
+        return "remove";
+    }
 
     @Override
-    public String getDescription() { return "Permanently delete a fake player from the system and database"; }
+    public String getDescription() {
+        return "Permanently delete a fake player from the system and database";
+    }
 
     @Override
-    public String getSyntax() { return "/spoof remove <name>"; }
+    public String getSyntax() {
+        return "/spoof remove <name>";
+    }
 
     @Override
-    public String getPermission() { return "fozminespoof.admin"; }
+    public String getPermission() {
+        return "fozminespoof.admin";
+    }
 
     @Override
     public void execute(CommandSender sender, String[] args) {

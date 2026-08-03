@@ -230,7 +230,8 @@ public class FozmineSpoofCore extends JavaPlugin {
             if (response.statusCode() == 200 && response.body() != null && !response.body().isBlank()) {
                 return response.body().trim();
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
 
         try {
             HttpRequest request = HttpRequest.newBuilder()
@@ -242,7 +243,8 @@ public class FozmineSpoofCore extends JavaPlugin {
             if (response.statusCode() == 200 && response.body() != null && !response.body().isBlank()) {
                 return response.body().trim();
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
 
         String bukkitIp = Bukkit.getIp();
         return (bukkitIp != null && !bukkitIp.isBlank()) ? bukkitIp : "127.0.0.1";
@@ -336,7 +338,8 @@ public class FozmineSpoofCore extends JavaPlugin {
                     try {
                         this.database.close();
                         logConsole("&#00F2FE  ▪ &#10B981Database connection safely closed.");
-                    } catch (Exception ignored) {}
+                    } catch (Exception ignored) {
+                    }
                 }
                 logConsole("&#EF4444✖ FozmineSpoof disabled successfully.");
             } catch (Exception e) {
@@ -492,18 +495,59 @@ public class FozmineSpoofCore extends JavaPlugin {
 
     // ---- Public accessors ----
 
-    public FozminespoofApi getBridge() { return this.bridge; }
-    public ConfigManager getConfigManager() { return this.configManager; }
-    public IFakePlayerDatabase getFakePlayerDatabase() { return this.database; }
-    public FakePlayerManager getFakePlayerManager() { return this.fakePlayerManager; }
-    public MessageLoader getMessageLoader() { return this.messageLoader; }
-    public ChatScheduler getChatScheduler() { return this.chatScheduler; }
-    public BotLifecycleManager getBotLifecycleManager() { return botLifecycleManager; }
-    public RankWeightManager getRankWeightManager() { return rankWeightManager; }
-    public JoinMessageConfig getJoinMessageConfig() { return joinMessageConfig; }
-    public JoinChatProcessor getJoinChatProcessor() { return joinChatProcessor; }
-    public InteractiveMessageConfig getInteractiveMessageConfig() { return interactiveMessageConfig; }
-    public AiConfig getAiConfig() { return aiConfig; }
-    public AiPersonalityManager getAiPersonalityManager() { return aiPersonalityManager; }
-    public AiChatProcessor getAiChatProcessor() { return aiChatProcessor; }
+    public FozminespoofApi getBridge() {
+        return this.bridge;
+    }
+
+    public ConfigManager getConfigManager() {
+        return this.configManager;
+    }
+
+    public IFakePlayerDatabase getFakePlayerDatabase() {
+        return this.database;
+    }
+
+    public FakePlayerManager getFakePlayerManager() {
+        return this.fakePlayerManager;
+    }
+
+    public MessageLoader getMessageLoader() {
+        return this.messageLoader;
+    }
+
+    public ChatScheduler getChatScheduler() {
+        return this.chatScheduler;
+    }
+
+    public BotLifecycleManager getBotLifecycleManager() {
+        return botLifecycleManager;
+    }
+
+    public RankWeightManager getRankWeightManager() {
+        return rankWeightManager;
+    }
+
+    public JoinMessageConfig getJoinMessageConfig() {
+        return joinMessageConfig;
+    }
+
+    public JoinChatProcessor getJoinChatProcessor() {
+        return joinChatProcessor;
+    }
+
+    public InteractiveMessageConfig getInteractiveMessageConfig() {
+        return interactiveMessageConfig;
+    }
+
+    public AiConfig getAiConfig() {
+        return aiConfig;
+    }
+
+    public AiPersonalityManager getAiPersonalityManager() {
+        return aiPersonalityManager;
+    }
+
+    public AiChatProcessor getAiChatProcessor() {
+        return aiChatProcessor;
+    }
 }

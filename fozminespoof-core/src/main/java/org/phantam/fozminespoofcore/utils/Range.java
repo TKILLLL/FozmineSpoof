@@ -47,6 +47,11 @@ public final class Range {
         return Math.max(1L, ms / 50L);
     }
 
-    public double getMin() { return min; }
-    public double getMax() { return max; }
+    public double getMin() {
+        return min;
+    }
+
+    public double getMax() {
+        return max;
+    }
 }

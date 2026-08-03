@@ -5,7 +5,9 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.phantam.fozminespoofapi.utils.DebugLogger;
 
 import java.io.File;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -17,8 +19,6 @@ public class AiPersonalityManager {
 
     // In-memory assignment per bot name: botName -> BotProfile
     private final Map<String, BotProfile> botProfiles = new ConcurrentHashMap<>();
-
-    public record BotProfile(String personality, String speakingStyle, String currentSituation) {}
 
     public AiPersonalityManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -81,5 +81,8 @@ public class AiPersonalityManager {
         String sit = situations.get(ThreadLocalRandom.current().nextInt(situations.size()));
 
         return new BotProfile(p, s, sit);
+    }
+
+    public record BotProfile(String personality, String speakingStyle, String currentSituation) {
     }
 }

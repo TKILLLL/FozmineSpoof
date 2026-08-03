@@ -1,11 +1,11 @@
 package org.phantam.fozminespoofcore.chat;
 
+import org.phantam.fozminespoofapi.utils.DebugLogger;
 import org.phantam.fozminespoofcore.FozmineSpoofCore;
 import org.phantam.fozminespoofcore.config.ChatConfig;
 import org.phantam.fozminespoofcore.config.ConfigManager;
 import org.phantam.fozminespoofcore.manager.FakePlayerManager;
 import org.phantam.fozminespoofcore.tasks.ChatTickerTask;
-import org.phantam.fozminespoofapi.utils.DebugLogger;
 
 import java.util.logging.Logger;
 

@@ -2,8 +2,8 @@ package org.phantam.fozminespoofcore.chat;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.phantam.fozminespoofcore.config.ConfigManager;
 import org.phantam.fozminespoofapi.utils.DebugLogger;
+import org.phantam.fozminespoofcore.config.ConfigManager;
 
 import java.util.logging.Logger;
 

@@ -6,7 +6,10 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.phantam.fozminespoofapi.utils.DebugLogger;
 
 import java.io.File;
-import java.util.*;
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class InteractiveMessageConfig {

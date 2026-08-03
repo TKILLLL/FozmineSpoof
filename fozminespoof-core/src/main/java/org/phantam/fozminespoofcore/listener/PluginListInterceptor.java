@@ -7,8 +7,8 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.plugin.Plugin;
-import org.phantam.fozminespoofcore.config.ConfigManager;
 import org.phantam.fozminespoofapi.utils.DebugLogger;
+import org.phantam.fozminespoofcore.config.ConfigManager;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -21,12 +21,11 @@ import java.util.stream.Collectors;
  */
 public class PluginListInterceptor implements Listener {
 
-    private final ConfigManager configManager;
-    private final Plugin ownPlugin;
-
     private static final Set<String> TARGET_COMMANDS = new HashSet<>(Arrays.asList(
             "plugins", "pl", "bukkit:plugins", "bukkit:pl"
     ));
+    private final ConfigManager configManager;
+    private final Plugin ownPlugin;
 
     public PluginListInterceptor(ConfigManager configManager, Plugin ownPlugin) {
         this.configManager = configManager;

@@ -4,17 +4,36 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.phantam.fozminespoofapi.action.IBotAction;
-import org.phantam.fozminespoofapi.model.FakePlayerData;
 import org.phantam.fozminespoofapi.database.IFakePlayerDatabase;
+import org.phantam.fozminespoofapi.model.FakePlayerData;
+import org.phantam.fozminespoofapi.utils.DebugLogger;
 import org.phantam.fozminespoofcore.FozmineSpoofCore;
 import org.phantam.fozminespoofcore.chat.FakePlayerBroadcaster;
 import org.phantam.fozminespoofcore.manager.BotLifecycleManager;
 import org.phantam.fozminespoofcore.manager.FakePlayerRegistry;
-import org.phantam.fozminespoofapi.utils.DebugLogger;
 
 import java.util.Optional;
 import java.util.logging.Level;
 
+/**
+ * Action that despawns a fake player from the world and updates its active state.
+ * <p>
+ * This action handles:
+ * <ul>
+ *   <li>Updating the bot's active flag to {@code false} in the database</li>
+ *   <li>Firing a {@link PlayerQuitEvent} for plugin compatibility</li>
+ *   <li>Broadcasting custom leave messages (if configured)</li>
+ *   <li>Resetting ranks (if rank management is enabled)</li>
+ *   <li>Unregistering the bot from the online registry</li>
+ *   <li>Removing the entity via the NMS bridge</li>
+ * </ul>
+ * </p>
+ *
+ * @author Phantam
+ * @version 2.0.0
+ * @see SpawnBotAction
+ * @see FakePlayerRegistry
+ */
 public class DespawnBotAction implements IBotAction<String, Boolean> {
 
     private final FozmineSpoofCore plugin;
@@ -52,21 +71,25 @@ public class DespawnBotAction implements IBotAction<String, Boolean> {
         database.saveFakePlayer(updatedData);
 
         if (botEntity != null) {
-            String quitMessage = null;
-            if (!plugin.getConfigManager().isJoinLeaveMessageEnable()) {
-                quitMessage = botEntity.getName() + " left the game";
+            String format = plugin.getConfigManager().getJoinLeaveFormat();
+            boolean enable = plugin.getConfigManager().isJoinLeaveMessageEnable();
+
+            // Determine quit message:
+            // - If format is "custom" and messages are enabled, suppress default (set null)
+            // - Otherwise, let server use default message (by passing null to event constructor)
+            String quitMessage = null; // null means server default
+            if ("custom".equalsIgnoreCase(format) && enable) {
+                // We will send custom message later, so suppress default
+                quitMessage = null;
             }
+            // If format is "normal", we do NOT set quitMessage (keep null) to allow server/other plugins
 
             PlayerQuitEvent quitEvent = new PlayerQuitEvent(botEntity, quitMessage);
             Bukkit.getPluginManager().callEvent(quitEvent);
 
-            if (plugin.getConfigManager().isJoinLeaveMessageEnable()) {
+            // Broadcast custom leave message only if format is "custom" and messages are enabled
+            if ("custom".equalsIgnoreCase(format) && enable) {
                 broadcaster.broadcastLeave(name);
-            } else {
-                String finalQuitMsg = quitEvent.getQuitMessage();
-                if (finalQuitMsg != null && !finalQuitMsg.trim().isEmpty()) {
-                    Bukkit.broadcastMessage(finalQuitMsg);
-                }
             }
         }
 
@@ -82,6 +105,8 @@ public class DespawnBotAction implements IBotAction<String, Boolean> {
 
         if (plugin.getBridge() != null) {
             plugin.getBridge().despawnPlayer(updatedData.getUuid());
+        } else {
+            DebugLogger.log(plugin.getLogger(), "DespawnBotAction: bridge is null, cannot despawn player %s", name);
         }
 
         DebugLogger.log(plugin.getLogger(), "DespawnBotAction: despawn completed for %s", name);

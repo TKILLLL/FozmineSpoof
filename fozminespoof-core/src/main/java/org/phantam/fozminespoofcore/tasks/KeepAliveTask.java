@@ -1,19 +1,34 @@
 package org.phantam.fozminespoofcore.tasks;
 
 import org.bukkit.scheduler.BukkitRunnable;
-import org.phantam.fozminespoofcore.FozmineSpoofCore;
 import org.phantam.fozminespoofapi.utils.DebugLogger;
+import org.phantam.fozminespoofcore.FozmineSpoofCore;
 
 import java.util.logging.Level;
 
 /**
  * Periodically sends keep-alive packets to refresh fake player visibility.
- * This prevents client-side desync issues when players log in/out.
+ * <p>
+ * This task runs every few seconds and re-sends spawn and tablist packets for
+ * all active fake players, preventing client-side desync issues when real players
+ * join, leave, or switch worlds.
+ * </p>
+ *
+ * <p><b>Thread-safety:</b> This task is executed on the main thread by Bukkit's scheduler.</p>
+ *
+ * @author Phantam
+ * @version 2.0.0
+ * @see org.phantam.fozminespoofapi.FozminespoofApi#sendKeepAlivePackets()
  */
 public class KeepAliveTask extends BukkitRunnable {
 
     private final FozmineSpoofCore plugin;
 
+    /**
+     * Constructs a new KeepAliveTask.
+     *
+     * @param plugin the core plugin instance
+     */
     public KeepAliveTask(FozmineSpoofCore plugin) {
         this.plugin = plugin;
     }

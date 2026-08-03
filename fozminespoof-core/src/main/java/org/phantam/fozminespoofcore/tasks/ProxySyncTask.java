@@ -3,8 +3,8 @@ package org.phantam.fozminespoofcore.tasks;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.phantam.fozminespoofapi.database.IFakePlayerDatabase;
-import org.phantam.fozminespoofcore.config.ConfigManager;
 import org.phantam.fozminespoofapi.utils.DebugLogger;
+import org.phantam.fozminespoofcore.config.ConfigManager;
 
 import java.util.logging.Level;
 
@@ -25,6 +25,17 @@ public class ProxySyncTask extends BukkitRunnable {
         DebugLogger.log(plugin.getLogger(), "ProxySyncTask: initialized");
     }
 
+    /**
+     * Periodically synchronises fake player statistics with the proxy database.
+     * <p>
+     * This task runs asynchronously and updates the proxy sync table with the
+     * current active and inactive bot counts for this server node. The interval
+     * is configurable via {@code Database.bridging-setting.update-interval}.
+     * </p>
+     *
+     * @author Phantam
+     * @version 2.0.0
+     */
     @Override
     public void run() {
         DebugLogger.log(plugin.getLogger(), "ProxySyncTask: sync cycle started");
@@ -35,9 +46,10 @@ public class ProxySyncTask extends BukkitRunnable {
 
             DebugLogger.log(plugin.getLogger(), "ProxySyncTask: counts: active=%d, inactive=%d", activeCount, inactiveCount);
 
+            // Use the actual server node name (bungee_name) instead of the database table name.
             database.sendProxySyncData(
-                    configManager.getBungeeName(),
-                    configManager.getRawDatabaseName(),
+                    configManager.getBungeeName(),      // bungeeName (table prefix)
+                    configManager.getBungeeName(),      // serverNodeName (the unique identifier)
                     activeCount,
                     inactiveCount
             );
@@ -52,7 +64,6 @@ public class ProxySyncTask extends BukkitRunnable {
                     "[ProxySyncTask] Error syncing proxy data: " + e.getMessage(), e);
             DebugLogger.log(plugin.getLogger(), "ProxySyncTask: error: %s", e.getMessage());
         } finally {
-            // Reschedule only if the plugin is still enabled
             if (plugin.isEnabled()) {
                 reschedule();
             } else {

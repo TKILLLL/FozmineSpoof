@@ -68,9 +68,11 @@ Fakeplayer-setting:
   fake-plugin-name: "FozmineSpawner"
 
   # Realistic Join/Quit Broadcast Messages:
-  #   true  = Broadcast custom join and leave messages when bots connect/disconnect.
-  #   false = Mute all connection broadcasts.
   join-leave-message-enable: true
+
+  #   custom  = Broadcast custom join and leave messages when bots connect/disconnect.
+  #   normal = Mute all connection broadcasts.
+  join-leave-format: "normal"
 
   # Connection Broadcast Formats (Supports Standard Formatting & Color Codes '&')
   # Placeholders:
@@ -155,32 +157,35 @@ fluctuations:
 #                       3. ADVANCED AI CHAT EMULATION SYSTEM                           #
 # ==================================================================================== #
 chat-system:
-  # Master Toggle for the Intelligent Bot Chat Simulation System:
-  # Allows fake players to speak naturally using pre-configured message pools.
+  # Master Toggle for the Intelligent Bot Chat Simulation System
   enable: true
 
   # Minimum number of REAL human players required online for bots to chat.
-  # Set to 0 to allow bots to chat even if no human players are online.
   min-real-players: 1
 
-  # Auto-Translation Target Language Engine:
-  # Automatically translates chat pool messages into target language via Neural API.
+  # Auto-Translation Target Language Engine
   # Use standard ISO 639-1 language codes ("en" = English, "vi" = Vietnamese, "de" = German).
   # Set to "none" to disable translation processing.
   translation-target: "en"
 
-  # Chat Frequency Cycle Interval (in Minutes):
-  # Interval range between automatic chat triggers.
-  # Supports decimal values for fast-paced testing (e.g., "0.5-2.0" or "5-15").
+  # Translation Provider Selection
+  #   - "google" : Unofficial free Google Translate endpoint (may be unstable)
+  #   - "gcloud" : Official Google Cloud Translation API (requires API key, paid)
+  #   - "deepl"  : DeepL API (requires API key, paid/free tier)
+  #   - "none"   : Disable translation entirely
+  translation-provider: "google"
+
+  # API key required for "gcloud" and "deepl" providers.
+  # For security, consider encrypting this key using the plugin's encryption utilities.
+  translation-api-key: ""
+
+  # Chat Frequency Cycle Interval (in Minutes)
   interval-minutes: "5-15"
 
-  # Bot Speaker Pool Size per Cycle:
-  # Random range of how many bots speak during each chat cycle.
+  # Bot Speaker Pool Size per Cycle
   bots-per-interval: "1-2"
 
-  # Inter-Bot Conversation Delay (in Seconds):
-  # Human-like staggered delay between different bots chatting in the same cycle.
-  # Supports decimal values (e.g., "1.5-3.5").
+  # Inter-Bot Conversation Delay (in Seconds)
   delay-between-bots-seconds: "2-5"
 
   # Chat Formatting & Interception Override:

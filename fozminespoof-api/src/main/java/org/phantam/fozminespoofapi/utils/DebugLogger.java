@@ -16,15 +16,6 @@ public final class DebugLogger {
     }
 
     /**
-     * Enables or disables debug logging globally.
-     *
-     * @param enabled true to enable debug logs
-     */
-    public static void setDebugEnabled(boolean enabled) {
-        debugEnabled = enabled;
-    }
-
-    /**
      * Logs a debug message at INFO level if debug is enabled.
      *
      * @param logger  the logger to use
@@ -81,5 +72,14 @@ public final class DebugLogger {
      */
     public static boolean isDebugEnabled() {
         return debugEnabled;
+    }
+
+    /**
+     * Enables or disables debug logging globally.
+     *
+     * @param enabled true to enable debug logs
+     */
+    public static void setDebugEnabled(boolean enabled) {
+        debugEnabled = enabled;
     }
 }
