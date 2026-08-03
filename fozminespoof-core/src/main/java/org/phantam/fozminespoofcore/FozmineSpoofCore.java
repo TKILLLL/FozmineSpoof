@@ -69,7 +69,6 @@ public class FozmineSpoofCore extends JavaPlugin {
 
     @Override
     public void onEnable() {
-
         printStartupBanner();
         DebugLogger.log(getLogger(), "FozmineSpoofCore: onEnable() starting");
 

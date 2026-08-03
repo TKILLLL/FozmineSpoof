@@ -71,25 +71,30 @@ public class DespawnBotAction implements IBotAction<String, Boolean> {
         database.saveFakePlayer(updatedData);
 
         if (botEntity != null) {
-            String format = plugin.getConfigManager().getJoinLeaveFormat();
             boolean enable = plugin.getConfigManager().isJoinLeaveMessageEnable();
+            String format = plugin.getConfigManager().getJoinLeaveFormat();
 
-            // Determine quit message:
-            // - If format is "custom" and messages are enabled, suppress default (set null)
-            // - Otherwise, let server use default message (by passing null to event constructor)
-            String quitMessage = null; // null means server default
-            if ("custom".equalsIgnoreCase(format) && enable) {
-                // We will send custom message later, so suppress default
+            String quitMessage;
+            if (!enable) {
                 quitMessage = null;
+            } else if ("custom".equalsIgnoreCase(format)) {
+                quitMessage = null;
+            } else {
+                quitMessage = botEntity.getName() + " left the game";
             }
-            // If format is "normal", we do NOT set quitMessage (keep null) to allow server/other plugins
 
             PlayerQuitEvent quitEvent = new PlayerQuitEvent(botEntity, quitMessage);
             Bukkit.getPluginManager().callEvent(quitEvent);
 
-            // Broadcast custom leave message only if format is "custom" and messages are enabled
-            if ("custom".equalsIgnoreCase(format) && enable) {
-                broadcaster.broadcastLeave(name);
+            if (enable) {
+                if ("custom".equalsIgnoreCase(format)) {
+                    broadcaster.broadcastLeave(name);
+                }
+                else if ("normal".equalsIgnoreCase(format)) {
+                    if (quitEvent.getQuitMessage() != null && !quitEvent.getQuitMessage().isEmpty()) {
+                        Bukkit.broadcastMessage(quitEvent.getQuitMessage());
+                    }
+                }
             }
         }
 

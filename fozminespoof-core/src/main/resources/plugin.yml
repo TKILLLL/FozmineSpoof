@@ -4,6 +4,8 @@ main: org.phantam.fozminespoofcore.FozmineSpoofCore
 api-version: "1.19"
 description: Advanced fake player management system with minimal TPS impact
 author: phantam
+softdepend:
+  - LuckPerms
 commands:
   spoof:
     description: Main command for the Fozminespoof fake player system.

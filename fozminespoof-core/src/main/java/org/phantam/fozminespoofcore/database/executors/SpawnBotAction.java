@@ -5,6 +5,7 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerLoginEvent;
 import org.phantam.fozminespoofapi.database.IFakePlayerDatabase;
 import org.phantam.fozminespoofapi.model.FakePlayerData;
@@ -180,7 +181,6 @@ public class SpawnBotAction implements org.phantam.fozminespoofapi.action.IBotAc
                     broadcaster.broadcastJoin(entity.getName());
                 }
 
-                // Execute join commands (fakeplayer and/or console)
                 boolean fakeEnabled = plugin.getConfigManager().isFakePlayerJoinCommandsEnabled();
                 boolean consoleEnabled = plugin.getConfigManager().isConsoleJoinCommandsEnabled();
 

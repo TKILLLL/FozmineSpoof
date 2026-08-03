@@ -1,29 +1,26 @@
 package org.phantam.fozminespoofcore.manager;
 
 import org.bukkit.Bukkit;
-import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.permissions.PermissionAttachment;
 import org.phantam.fozminespoofcore.FozmineSpoofCore;
 
-import java.lang.reflect.Proxy;
+import net.luckperms.api.LuckPerms;
+import net.luckperms.api.LuckPermsProvider;
+import net.luckperms.api.model.user.User;
+import net.luckperms.api.node.Node;
+import net.luckperms.api.node.NodeType;
+import net.luckperms.api.node.types.InheritanceNode;
+
+import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class RankWeightManager {
 
-    private static final ConsoleCommandSender SILENT_CONSOLE = (ConsoleCommandSender) Proxy.newProxyInstance(
-            RankWeightManager.class.getClassLoader(),
-            new Class<?>[]{ConsoleCommandSender.class},
-            (proxy, method, args) -> {
-                // Chặn toàn bộ các hàm gửi tin nhắn của Paper/Spigot (sendMessage, sendRichMessage, sendPlainMessage...)
-                String name = method.getName();
-                if (name.startsWith("send") || name.contains("Message")) {
-                    return null;
-                }
-                return method.invoke(Bukkit.getConsoleSender(), args);
-            }
-    );
     private final FozmineSpoofCore plugin;
+    private final Map<UUID, PermissionAttachment> fallbackAttachments = new HashMap<>();
 
     public RankWeightManager(FozmineSpoofCore plugin) {
         this.plugin = plugin;
@@ -55,57 +52,84 @@ public class RankWeightManager {
     }
 
     public void assignRank(Player player, String chosenRank) {
-        if (player == null || !player.isOnline()) return;
+        if (player == null) return;
 
         String targetRank = (chosenRank != null && !chosenRank.isBlank()) ? chosenRank : "default";
+        UUID uuid = player.getUniqueId();
         String name = player.getName();
 
-        if (Bukkit.getPluginManager().getPlugin("LuckPerms") != null) {
-            Bukkit.dispatchCommand(SILENT_CONSOLE, "lp user " + name + " parent set " + targetRank + " -s");
-            return;
+        if (Bukkit.getPluginManager().isPluginEnabled("LuckPerms")) {
+            try {
+                LuckPerms luckPerms = LuckPermsProvider.get();
+
+                if (luckPerms.getGroupManager().getGroup(targetRank) == null) {
+                    targetRank = "default";
+                }
+
+                User user = luckPerms.getUserManager().loadUser(uuid, name).join();
+                if (user != null) {
+
+                    for (Node node : user.transientData().toCollection()) {
+                        if (NodeType.INHERITANCE.matches(node)) {
+                            user.transientData().remove(node);
+                        }
+                    }
+
+                    InheritanceNode node = InheritanceNode.builder(targetRank).build();
+                    user.transientData().add(node);
+                    return;
+                }
+            } catch (Exception ignored) {
+            }
         }
 
-        if (Bukkit.getPluginManager().getPlugin("GroupManager") != null) {
-            Bukkit.dispatchCommand(SILENT_CONSOLE, "manuadd " + name + " " + targetRank);
-            return;
-        }
+        try {
+            resetFallbackAttachment(player);
 
-        if (Bukkit.getPluginManager().getPlugin("PermissionsEx") != null) {
-            Bukkit.dispatchCommand(SILENT_CONSOLE, "pex user " + name + " group set " + targetRank);
-            return;
+            PermissionAttachment attachment = player.addAttachment(plugin);
+            attachment.setPermission("group." + targetRank, true);
+            fallbackAttachments.put(uuid, attachment);
+        } catch (Exception ignored) {
         }
-
-        if (Bukkit.getPluginManager().getPlugin("UltraPermissions") != null) {
-            Bukkit.dispatchCommand(SILENT_CONSOLE, "up setgroup " + name + " " + targetRank);
-            return;
-        }
-
-        Bukkit.dispatchCommand(SILENT_CONSOLE, "lp user " + name + " parent set " + targetRank + " -s");
     }
 
     public void resetRank(String name) {
         if (name == null || name.isBlank()) return;
 
-        if (Bukkit.getPluginManager().getPlugin("LuckPerms") != null) {
-            Bukkit.dispatchCommand(SILENT_CONSOLE, "lp user " + name + " clear -s");
-            return;
+        Player player = Bukkit.getPlayer(name);
+        UUID uuid = (player != null) ? player.getUniqueId() : Bukkit.getOfflinePlayer(name).getUniqueId();
+
+        if (Bukkit.getPluginManager().isPluginEnabled("LuckPerms")) {
+            try {
+                LuckPerms luckPerms = LuckPermsProvider.get();
+                User user = luckPerms.getUserManager().loadUser(uuid, name).join();
+                if (user != null) {
+
+                    for (Node node : user.transientData().toCollection()) {
+                        if (NodeType.INHERITANCE.matches(node)) {
+                            user.transientData().remove(node);
+                        }
+                    }
+
+                }
+            } catch (Exception ignored) {
+            }
         }
 
-        if (Bukkit.getPluginManager().getPlugin("GroupManager") != null) {
-            Bukkit.dispatchCommand(SILENT_CONSOLE, "manuadd " + name + " default");
-            return;
+        if (player != null) {
+            resetFallbackAttachment(player);
+        } else {
+            fallbackAttachments.remove(uuid);
         }
+    }
 
-        if (Bukkit.getPluginManager().getPlugin("PermissionsEx") != null) {
-            Bukkit.dispatchCommand(SILENT_CONSOLE, "pex user " + name + " group set default");
-            return;
+    private void resetFallbackAttachment(Player player) {
+        PermissionAttachment attachment = fallbackAttachments.remove(player.getUniqueId());
+        if (attachment != null) {
+            try {
+                player.removeAttachment(attachment);
+            } catch (Exception ignored) {
+            }
         }
-
-        if (Bukkit.getPluginManager().getPlugin("UltraPermissions") != null) {
-            Bukkit.dispatchCommand(SILENT_CONSOLE, "up setgroup " + name + " default");
-            return;
-        }
-
-        Bukkit.dispatchCommand(SILENT_CONSOLE, "lp user " + name + " clear -s");
     }
 }

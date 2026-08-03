@@ -18,6 +18,7 @@ subprojects {
 
     dependencies {
         implementation("com.zaxxer:HikariCP:7.1.0")
+        compileOnly("net.luckperms:api:5.5")
     }
 
     java {
