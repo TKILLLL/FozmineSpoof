@@ -6,6 +6,7 @@ plugins {
     id("java-library")
     id("xyz.jpenilla.run-paper") version "3.0.2"
     id("com.gradleup.shadow") version "9.4.2"
+    id("dev.skidfuscator") version "0.1.4"
 }
 
 buildscript {
@@ -41,10 +42,13 @@ java {
     toolchain.languageVersion.set(JavaLanguageVersion.of(17))
 }
 
-// ĐÃ FIX: Khai báo Service lấy JDK 17 ngoài phạm vi Task
 val javaToolchains = project.extensions.getByType<JavaToolchainService>()
 val java17Launcher = javaToolchains.launcherFor {
     languageVersion.set(JavaLanguageVersion.of(17))
+}
+
+skidfuscator {
+    skidfuscatorVersion = "latest"
 }
 
 tasks {

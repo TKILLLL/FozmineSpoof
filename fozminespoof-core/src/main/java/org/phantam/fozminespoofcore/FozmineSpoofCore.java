@@ -1,5 +1,7 @@
 package org.phantam.fozminespoofcore;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
@@ -27,7 +29,9 @@ import org.phantam.fozminespoofcore.manager.RankWeightManager;
 import org.phantam.fozminespoofcore.tasks.KeepAliveTask;
 import org.phantam.fozminespoofcore.tasks.ProxySyncTask;
 import org.phantam.fozminespoofcore.utils.ColorUtils;
+import org.phantam.fozminespoofcore.utils.CryptoUtils;
 import org.phantam.fozminespoofcore.utils.NMSBridgeLoader;
+import org.phantam.fozminespoofcore.utils.RsaVerifier;
 import org.phantam.fozminespoofcore.world.VoidWorldFactory;
 
 import java.io.File;
@@ -40,15 +44,9 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.logging.Level;
 
-/**
- * Main plugin core class for FozmineSpoof.
- * Orchestrates the entire FakePlayer system with license verification,
- * ultra-realistic behavior, and minimal TPS footprint.
- */
 public class FozmineSpoofCore extends JavaPlugin {
 
-    // Đường dẫn trỏ chính xác vào Vercel Serverless Function: api/check.js
-    private static final String LICENSE_SERVER_URL = "https://license-api-six-beta.vercel.app/api/check";
+    private static final String ENCRYPTED_LICENSE_URL = "LhsOHRpUSnwcBgwDPRYGXwQEIkgJWlFcQicCVBsMHAY2HEEOFiNKAgIMWygNHFFb";
 
     private ConfigManager configManager;
     private FozminespoofApi bridge;
@@ -67,21 +65,21 @@ public class FozmineSpoofCore extends JavaPlugin {
 
     private BukkitTask keepAliveTaskHandle;
     private BukkitTask tabUpdateTaskHandle;
+    private BukkitTask heartbeatTaskHandle;
 
     @Override
     public void onEnable() {
+
         printStartupBanner();
         DebugLogger.log(getLogger(), "FozmineSpoofCore: onEnable() starting");
 
         try {
-            // 1. Load Configurations
             logConsole("&#00F2FE[1/8] &#3B82F6Loading configuration engine...");
             this.saveDefaultConfig();
             this.configManager = new ConfigManager(this);
             DebugLogger.setDebugEnabled(configManager.isDebug());
             logConsole("&#00F2FE[1/8] &#10B981Configuration loaded! Debug Mode: " + (configManager.isDebug() ? "&#F59E0BENABLED" : "&#9CA3AFDISABLED"));
 
-            // 2. Read License Key from config.yml
             String licenseKey = getConfig().getString("license-key", "").trim();
 
             if (licenseKey.isEmpty() || licenseKey.equalsIgnoreCase("YOUR_LICENSE_KEY_HERE")) {
@@ -93,10 +91,8 @@ public class FozmineSpoofCore extends JavaPlugin {
                 return;
             }
 
-            logConsole("&#00F2FE[License] &#3B82F6Verifying license key with web server...");
-
-            // 3. Perform Asynchronous License Verification
-            Bukkit.getScheduler().runTaskAsynchronously(this, () -> verifyLicenseAsync(licenseKey));
+            logConsole("&#00F2FE[License] &#3B82F6Verifying license key with RSA security engine...");
+            Bukkit.getScheduler().runTaskAsynchronously(this, () -> verifyLicenseAsync(licenseKey, true));
 
         } catch (Exception e) {
             DebugLogger.log(getLogger(), "FozmineSpoofCore: fatal error during enable: %s", e.getMessage());
@@ -106,52 +102,128 @@ public class FozmineSpoofCore extends JavaPlugin {
         }
     }
 
-    private void verifyLicenseAsync(String licenseKey) {
+    private void verifyLicenseAsync(String licenseKey, boolean isInitialStart) {
         HttpClient client = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(5))
+                .connectTimeout(Duration.ofSeconds(15))
                 .followRedirects(HttpClient.Redirect.ALWAYS)
                 .build();
 
         try {
             String serverIP = fetchPublicServerIp(client);
 
+            String rawUrl = CryptoUtils.decrypt(ENCRYPTED_LICENSE_URL);
+            if (rawUrl.isEmpty()) {
+                rawUrl = "https://license-api-phantam.vercel.app/api/check"; // Fallback an toàn
+            }
+
             String encodedKey = URLEncoder.encode(licenseKey, StandardCharsets.UTF_8);
             String encodedIp = URLEncoder.encode(serverIP, StandardCharsets.UTF_8);
 
-            String delimiter = LICENSE_SERVER_URL.contains("?") ? "&" : "?";
-            String apiUrl = LICENSE_SERVER_URL + delimiter + "key=" + encodedKey + "&ip=" + encodedIp;
-
-            DebugLogger.logFine(getLogger(), "License check request initiated");
+            String delimiter = rawUrl.contains("?") ? "&" : "?";
+            String apiUrl = rawUrl + delimiter + "key=" + encodedKey + "&ip=" + encodedIp;
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(apiUrl))
-                    .header("User-Agent", "FozmineSpoof-Plugin/1.0")
-                    .timeout(Duration.ofSeconds(5))
+                    .header("User-Agent", "FozmineSpoof-Plugin/2.0")
+                    .header("Accept", "application/json")
+                    .timeout(Duration.ofSeconds(15))
                     .GET()
                     .build();
 
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
             int statusCode = response.statusCode();
-            String responseText = (response.body() != null) ? response.body().trim() : "";
+            String responseBody = (response.body() != null) ? response.body().trim() : "";
 
-            DebugLogger.logFine(getLogger(), "License Server Response Code: %d", statusCode);
-
-            // Chuyển kết quả xử lý về Main Thread
-            Bukkit.getScheduler().runTask(this, () -> handleLicenseResponse(statusCode, responseText));
+            Bukkit.getScheduler().runTask(this, () -> processSignedLicenseResponse(statusCode, responseBody, licenseKey, isInitialStart));
 
         } catch (Exception e) {
             Bukkit.getScheduler().runTask(this, () -> {
-                logConsole("&#EF4444[License] Could not connect to verification server or connection timed out (5s)!");
-                disablePluginDueToError("License server connection timed out or offline.");
+                if (isInitialStart) {
+                    logConsole("&#EF4444[License] Could not connect to verification server!");
+                    disablePluginDueToError("License server connection timed out or offline.");
+                }
             });
         }
+    }
+
+    private void processSignedLicenseResponse(int statusCode, String responseBody, String licenseKey, boolean isInitialStart) {
+        if (statusCode != 200 || responseBody.isEmpty()) {
+            if (isInitialStart) {
+                logConsole("&#EF4444[License] HTTP Error " + statusCode + " from License Server!");
+                disablePluginDueToError("HTTP " + statusCode + " error from license server.");
+            }
+            return;
+        }
+
+        // Kiểm tra response hợp lệ (JSON)
+        if (!responseBody.trim().startsWith("{")) {
+            logConsole("&#EF4444[License] Invalid response format from license server.");
+            disablePluginDueToError("Invalid response from license server.");
+            return;
+        }
+
+        try {
+            JsonObject json = JsonParser.parseString(responseBody).getAsJsonObject();
+            String payload = json.get("payload").getAsString();
+            String signature = json.get("signature").getAsString();
+
+            boolean isAuthentic = RsaVerifier.verify(payload, signature);
+            if (!isAuthentic) {
+                logConsole("&#EF4444[License Security] Invalid RSA signature! Tampering detected.");
+                disablePluginDueToError("Tampered or forged license response.");
+                return;
+            }
+
+            JsonObject payloadObj = JsonParser.parseString(payload).getAsJsonObject();
+            String status = payloadObj.get("status").getAsString();
+            long timestamp = payloadObj.get("timestamp").getAsLong();
+
+            if (Math.abs(System.currentTimeMillis() - timestamp) > 300000) {
+                disablePluginDueToError("License response timestamp expired (replay attack prevention).");
+                return;
+            }
+
+            if ("VALID".equalsIgnoreCase(status)) {
+                if (isInitialStart) {
+                    logConsole("&#10B981[License] ✔ RSA License verified successfully! Status: VALID");
+                    completePluginInitialization();
+                    startHeartbeatScheduler(licenseKey);
+                }
+            } else if ("INVALID".equalsIgnoreCase(status)) {
+                logConsole("Invalid License Key! Disabling plugin...");
+                disablePluginDueToError("Invalid License Key!");
+            } else if ("KEY_EXPIRED".equalsIgnoreCase(status)) {
+                logConsole("This license key has expired! Disabling plugin...");
+                disablePluginDueToError("License key expired!");
+            } else if ("KEY_SHARING_DETECTED".equalsIgnoreCase(status)) {
+                logConsole("This license key is being used on another server IP! Disabling plugin...");
+                disablePluginDueToError("This license key is being used on another server IP!");
+            } else {
+                logConsole("&#EF4444[License] Verification failed.");
+                disablePluginDueToError("License verification failed.");
+            }
+
+        } catch (Exception e) {
+            logConsole("&#EF4444[License] Failed to process license server response.");
+            disablePluginDueToError("Invalid license response payload.");
+        }
+    }
+
+    private void startHeartbeatScheduler(String licenseKey) {
+        if (heartbeatTaskHandle != null) {
+            heartbeatTaskHandle.cancel();
+        }
+
+        heartbeatTaskHandle = Bukkit.getScheduler().runTaskTimerAsynchronously(this, () -> {
+            verifyLicenseAsync(licenseKey, false);
+        }, 36000L, 36000L);
     }
 
     private String fetchPublicServerIp(HttpClient client) {
         try {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create("https://api.ipify.org"))
-                    .timeout(Duration.ofSeconds(2))
+                    .timeout(Duration.ofSeconds(3))
                     .GET()
                     .build();
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
@@ -163,7 +235,7 @@ public class FozmineSpoofCore extends JavaPlugin {
         try {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create("https://checkip.amazonaws.com"))
-                    .timeout(Duration.ofSeconds(2))
+                    .timeout(Duration.ofSeconds(3))
                     .GET()
                     .build();
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
@@ -176,34 +248,8 @@ public class FozmineSpoofCore extends JavaPlugin {
         return (bukkitIp != null && !bukkitIp.isBlank()) ? bukkitIp : "127.0.0.1";
     }
 
-    private void handleLicenseResponse(int statusCode, String response) {
-        if (statusCode != 200) {
-            logConsole("&#EF4444[License] HTTP Error " + statusCode + " from License Server!");
-            disablePluginDueToError("HTTP " + statusCode + " error from license server.");
-            return;
-        }
-
-        if ("VALID".equalsIgnoreCase(response)) {
-            logConsole("&#10B981[License] ✔ License key verified successfully! Status: VALID");
-            completePluginInitialization();
-        } else if ("INVALID".equalsIgnoreCase(response)) {
-            logConsole("Invalid License Key! Disabling plugin...");
-            disablePluginDueToError("Invalid License Key!");
-        } else if ("KEY_EXPIRED".equalsIgnoreCase(response)) {
-            logConsole("This license key has expired! Disabling plugin...");
-            disablePluginDueToError("License key expired!");
-        } else if ("KEY_SHARING_DETECTED".equalsIgnoreCase(response)) {
-            logConsole("This license key is being used on another server IP! Disabling plugin...");
-            disablePluginDueToError("This license key is being used on another server IP!");
-        } else {
-            logConsole("&#EF4444[License] Verification failed.");
-            disablePluginDueToError("License verification failed.");
-        }
-    }
-
     private void completePluginInitialization() {
         try {
-            // 2. Load NMS Core Bridge Adapter
             logConsole("&#00F2FE[2/8] &#3B82F6Detecting server NMS architecture...");
             this.bridge = NMSBridgeLoader.loadBridge(this.getLogger());
             if (this.bridge == null) {
@@ -212,13 +258,11 @@ public class FozmineSpoofCore extends JavaPlugin {
             }
             logConsole("&#00F2FE[2/8] &#10B981NMS Core Bridge hooked successfully.");
 
-            // 3. Initialize Database Storage Engine
             logConsole("&#00F2FE[3/8] &#3B82F6Connecting to storage engine...");
             this.database = createDatabase();
             this.database.setup();
             logConsole("&#00F2FE[3/8] &#10B981Database storage engine initialized and ready.");
 
-            // 4. Initialize Managers
             logConsole("&#00F2FE[4/8] &#3B82F6Initializing FakePlayer Registry, Lifecycle & Rank Weight Manager...");
             this.fakePlayerManager = new FakePlayerManager(this, this.database);
             this.botLifecycleManager = new BotLifecycleManager(this, this.fakePlayerManager, this.configManager);
@@ -226,25 +270,21 @@ public class FozmineSpoofCore extends JavaPlugin {
             this.rankWeightManager = new RankWeightManager(this);
             logConsole("&#00F2FE[4/8] &#10B981Manager subsystem linked.");
 
-            // 5. Generate Isolated Void World
             logConsole("&#00F2FE[5/8] &#3B82F6Checking isolated Bot World environment...");
             VoidWorldFactory.createVoidWorld(this, configManager.getBotWorldName());
             logConsole("&#00F2FE[5/8] &#10B981Isolated Void World '" + configManager.getBotWorldName() + "' confirmed.");
 
-            // 6. Setup AI Chat & Packet Interceptors
             logConsole("&#00F2FE[6/8] &#3B82F6Setting up AI Chat Simulation Engine & Interceptors...");
             setupChatSystem();
             registerExternalExtensions();
             logConsole("&#00F2FE[6/8] &#10B981AI Chat Engine & Commands registered.");
 
-            // 7. Start Periodic Schedulers
             logConsole("&#00F2FE[7/8] &#3B82F6Starting KeepAlive, Tablist Sync, and Proxy Schedulers...");
             startKeepAliveTask();
             startTabUpdateScheduler();
             startProxySyncTask();
             logConsole("&#00F2FE[7/8] &#10B981Background schedulers started.");
 
-            // 8. Auto-Populate Database & Spawn Initial Bots
             if (this.botLifecycleManager != null) {
                 logConsole("&#00F2FE[8/8] &#3B82F6Pre-populating database & spawning baseline bot allocation...");
                 this.botLifecycleManager.initializeAndSpawn();
@@ -269,10 +309,13 @@ public class FozmineSpoofCore extends JavaPlugin {
             keepAliveTaskHandle.cancel();
             keepAliveTaskHandle = null;
         }
-
         if (tabUpdateTaskHandle != null) {
             tabUpdateTaskHandle.cancel();
             tabUpdateTaskHandle = null;
+        }
+        if (heartbeatTaskHandle != null) {
+            heartbeatTaskHandle.cancel();
+            heartbeatTaskHandle = null;
         }
 
         if (this.chatScheduler != null) {
@@ -432,14 +475,14 @@ public class FozmineSpoofCore extends JavaPlugin {
     private void printStartupBanner() {
         Bukkit.getConsoleSender().sendMessage(ColorUtils.colorize(
                 "&#00F2FE\n" +
-                        "&#00F2FE  ______                      _                 _____                        ______   \n" +
-                        "&#00F2FE / ____/___  ____  ____ ___  (_)___  ___       / ___/____   ____  ____  ____/ ____/   \n" +
-                        "&#3B82F6/ /_  / __ \\/_  / / __ `__ \\/ / __ \\/ _ \\      \\__ \\/ __ \\ / __ \\/ __ \\/ __ \\/ /_     \n" +
-                        "&#3B82F6/ __/ / /_/ / / /_/ / / / / / / / / /  __/     ___/ / /_/ // /_/ / /_/ / /_/ / __/     \n" +
-                        "&#4FACFE/_/    \\____/ /___/_/ /_/ /_/_/_/ /_/\\___/    /____/ .___/ \\____/\\____/\\____/_/        \n" +
-                        "&#4FACFE                                                  /_/                                 \n" +
-                        "&#10B981                     FozmineSpoof Core v" + getDescription().getVersion() + "                      \n" +
-                        "&#9CA3AF                   Ultra-Realistic FakePlayer Solution                          \n"
+                        "&#00F2FE     ______                      _                 _____                     ______    \n" +
+                        "&#3B82F6    / ____/___  ____  ____ ___  (_)___  ___       / ___/____   ____  ____   / ____/    \n" +
+                        "&#3B82F6   / /_  / __ \\/_  / / __ `__ \\/ / __ \\/ _ \\      \\__ \\/ __ \\ / __ \\/ __ \\ / /_        \n" +
+                        "&#4FACFE  / __/ / /_/ / / /_/ / / / / / / / / /  __/     ___/ / /_/ // /_/ / /_/ // /_/        \n" +
+                        "&#4FACFE /_/    \\____/ /___/_/ /_/ /_/_/_/ /_/\\___/    /____/ .___/ \\____/\\____/ /_/           \n" +
+                        "&#00F2FE                                                  /_/                                  \n" +
+                        "&#10B981                        FozmineSpoof Core v" + getDescription().getVersion() + "\n" +
+                        "&#9CA3AF                    Ultra-Realistic FakePlayer Solution\n"
         ));
     }
 
