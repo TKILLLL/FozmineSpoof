@@ -90,7 +90,7 @@ public class FozmineSpoofCore extends JavaPlugin {
                 return;
             }
 
-            logConsole("&#00F2FE[License] &#3B82F6Verifying license key with RSA security engine...");
+            logConsole("&#00F2FE[License] &#3B82F6Verifying license key...");
             Bukkit.getScheduler().runTaskAsynchronously(this, () -> verifyLicenseAsync(licenseKey, true));
 
         } catch (Exception e) {
@@ -283,7 +283,14 @@ public class FozmineSpoofCore extends JavaPlugin {
             logConsole("&#00F2FE[7/8] &#3B82F6Starting KeepAlive, Tablist Sync, and Proxy Schedulers...");
             startKeepAliveTask();
             startTabUpdateScheduler();
-            startProxySyncTask();
+
+            if (configManager.isDatabaseEnabled() && Boolean.TRUE.equals(configManager.isProxyEnable())) {
+                startProxySyncTask();
+                logConsole("&#00F2FE[Proxy Bridge] &#10B981Proxy synchronization bridge successfully activated.");
+            } else {
+                logConsole("&#00F2FE[Proxy Bridge] &#9CA3AFProxy synchronization bridge is disabled (Database or Proxy bridge turned off).");
+            }
+
             logConsole("&#00F2FE[7/8] &#10B981Background schedulers started.");
 
             if (this.botLifecycleManager != null) {

@@ -2,10 +2,12 @@ package org.phantam.fozminespoofcore.listener;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.entity.Player;
+import org.bukkit.command.CommandSender;
+import org.bukkit.event.Cancellable;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
+import org.bukkit.event.server.ServerCommandEvent; // Lắng nghe lệnh từ Console
 import org.bukkit.plugin.Plugin;
 import org.phantam.fozminespoofapi.utils.DebugLogger;
 import org.phantam.fozminespoofcore.config.ConfigManager;
@@ -13,17 +15,22 @@ import org.phantam.fozminespoofcore.config.ConfigManager;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Intercepts /plugins and /pl commands to fake the plugin name.
- * Uses config option fake-plugin-name; if set to "none", the interceptor is disabled.
+ * Intercepts plugin-related commands from both players and console to mask plugin information.
  */
 public class PluginListInterceptor implements Listener {
 
-    private static final Set<String> TARGET_COMMANDS = new HashSet<>(Arrays.asList(
+    private static final Set<String> LIST_COMMANDS = new HashSet<>(Arrays.asList(
             "plugins", "pl", "bukkit:plugins", "bukkit:pl"
     ));
+
+    private static final Set<String> DETAIL_COMMANDS = new HashSet<>(Arrays.asList(
+            "version", "ver", "about", "bukkit:version", "bukkit:ver", "bukkit:about"
+    ));
+
     private final ConfigManager configManager;
     private final Plugin ownPlugin;
 
@@ -35,36 +42,66 @@ public class PluginListInterceptor implements Listener {
 
     @EventHandler
     public void onPlayerCommand(PlayerCommandPreprocessEvent event) {
-        String command = event.getMessage().toLowerCase();
-        String cmd = command.startsWith("/") ? command.substring(1) : command;
-        String[] parts = cmd.split(" ");
-        String baseCmd = parts[0];
+        processCommand(event.getPlayer(), event.getMessage(), event);
+    }
 
-        if (!TARGET_COMMANDS.contains(baseCmd)) {
-            return;
-        }
-
-        Player player = event.getPlayer();
-        DebugLogger.log(Bukkit.getLogger(), "PluginListInterceptor: intercepted /%s from %s", baseCmd, player.getName());
-
-        String fakeName = configManager.getFakePluginName();
-        if (fakeName == null || fakeName.equalsIgnoreCase("none")) {
-            DebugLogger.log(Bukkit.getLogger(), "PluginListInterceptor: disabled (fakeName='none' or null)");
-            return;
-        }
-
-        DebugLogger.logFine(Bukkit.getLogger(), "PluginListInterceptor: using fake name '%s'", fakeName);
-
-        String message = buildPluginList(fakeName);
-        player.sendMessage(message);
-        event.setCancelled(true);
-
-        DebugLogger.log(Bukkit.getLogger(), "PluginListInterceptor: sent fake plugin list to %s", player.getName());
+    @EventHandler
+    public void onConsoleCommand(ServerCommandEvent event) {
+        processCommand(Bukkit.getConsoleSender(), event.getCommand(), event);
     }
 
     /**
-     * Builds the plugin list string, replacing own plugin name with the fake name.
-     * Matches Bukkit format: "Plugins (total): name1, name2, ..."
+     * Hàm xử lý tập trung logic chặn và tráo đổi gói lệnh
+     */
+    private void processCommand(CommandSender sender, String fullCommand, Cancellable event) {
+        if (!configManager.isFakePluginEnable()) {
+            return;
+        }
+
+        String cleaned = fullCommand.trim();
+        if (cleaned.startsWith("/")) {
+            cleaned = cleaned.substring(1);
+        }
+        if (cleaned.isEmpty()) return;
+
+        String[] parts = cleaned.split("\\s+");
+        String baseCmd = parts[0].toLowerCase();
+
+        if (LIST_COMMANDS.contains(baseCmd)) {
+            event.setCancelled(true);
+            String fakeName = configManager.getFakePluginName();
+            sender.sendMessage(buildPluginList(fakeName));
+            return;
+        }
+
+        if (DETAIL_COMMANDS.contains(baseCmd) && parts.length > 1) {
+            String targetPlugin = parts[1];
+            String realName = ownPlugin.getName();
+            String fakeName = configManager.getFakePluginName();
+
+            if (targetPlugin.equalsIgnoreCase(realName)) {
+                event.setCancelled(true);
+                sender.sendMessage("This server is not running any plugin by that name.");
+                sender.sendMessage("Use /plugins to get a list of plugins.");
+                return;
+            }
+
+            if (targetPlugin.equalsIgnoreCase(fakeName)) {
+                event.setCancelled(true);
+                sendFakePluginDetails(sender);
+                return;
+            }
+        }
+
+        String customFakeCmd = configManager.getFakePluginCommand();
+        if (customFakeCmd != null && !customFakeCmd.isBlank() && baseCmd.equalsIgnoreCase(customFakeCmd.toLowerCase())) {
+            event.setCancelled(true);
+            sendFakePluginDetails(sender);
+        }
+    }
+
+    /**
+     * Xây dựng danh sách plugin giả lập
      */
     private String buildPluginList(String fakeName) {
         Plugin[] plugins = Bukkit.getPluginManager().getPlugins();
@@ -73,8 +110,6 @@ public class PluginListInterceptor implements Listener {
                 .map(plugin -> {
                     String name = plugin.getName();
                     if (plugin.equals(ownPlugin)) {
-                        DebugLogger.logFine(Bukkit.getLogger(), "PluginListInterceptor: replacing '%s' with '%s'",
-                                name, fakeName);
                         return fakeName;
                     }
                     return name;
@@ -83,9 +118,26 @@ public class PluginListInterceptor implements Listener {
                 .collect(Collectors.joining(", "));
 
         int total = plugins.length;
-        String result = ChatColor.GRAY + "Plugins (" + total + "): " + ChatColor.WHITE + pluginNames;
+        return ChatColor.GRAY + "Plugins (" + total + "): " + ChatColor.WHITE + pluginNames;
+    }
 
-        DebugLogger.logFine(Bukkit.getLogger(), "PluginListInterceptor: built list: %s", result);
-        return result;
+    /**
+     * Gửi bảng dữ liệu fake plugin siêu chân thực
+     */
+    private void sendFakePluginDetails(CommandSender sender) {
+        String name = configManager.getFakePluginName();
+        String version = configManager.getFakePluginVersion();
+        String description = configManager.getFakePluginDescription();
+        List<String> authors = configManager.getFakePluginAuthors();
+
+        String authorsString = (authors != null && !authors.isEmpty()) ? String.join(", ", authors) : "";
+
+        sender.sendMessage(ChatColor.GREEN + name + ChatColor.WHITE + " version " + ChatColor.GREEN + version);
+        if (description != null && !description.isBlank()) {
+            sender.sendMessage(ChatColor.WHITE + description);
+        }
+        if (!authorsString.isBlank()) {
+            sender.sendMessage(ChatColor.WHITE + "Authors: " + ChatColor.GOLD + authorsString);
+        }
     }
 }

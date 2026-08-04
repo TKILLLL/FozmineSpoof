@@ -7,15 +7,15 @@ import org.phantam.fozminespoofapi.utils.DebugLogger;
 import org.phantam.fozminespoofcore.FozmineSpoofCore;
 import org.phantam.fozminespoofcore.chat.BotChatProcessor;
 import org.phantam.fozminespoofcore.chat.BotSelector;
+import org.phantam.fozminespoofcore.chat.ChatScheduler;
 import org.phantam.fozminespoofcore.chat.MessageLoader;
 import org.phantam.fozminespoofcore.config.ChatConfig;
 
 import java.util.List;
-import java.util.logging.Level;
 
 /**
- * Ticker task that periodically triggers bot chat cycles.
- * Operates at 1 tick (50ms) frequency for exact millisecond accuracy.
+ * Executes the bot chat cycle instantly when called.
+ * Re-engineered to run exactly on target ticks rather than continuously ticking.
  */
 public class ChatTickerTask extends BukkitRunnable {
 
@@ -24,55 +24,38 @@ public class ChatTickerTask extends BukkitRunnable {
     private final BotSelector botSelector;
     private final BotChatProcessor chatProcessor;
     private final MessageLoader messageLoader;
-
-    private long ticksUntilNextChat;
+    private final ChatScheduler scheduler;
 
     public ChatTickerTask(FozmineSpoofCore plugin, ChatConfig chatConfig, BotSelector botSelector,
-                          BotChatProcessor chatProcessor, MessageLoader messageLoader) {
+                          BotChatProcessor chatProcessor, MessageLoader messageLoader, ChatScheduler scheduler) {
         this.plugin = plugin;
         this.chatConfig = chatConfig;
         this.botSelector = botSelector;
         this.chatProcessor = chatProcessor;
         this.messageLoader = messageLoader;
-
-        resetCountdown();
-        DebugLogger.log(plugin.getLogger(), "ChatTickerTask: initialized, first cycle in %d ticks (%.2f s)",
-                ticksUntilNextChat, ticksUntilNextChat / 20.0);
+        this.scheduler = scheduler;
     }
 
     @Override
     public void run() {
-        if (!chatConfig.isEnabled()) {
-            plugin.getLogger().log(Level.WARNING, "[ChatTickerTask] Chat system is disabled. Cancelling task.");
-            DebugLogger.log(plugin.getLogger(), "ChatTickerTask: cancelled (disabled)");
-            this.cancel();
-            return;
-        }
-
-        ticksUntilNextChat--;
-
-        if (ticksUntilNextChat <= 0) {
-            DebugLogger.log(plugin.getLogger(), "ChatTickerTask: executing chat cycle");
+        try {
+            if (!chatConfig.isEnabled()) {
+                return;
+            }
             executeChatCycle();
-            resetCountdown();
+        } finally {
+            scheduler.scheduleNextCycle();
         }
-    }
-
-    private void resetCountdown() {
-        this.ticksUntilNextChat = chatConfig.getRandomIntervalTicks();
-        DebugLogger.logFine(plugin.getLogger(), "ChatTickerTask: reset countdown to %d ticks (%.2f s)",
-                ticksUntilNextChat, ticksUntilNextChat / 20.0);
     }
 
     private void executeChatCycle() {
-        // KIỂM TRA SỐ NGƯỜI CHƠI THẬT ONLINE
         int totalOnline = Bukkit.getOnlinePlayers().size();
         int botOnline = plugin.getFakePlayerManager().getOnlineBotsData().size();
         int realPlayers = Math.max(0, totalOnline - botOnline);
 
         if (realPlayers < chatConfig.getMinRealPlayers()) {
             DebugLogger.log(plugin.getLogger(),
-                    "ChatTickerTask: skipping chat cycle, real players (%d) < required min-real-players (%d)",
+                    "ChatCycle: Skipped. Real players (%d) < Required min-real-players (%d)",
                     realPlayers, chatConfig.getMinRealPlayers());
             return;
         }
@@ -80,7 +63,7 @@ public class ChatTickerTask extends BukkitRunnable {
         List<Player> speakingBots = botSelector.selectRandomBots(chatConfig.getRandomBotsPerInterval());
 
         if (speakingBots.isEmpty()) {
-            DebugLogger.log(plugin.getLogger(), "ChatTickerTask: no bots selected for chat");
+            DebugLogger.log(plugin.getLogger(), "ChatCycle: No bots available to chat.");
             return;
         }
 
@@ -91,18 +74,16 @@ public class ChatTickerTask extends BukkitRunnable {
             if (rawMessage == null) continue;
 
             final long scheduledDelay = accumDelayTicks;
-            DebugLogger.logFine(plugin.getLogger(), "ChatTickerTask: scheduling %s to chat in %d ticks",
-                    bot.getName(), scheduledDelay);
 
-            Bukkit.getScheduler().runTaskLater(plugin,
-                    () -> chatProcessor.processChatAsync(bot, rawMessage, chatConfig),
-                    scheduledDelay);
+            if (scheduledDelay <= 0) {
+                chatProcessor.processChatAsync(bot, rawMessage, chatConfig);
+            } else {
+                Bukkit.getScheduler().runTaskLater(plugin,
+                        () -> chatProcessor.processChatAsync(bot, rawMessage, chatConfig),
+                        scheduledDelay);
+            }
 
             accumDelayTicks += chatConfig.getRandomDelayTicks();
         }
-    }
-
-    public long getTicksUntilNextChat() {
-        return ticksUntilNextChat;
     }
 }

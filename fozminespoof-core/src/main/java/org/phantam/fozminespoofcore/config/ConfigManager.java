@@ -12,16 +12,20 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
+import java.util.Collections; // Bổ sung import này
 
 public class ConfigManager {
 
     private static final String DEBUG = "debug";
     private static final String PARSE_PAPI = "parse-papi";
-    private static final String BOT_WORLD = "Fakeplayer-setting.botworld";
+    private static final String BOT_WORLD = "Plugin-settings.botworld";
     private static final String JOIN_LEAVE_ENABLE = "Fakeplayer-setting.join-leave-message-enable";
     private static final String JOIN_MESSAGE = "Fakeplayer-setting.join-message";
     private static final String LEAVE_MESSAGE = "Fakeplayer-setting.leave-message";
-    private static final String FAKE_PLUGIN_NAME = "Fakeplayer-setting.fake-plugin-name";
+
+    // Đường dẫn gốc tới node cấu hình fake plugin info
+    private static final String FAKE_PLUGIN_SECTION = "Plugin-settings.fake-plugin-infomation";
+
     private static final String HIDE_IN_TAB = "Fakeplayer-setting.hide-in-tab";
     private static final String JOIN_ACTIONS_FAKE_ENABLED = "Fakeplayer-setting.join-actions.fakeplayer.enable";
     private static final String JOIN_ACTIONS_FAKE_COMMANDS = "Fakeplayer-setting.join-actions.fakeplayer.commands";
@@ -44,13 +48,22 @@ public class ConfigManager {
     private final JavaPlugin plugin;
     private final MessageManager messageManager;
     private final Map<String, Integer> rankWeights = new LinkedHashMap<>();
+
     // Core
     private List<String> targetPlaceholders;
     private String botWorldName;
     private boolean joinLeaveMessageEnable;
     private String joinMessage;
     private String leaveMessage;
+
+    // Đã nâng cấp các thuộc tính Fake Plugin Information đơn lẻ thành cấu trúc Section cụ thể
+    private boolean fakePluginEnable;
     private String fakePluginName;
+    private String fakePluginVersion;
+    private List<String> fakePluginAuthors;
+    private String fakePluginDescription;
+    private String fakePluginCommand;
+
     private boolean hideInTab;
     private boolean debug;
     // Rank Weight Distribution
@@ -111,9 +124,26 @@ public class ConfigManager {
             joinLeaveMessageEnable = config.getBoolean(JOIN_LEAVE_ENABLE, true);
             joinMessage = config.getString(JOIN_MESSAGE, "%fakeplayer_name% join the game");
             leaveMessage = config.getString(LEAVE_MESSAGE, "%fakeplayer_name% left the game");
-            fakePluginName = config.getString(FAKE_PLUGIN_NAME, "FozmineSpawner");
             hideInTab = config.getBoolean(HIDE_IN_TAB, false);
             joinLeaveFormat = config.getString(JOIN_LEAVE_FORMAT, "custom");
+
+            ConfigurationSection fakeSection = config.getConfigurationSection(FAKE_PLUGIN_SECTION);
+            if (fakeSection != null) {
+                fakePluginEnable = fakeSection.getBoolean("enable", true);
+                fakePluginName = fakeSection.getString("name", "FozmineSpawner");
+                fakePluginVersion = fakeSection.getString("version", "1.0.0");
+                fakePluginAuthors = fakeSection.getStringList("authors");
+                fakePluginDescription = fakeSection.getString("description", "");
+                fakePluginCommand = fakeSection.getString("command", "abc");
+            } else {
+                // Cơ chế tự động Fallback nếu cấu hình thiếu hoặc sai định dạng
+                fakePluginEnable = false;
+                fakePluginName = "FozmineSpawner";
+                fakePluginVersion = "1.0.0";
+                fakePluginAuthors = Collections.singletonList("phantam");
+                fakePluginDescription = "a spawner plugin";
+                fakePluginCommand = "abc";
+            }
 
             // Rank Weight Distribution
             rankWeightEnabled = config.getBoolean("Fakeplayer-setting.rank-weight.enable", false);
@@ -199,7 +229,6 @@ public class ConfigManager {
                         return true;
                     }
                 } else {
-                    // Khung giờ qua đêm (VD: 22:00-02:00)
                     if (!now.isBefore(start) || now.isBefore(end)) {
                         return true;
                     }
@@ -286,8 +315,28 @@ public class ConfigManager {
         return leaveMessage;
     }
 
+    public boolean isFakePluginEnable() {
+        return fakePluginEnable;
+    }
+
     public String getFakePluginName() {
         return fakePluginName;
+    }
+
+    public String getFakePluginVersion() {
+        return fakePluginVersion;
+    }
+
+    public List<String> getFakePluginAuthors() {
+        return fakePluginAuthors;
+    }
+
+    public String getFakePluginDescription() {
+        return fakePluginDescription;
+    }
+
+    public String getFakePluginCommand() {
+        return fakePluginCommand;
     }
 
     public boolean isHideInTab() {
@@ -308,10 +357,6 @@ public class ConfigManager {
 
     public List<String> getConsoleJoinCommands() {
         return consoleJoinCommands;
-    }
-
-    public String getLifetimeInterval() {
-        return lifetimeInterval;
     }
 
     public int getBaseAmount() {
@@ -335,6 +380,9 @@ public class ConfigManager {
     }
 
     public Boolean isProxyEnable() {
+        if (!databaseEnabled) {
+            return false;
+        }
         return proxyEnable;
     }
 
@@ -358,11 +406,6 @@ public class ConfigManager {
         return rankWeights;
     }
 
-    /**
-     * Gets the join/leave message format mode.
-     *
-     * @return "custom" for plugin-controlled messages, "normal" for default server messages
-     */
     public String getJoinLeaveFormat() {
         return joinLeaveFormat;
     }

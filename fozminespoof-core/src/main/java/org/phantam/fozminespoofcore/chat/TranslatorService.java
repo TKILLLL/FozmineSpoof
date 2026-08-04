@@ -117,11 +117,12 @@ public final class TranslatorService {
      * @return the translated text, or null if failed
      */
     private String translateWithGoogle(String text, String targetLang) {
+        HttpURLConnection conn = null;
         try {
             String encoded = URLEncoder.encode(text, StandardCharsets.UTF_8);
             String urlStr = String.format(GOOGLE_TRANSLATE_URL, targetLang, encoded);
 
-            HttpURLConnection conn = createConnection(urlStr);
+            conn = createConnection(urlStr);
             if (conn == null) return null;
 
             try (BufferedReader reader = new BufferedReader(
@@ -133,7 +134,11 @@ public final class TranslatorService {
                 }
             }
         } catch (Exception e) {
-            LOGGER.log(Level.WARNING, "[TranslatorService] Google Translate failed: " + e.getMessage(), e);
+            LOGGER.log(Level.WARNING, "[TranslatorService] Google Translate failed: " + e.getMessage());
+        } finally {
+            if (conn != null) {
+                conn.disconnect();
+            }
         }
         return null;
     }
@@ -151,11 +156,12 @@ public final class TranslatorService {
             LOGGER.warning("[TranslatorService] Google Cloud API key missing. Please set translation-api-key in config.");
             return null;
         }
+        HttpURLConnection conn = null;
         try {
             String encoded = URLEncoder.encode(text, StandardCharsets.UTF_8);
             String urlStr = String.format(GCLOUD_TRANSLATE_URL, apiKey, targetLang, encoded);
 
-            HttpURLConnection conn = createConnection(urlStr);
+            conn = createConnection(urlStr);
             if (conn == null) return null;
 
             try (BufferedReader reader = new BufferedReader(
@@ -167,7 +173,11 @@ public final class TranslatorService {
                 }
             }
         } catch (Exception e) {
-            LOGGER.log(Level.WARNING, "[TranslatorService] Google Cloud Translation failed: " + e.getMessage(), e);
+            LOGGER.log(Level.WARNING, "[TranslatorService] Google Cloud Translation failed: " + e.getMessage());
+        } finally {
+            if (conn != null) {
+                conn.disconnect();
+            }
         }
         return null;
     }
@@ -185,11 +195,12 @@ public final class TranslatorService {
             LOGGER.warning("[TranslatorService] DeepL API key missing. Please set translation-api-key in config.");
             return null;
         }
+        HttpURLConnection conn = null;
         try {
             String encoded = URLEncoder.encode(text, StandardCharsets.UTF_8);
             String urlStr = String.format(DEEPL_TRANSLATE_URL, apiKey, targetLang, encoded);
 
-            HttpURLConnection conn = createConnection(urlStr);
+            conn = createConnection(urlStr);
             if (conn == null) return null;
 
             try (BufferedReader reader = new BufferedReader(
@@ -201,7 +212,11 @@ public final class TranslatorService {
                 }
             }
         } catch (Exception e) {
-            LOGGER.log(Level.WARNING, "[TranslatorService] DeepL translation failed: " + e.getMessage(), e);
+            LOGGER.log(Level.WARNING, "[TranslatorService] DeepL translation failed: " + e.getMessage());
+        } finally {
+            if (conn != null) {
+                conn.disconnect();
+            }
         }
         return null;
     }

@@ -93,6 +93,7 @@ public class BotJoinQuitListener implements Listener {
             }
 
             plugin.getFakePlayerManager().handleExternalQuit(player.getName());
+            plugin.getJoinChatProcessor().handleBotQuit(player);
         }
     }
 

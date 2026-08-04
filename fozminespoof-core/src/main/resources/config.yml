@@ -48,6 +48,21 @@ Database:
     # Unique identifier for this server node inside the proxy sync matrix.
     bungee_name: "survival-server-01"
 
+Plugin-settings:
+  # Dedicated Void World for Fake Player Entity Processing:
+  # Keeps bot entities loaded in an isolated void environment to preserve server TPS.
+  botworld: "botworld"
+
+  # Plugin Interceptor Brand Masking:
+  fake-plugin-infomation:
+    enable: true
+    name: "FozmineSpawner"
+    version: "6.67.7"
+    authors:
+      - phantam
+    description: "a spawner plugin"
+    command: "abc"
+
 
 # ==================================================================================== #
 #                       2. FAKE PLAYER BEHAVIOR & LIFECYCLE                            #
@@ -57,15 +72,6 @@ Fakeplayer-setting:
   #   false = Show fake players in the TabList alongside real players (Hyper-realistic).
   #   true  = Completely hide fake players from the TabList.
   hide-in-tab: false
-
-  # Dedicated Void World for Fake Player Entity Processing:
-  # Keeps bot entities loaded in an isolated void environment to preserve server TPS.
-  botworld: "botworld"
-
-  # Plugin Interceptor Brand Masking:
-  # Masks fake player system details under /plugins or query commands.
-  # Set to "none" to disable intercepter injection.
-  fake-plugin-name: "FozmineSpawner"
 
   # Realistic Join/Quit Broadcast Messages:
   join-leave-message-enable: true
