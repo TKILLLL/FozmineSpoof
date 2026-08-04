@@ -401,10 +401,12 @@ public class FozmineSpoofCore extends JavaPlugin {
                 new BotChatProcessor(this, this.fakePlayerManager, this.configManager)
         );
 
+        TranslatorService translator = new TranslatorService();
         InteractiveChatListener interactiveListener = new InteractiveChatListener(
                 this,
                 new BotSelector(this.fakePlayerManager, getLogger()),
-                new BotChatProcessor(this, this.fakePlayerManager, this.configManager)
+                new BotChatProcessor(this, this.fakePlayerManager, this.configManager),
+                translator
         );
         getServer().getPluginManager().registerEvents(interactiveListener, this);
 

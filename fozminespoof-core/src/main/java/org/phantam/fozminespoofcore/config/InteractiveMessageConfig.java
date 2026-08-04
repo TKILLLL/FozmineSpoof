@@ -16,6 +16,7 @@ public class InteractiveMessageConfig {
 
     private final JavaPlugin plugin;
     private final File file;
+    private boolean enabled = true;
     private final Map<String, InteractionConfig> interactions = new ConcurrentHashMap<>();
 
     public InteractiveMessageConfig(JavaPlugin plugin) {
@@ -28,6 +29,8 @@ public class InteractiveMessageConfig {
         try {
             ensureDefaultFileExists();
             YamlConfiguration config = YamlConfiguration.loadConfiguration(file);
+
+            this.enabled = config.getBoolean("enabled", true);
 
             Map<String, InteractionConfig> newMap = new LinkedHashMap<>();
             ConfigurationSection root = config.getConfigurationSection("chat-interactions");
@@ -46,8 +49,16 @@ public class InteractiveMessageConfig {
                     String activeHours = sec.getString("active-hours", "00:00-23:59");
                     List<String> replies = sec.getStringList("replies");
 
+                    // New parameters
+                    boolean useRegex = sec.getBoolean("use-regex", false);
+                    double fuzzyThreshold = sec.getDouble("fuzzy-threshold", 0.85);
+                    String typingSpeedRange = sec.getString("typing-speed-range", "0.8-1.8");
+                    String pauseBetweenWords = sec.getString("pause-between-words", "2-4");
+
                     InteractionConfig interaction = new InteractionConfig(
-                            key, triggers, chance, globalCd, perPlayerCd, maxBurst, delayRange, activeHours, replies
+                            key, triggers, chance, globalCd, perPlayerCd,
+                            maxBurst, delayRange, activeHours, replies,
+                            useRegex, fuzzyThreshold, typingSpeedRange, pauseBetweenWords
                     );
                     newMap.put(key, interaction);
                 }
@@ -56,7 +67,9 @@ public class InteractiveMessageConfig {
             interactions.clear();
             interactions.putAll(newMap);
 
-            DebugLogger.log(plugin.getLogger(), "InteractiveMessageConfig: loaded %d chat interaction groups.", interactions.size());
+            DebugLogger.log(plugin.getLogger(),
+                    "InteractiveMessageConfig: loaded %d chat interaction groups (Enabled: %b).",
+                    interactions.size(), enabled);
 
         } catch (Exception e) {
             plugin.getLogger().severe("[InteractiveMessageConfig] Failed to load chats/interactive-messages.yml: " + e.getMessage());
@@ -72,6 +85,10 @@ public class InteractiveMessageConfig {
         if (!file.exists()) {
             plugin.saveResource("chats/interactive-messages.yml", false);
         }
+    }
+
+    public boolean isEnabled() {
+        return enabled;
     }
 
     public Collection<InteractionConfig> getInteractions() {
