@@ -1,31 +1,32 @@
-package org.phantam.fozminespoofv1_20_2;
+package org.phantam.fozminespoofv1_21_4;
 
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
 import net.minecraft.network.Connection;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.craftbukkit.v1_20_R2.CraftServer;
-import org.bukkit.craftbukkit.v1_20_R2.CraftWorld;
-import org.bukkit.craftbukkit.v1_20_R2.util.CraftChatMessage;
+import org.bukkit.craftbukkit.CraftServer;
+import org.bukkit.craftbukkit.CraftWorld;
+import org.bukkit.craftbukkit.util.CraftChatMessage;
 import org.bukkit.entity.Player;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.plugin.Plugin;
 import org.phantam.fozminespoofapi.FozminespoofApi;
 import org.phantam.fozminespoofapi.utils.DebugLogger;
-import org.phantam.fozminespoofv1_20_2.factory.FakePlayerFactory;
-import org.phantam.fozminespoofv1_20_2.network.FakePlayerPacketSender;
+import org.phantam.fozminespoofv1_21_4.factory.FakePlayerFactory;
+import org.phantam.fozminespoofv1_21_4.network.FakePlayerPacketSender;
 
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 
-public class NMSBridge_v1_20_2 implements FozminespoofApi {
+public class NMSBridge_v1_21_4 implements FozminespoofApi {
 
     private final Map<UUID, ServerPlayer> activeFakePlayers = new ConcurrentHashMap<>();
     private Plugin pluginInstance;
@@ -43,33 +44,36 @@ public class NMSBridge_v1_20_2 implements FozminespoofApi {
 
     @Override
     public Player spawnPlayer(String name, UUID uuid, Location loc, boolean hideTab) {
+        DebugLogger.log(Bukkit.getLogger(), "NMSBridge_v1_21_1: spawnPlayer(%s, %s, hideTab=%s)", name, uuid, hideTab);
+
         MinecraftServer server = ((CraftServer) Bukkit.getServer()).getServer();
         ServerLevel level = ((CraftWorld) loc.getWorld()).getHandle();
 
         ServerPlayer fakePlayer = FakePlayerFactory.create(server, level, name, uuid, loc);
         activeFakePlayers.put(uuid, fakePlayer);
 
+        Connection connection = fakePlayer.connection.connection;
+        CommonListenerCookie cookie = CommonListenerCookie.createInitial(fakePlayer.getGameProfile(), false);
+        server.getPlayerList().placeNewPlayer(connection, fakePlayer, cookie);
+
         Player bukkitPlayer = fakePlayer.getBukkitEntity();
         bukkitPlayer.setMetadata("NPC", new FixedMetadataValue(getPluginInstance(), true));
 
-        Connection connection = fakePlayer.connection.connection;
-        CommonListenerCookie cookie = CommonListenerCookie.createInitial(fakePlayer.getGameProfile());
-
-        server.getPlayerList().placeNewPlayer(connection, fakePlayer, cookie);
-
         FakePlayerPacketSender packetSender = new FakePlayerPacketSender(server.getPlayerList());
         packetSender.sendSpawnPackets(fakePlayer, name, hideTab);
+
+        DebugLogger.log(Bukkit.getLogger(), "NMSBridge_v1_21_1: spawnPlayer completed for %s", name);
 
         return bukkitPlayer;
     }
 
     @Override
     public void despawnPlayer(UUID uuid) {
-        DebugLogger.log(Bukkit.getLogger(), "NMSBridge_v1_20_2: despawnPlayer(%s)", uuid);
+        DebugLogger.log(Bukkit.getLogger(), "NMSBridge_v1_21_1: despawnPlayer(%s)", uuid);
 
         ServerPlayer fakePlayer = activeFakePlayers.remove(uuid);
         if (fakePlayer == null) {
-            DebugLogger.log(Bukkit.getLogger(), "NMSBridge_v1_20_2: despawnPlayer(%s) not found", uuid);
+            DebugLogger.log(Bukkit.getLogger(), "NMSBridge_v1_21_1: despawnPlayer(%s) not found", uuid);
             return;
         }
 
@@ -84,17 +88,17 @@ public class NMSBridge_v1_20_2 implements FozminespoofApi {
                 net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
         fakePlayer.discard();
 
-        DebugLogger.log(Bukkit.getLogger(), "NMSBridge_v1_20_2: despawnPlayer completed for %s", uuid);
+        DebugLogger.log(Bukkit.getLogger(), "NMSBridge_v1_21_1: despawnPlayer completed for %s", uuid);
     }
 
     @Override
     public void updatePlayerSkin(UUID uuid, String texture, String signature, boolean hideTab) {
-        DebugLogger.log(Bukkit.getLogger(), "NMSBridge_v1_20_2: updatePlayerSkin(%s, texture=%s, hideTab=%s)",
+        DebugLogger.log(Bukkit.getLogger(), "NMSBridge_v1_21_1: updatePlayerSkin(%s, texture=%s, hideTab=%s)",
                 uuid, texture != null ? "provided" : "null", hideTab);
 
         ServerPlayer oldPlayer = activeFakePlayers.get(uuid);
         if (oldPlayer == null) {
-            DebugLogger.log(Bukkit.getLogger(), "NMSBridge_v1_20_2: updatePlayerSkin(%s) player not found", uuid);
+            DebugLogger.log(Bukkit.getLogger(), "NMSBridge_v1_21_1: updatePlayerSkin(%s) player not found", uuid);
             return;
         }
 
@@ -120,7 +124,7 @@ public class NMSBridge_v1_20_2 implements FozminespoofApi {
         activeFakePlayers.put(uuid, newPlayer);
 
         Connection connection = newPlayer.connection.connection;
-        CommonListenerCookie cookie = CommonListenerCookie.createInitial(newPlayer.getGameProfile());
+        CommonListenerCookie cookie = CommonListenerCookie.createInitial(newPlayer.getGameProfile(), false);
         server.getPlayerList().placeNewPlayer(connection, newPlayer, cookie);
 
         Player bukkitPlayer = newPlayer.getBukkitEntity();
@@ -129,22 +133,22 @@ public class NMSBridge_v1_20_2 implements FozminespoofApi {
         packetSender.sendSpawnPackets(newPlayer, profile.getName(), hideTab);
 
         Bukkit.getLogger().log(Level.INFO, "[NMSBridge] Updated skin for player '" + name + "'");
-        DebugLogger.log(Bukkit.getLogger(), "NMSBridge_v1_20_2: updatePlayerSkin completed for %s", name);
+        DebugLogger.log(Bukkit.getLogger(), "NMSBridge_v1_21_1: updatePlayerSkin completed for %s", name);
     }
 
     @Override
     public void sendKeepAlivePackets() {
         if (activeFakePlayers.isEmpty()) {
-            DebugLogger.logFine(Bukkit.getLogger(), "NMSBridge_v1_20_2: sendKeepAlivePackets - no active players");
+            DebugLogger.logFine(Bukkit.getLogger(), "NMSBridge_v1_21_1: sendKeepAlivePackets - no active players");
             return;
         }
 
-        DebugLogger.log(Bukkit.getLogger(), "NMSBridge_v1_20_2: sendKeepAlivePackets - %d active players",
+        DebugLogger.log(Bukkit.getLogger(), "NMSBridge_v1_21_1: sendKeepAlivePackets - %d active players",
                 activeFakePlayers.size());
 
         MinecraftServer server = ((CraftServer) Bukkit.getServer()).getServer();
         if (server == null) {
-            DebugLogger.log(Bukkit.getLogger(), "NMSBridge_v1_20_2: sendKeepAlivePackets - server is null");
+            DebugLogger.log(Bukkit.getLogger(), "NMSBridge_v1_21_1: sendKeepAlivePackets - server is null");
             return;
         }
 
@@ -154,25 +158,24 @@ public class NMSBridge_v1_20_2 implements FozminespoofApi {
                 packetSender.sendSpawnPackets(fakePlayer, fakePlayer.getGameProfile().getName(), false)
         );
 
-        DebugLogger.logFine(Bukkit.getLogger(), "NMSBridge_v1_20_2: sendKeepAlivePackets completed");
+        DebugLogger.logFine(Bukkit.getLogger(), "NMSBridge_v1_21_1: sendKeepAlivePackets completed");
     }
 
     @Override
     public void broadcastNMSChat(Player player, String message) {
         if (player == null || message == null || message.trim().isEmpty()) {
-            DebugLogger.logFine(Bukkit.getLogger(), "NMSBridge_v1_20_2: broadcastNMSChat - invalid input");
+            DebugLogger.logFine(Bukkit.getLogger(), "NMSBridge_v1_21_1: broadcastNMSChat - invalid input");
             return;
         }
 
-        DebugLogger.log(Bukkit.getLogger(), "NMSBridge_v1_20_2: broadcastNMSChat - %s: %s", player.getName(), message);
+        DebugLogger.log(Bukkit.getLogger(), "NMSBridge_v1_21_1: broadcastNMSChat - %s: %s", player.getName(), message);
 
         try {
             MinecraftServer server = ((CraftServer) Bukkit.getServer()).getServer();
 
-            net.minecraft.network.chat.Component[] components =
-                    CraftChatMessage.fromString(message);
+            Component[] components = CraftChatMessage.fromString(message);
             if (components.length == 0) {
-                DebugLogger.logFine(Bukkit.getLogger(), "NMSBridge_v1_20_2: broadcastNMSChat - no components");
+                DebugLogger.logFine(Bukkit.getLogger(), "NMSBridge_v1_21_1: broadcastNMSChat - no components");
                 return;
             }
 
@@ -184,20 +187,20 @@ public class NMSBridge_v1_20_2 implements FozminespoofApi {
             }
 
             server.getPlayerList().broadcastSystemMessage(finalComponent, false);
-            DebugLogger.logFine(Bukkit.getLogger(), "NMSBridge_v1_20_2: broadcastNMSChat - sent");
+            DebugLogger.logFine(Bukkit.getLogger(), "NMSBridge_v1_21_1: broadcastNMSChat - sent");
 
         } catch (Exception e) {
             Bukkit.getLogger().log(Level.SEVERE,
                     "[NMSBridge] Failed to broadcast NMS chat for player "
                             + player.getName() + ": " + e.getMessage(), e);
-            DebugLogger.log(Bukkit.getLogger(), "NMSBridge_v1_20_2: broadcastNMSChat - error: %s", e.getMessage());
+            DebugLogger.log(Bukkit.getLogger(), "NMSBridge_v1_21_1: broadcastNMSChat - error: %s", e.getMessage());
         }
     }
 
     @Override
     public int getFakePlayersCount() {
         int count = activeFakePlayers.size();
-        DebugLogger.logFine(Bukkit.getLogger(), "NMSBridge_v1_20_2: getFakePlayersCount = %d", count);
+        DebugLogger.logFine(Bukkit.getLogger(), "NMSBridge_v1_21_1: getFakePlayersCount = %d", count);
         return count;
     }
 

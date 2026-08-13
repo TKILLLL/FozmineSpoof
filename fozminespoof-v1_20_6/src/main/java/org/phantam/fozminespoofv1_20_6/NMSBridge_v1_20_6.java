@@ -202,4 +202,11 @@ public class NMSBridge_v1_20_6 implements FozminespoofApi {
         DebugLogger.logFine(Bukkit.getLogger(), "NMSBridge_v1_20_6: getFakePlayersCount = %d", count);
         return count;
     }
+
+    @Override
+    public boolean isFakePlayer(UUID uuid) {
+        boolean isFake = uuid != null && activeFakePlayers.containsKey(uuid);
+        DebugLogger.logFine(Bukkit.getLogger(), "NMSBridge_v1_19_4: isFakePlayer(%s) = %b", uuid, isFake);
+        return isFake;
+    }
 }

@@ -3,7 +3,7 @@ package org.phantam.fozminespoofcore.utils;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class RangeTest {
 
@@ -11,28 +11,28 @@ class RangeTest {
     @DisplayName("Should parse valid range string correctly")
     void testParseValidRange() {
         Range range = Range.parse("1.5-3.5", 1.0, 5.0);
-        assertEquals(1.5, range.getMin(), 0.001);
-        assertEquals(3.5, range.getMax(), 0.001);
+        assertEquals(1.5, range.getMin());
+        assertEquals(3.5, range.getMax());
     }
 
     @Test
     @DisplayName("Should parse single value as min == max")
     void testParseSingleValue() {
         Range range = Range.parse("2.5", 1.0, 5.0);
-        assertEquals(2.5, range.getMin(), 0.001);
-        assertEquals(2.5, range.getMax(), 0.001);
+        assertEquals(2.5, range.getMin());
+        assertEquals(2.5, range.getMax());
     }
 
     @Test
     @DisplayName("Should fallback to default on invalid or null format")
     void testParseInvalidFallback() {
         Range rangeNull = Range.parse(null, 1.0, 5.0);
-        assertEquals(1.0, rangeNull.getMin(), 0.001);
-        assertEquals(5.0, rangeNull.getMax(), 0.001);
+        assertEquals(1.0, rangeNull.getMin());
+        assertEquals(5.0, rangeNull.getMax());
 
         Range rangeInvalid = Range.parse("invalid-string", 2.0, 4.0);
-        assertEquals(2.0, rangeInvalid.getMin(), 0.001);
-        assertEquals(4.0, rangeInvalid.getMax(), 0.001);
+        assertEquals(2.0, rangeInvalid.getMin());
+        assertEquals(4.0, rangeInvalid.getMax());
     }
 
     @Test

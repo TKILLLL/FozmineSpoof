@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-import static org.testng.AssertJUnit.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class StringUtilsTest {
 
@@ -31,7 +31,7 @@ class StringUtilsTest {
             "kitten, sitting, 3",
             "hello, hello, 0",
             "abc, def, 3",
-            "bot, bot123, 1", // bot vs bot
+            "bot, bot123, 3",
             "'', hello, 5"
     })
     @DisplayName("Should calculate correct Levenshtein distance")
