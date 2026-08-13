@@ -3,6 +3,7 @@ package org.phantam.fozminespoofcore;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
+import org.phantam.fozminespoofapi.FozmineSpoofProvider;
 import org.phantam.fozminespoofapi.FozminespoofApi;
 import org.phantam.fozminespoofapi.database.IFakePlayerDatabase;
 import org.phantam.fozminespoofapi.utils.DebugLogger;
@@ -122,6 +123,12 @@ public class FozmineSpoofCore extends JavaPlugin {
                 logConsole("&#00F2FE[8/8] &#3B82F6Pre-populating database & spawning baseline bot allocation...");
                 this.botLifecycleManager.initializeAndSpawn();
             }
+            this.bridge = NMSBridgeLoader.loadBridge(this.getLogger());
+            if (this.bridge == null) {
+                disablePluginDueToError("Failed to initialize NMS Bridge module for this Minecraft version.");
+                return;
+            }
+            FozmineSpoofProvider.register(this.bridge);
 
             logConsole("&#10B981✔ FozmineSpoof System successfully enabled and fully operational!");
 
