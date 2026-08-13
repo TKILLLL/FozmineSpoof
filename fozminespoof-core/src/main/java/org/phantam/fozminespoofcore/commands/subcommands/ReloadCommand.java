@@ -111,6 +111,9 @@ public class ReloadCommand implements SubCommand {
             if (plugin.getAiPersonalityManager() != null) {
                 plugin.getAiPersonalityManager().reload();
             }
+            if (plugin.getAiHelperBotManager() != null) {
+                plugin.getAiHelperBotManager().updateHelperBot();
+            }
 
             sender.sendMessage(config.getMessages().getMessage("system.reload-success"));
             DebugLogger.log(plugin.getLogger(), "ReloadCommand: reload completed successfully");

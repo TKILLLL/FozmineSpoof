@@ -39,9 +39,10 @@ public class JoinChatProcessor {
      */
     public void handleRealPlayerJoin(Player realPlayer) {
         if (realPlayer == null || !plugin.isEnabled()) return;
-
-        ChatConfig chatConfig = plugin.getConfigManager().getChatConfig();
-        if (chatConfig == null || !chatConfig.isEnabled()) return;
+        var chatConfig = plugin.getConfigManager().getChatConfig();
+        if (chatConfig == null || !chatConfig.isEnabled() || "ai".equalsIgnoreCase(chatConfig.getMode())) {
+            return;
+        }
 
         if (getRealPlayerCount() < chatConfig.getMinRealPlayers()) {
             return;
@@ -73,9 +74,10 @@ public class JoinChatProcessor {
      */
     public void handleBotSessionJoin(Player bot) {
         if (bot == null || !plugin.isEnabled()) return;
-
-        ChatConfig chatConfig = plugin.getConfigManager().getChatConfig();
-        if (chatConfig == null || !chatConfig.isEnabled()) return;
+        var chatConfig = plugin.getConfigManager().getChatConfig();
+        if (chatConfig == null || !chatConfig.isEnabled() || "ai".equalsIgnoreCase(chatConfig.getMode())) {
+            return;
+        }
 
         if (getRealPlayerCount() < chatConfig.getMinRealPlayers()) {
             return;

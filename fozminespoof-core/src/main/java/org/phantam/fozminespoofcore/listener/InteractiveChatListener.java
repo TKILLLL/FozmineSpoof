@@ -64,7 +64,7 @@ public class InteractiveChatListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerChat(AsyncPlayerChatEvent event) {
         var chatConfig = plugin.getConfigManager().getChatConfig();
-        if (chatConfig == null || !chatConfig.isEnabled()) {
+        if (chatConfig == null || !chatConfig.isEnabled() || "ai".equalsIgnoreCase(chatConfig.getMode())) {
             return;
         }
 

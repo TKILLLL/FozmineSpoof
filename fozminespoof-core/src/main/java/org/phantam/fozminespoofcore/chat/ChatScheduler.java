@@ -39,10 +39,11 @@ public class ChatScheduler {
         this.chatConfig = config;
         this.stop();
 
-        DebugLogger.log(logger, "ChatScheduler: start called, enabled=%s", config.isEnabled());
+        DebugLogger.log(logger, "ChatScheduler: start called, enabled=%s, mode=%s",
+                config.isEnabled(), config.getMode());
 
-        if (!chatConfig.isEnabled()) {
-            logger.warning("[ChatSystem] Chat system is disabled in config.yml.");
+        if (!chatConfig.isEnabled() || "ai".equalsIgnoreCase(chatConfig.getMode())) {
+            logger.info("[ChatSystem] Chat system disabled or in AI mode, skipping random chat scheduler.");
             return;
         }
 

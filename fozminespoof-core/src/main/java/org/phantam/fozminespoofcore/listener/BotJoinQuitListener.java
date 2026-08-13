@@ -1,6 +1,5 @@
 package org.phantam.fozminespoofcore.listener;
 
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -8,9 +7,15 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.phantam.fozminespoofcore.FozmineSpoofCore;
+import org.phantam.fozminespoofcore.config.ChatConfig;
 
 /**
  * Listener for bot join and quit events, handling message suppression and custom broadcasts.
+ * <p>
+ * This listener controls whether default join/quit messages are suppressed based on the
+ * {@code join-leave-message-enable} and {@code join-leave-format} configuration.
+ * Additionally, it triggers join chat messages only when chat system is enabled and mode is "normal".
+ * </p>
  */
 public class BotJoinQuitListener implements Listener {
 
@@ -29,17 +34,14 @@ public class BotJoinQuitListener implements Listener {
             boolean enable = plugin.getConfigManager().isJoinLeaveMessageEnable();
             String format = plugin.getConfigManager().getJoinLeaveFormat();
 
-            // Chỉ chặn tin nhắn gốc ngay lập tức nếu TẮT hoàn toàn hoặc dùng chế độ CUSTOM
             if (!enable || "custom".equalsIgnoreCase(format)) {
                 event.setJoinMessage(null);
             }
-            // Nếu là NORMAL, tạm thời để nguyên để các plugin chat khác nhảy vào định dạng (LPC, EssentialsChat...)
 
-            if (plugin.getJoinChatProcessor() != null) {
+            if (plugin.getJoinChatProcessor() != null && isChatNormalMode()) {
                 plugin.getJoinChatProcessor().handleBotSessionJoin(player);
             }
         } else {
-            // Xử lý người chơi thật
             boolean isBotName = plugin.getFakePlayerManager().getAllDatabaseBots().stream()
                     .anyMatch(b -> b != null && b.getName() != null && b.getName().equalsIgnoreCase(name));
 
@@ -47,36 +49,8 @@ public class BotJoinQuitListener implements Listener {
                 plugin.getRankWeightManager().resetRank(name);
             }
 
-            if (plugin.getJoinChatProcessor() != null) {
+            if (plugin.getJoinChatProcessor() != null && isChatNormalMode()) {
                 plugin.getJoinChatProcessor().handleRealPlayerJoin(player);
-            }
-        }
-    }
-
-    /**
-     * Chạy CUỐI CÙNG sau khi các plugin chat khác đã xử lý và định dạng xong xuôi tin nhắn Join của Bot.
-     */
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onPlayerJoinMonitor(PlayerJoinEvent event) {
-        Player player = event.getPlayer();
-        if (isBot(player)) {
-            boolean enable = plugin.getConfigManager().isJoinLeaveMessageEnable();
-            String format = plugin.getConfigManager().getJoinLeaveFormat();
-
-            if (enable && "normal".equalsIgnoreCase(format)) {
-                String finalFormattedMsg = event.getJoinMessage();
-                if (finalFormattedMsg != null && !finalFormattedMsg.isEmpty()) {
-                    event.setJoinMessage(null);
-
-                    if (!player.hasMetadata("fozmine_join_processed")) {
-                        player.setMetadata("fozmine_join_processed",
-                                new org.bukkit.metadata.FixedMetadataValue(plugin, true));
-
-                        Bukkit.getScheduler().runTask(plugin, () -> {
-                            Bukkit.broadcastMessage(finalFormattedMsg);
-                        });
-                    }
-                }
             }
         }
     }
@@ -93,41 +67,26 @@ public class BotJoinQuitListener implements Listener {
             }
 
             plugin.getFakePlayerManager().handleExternalQuit(player.getName());
-            plugin.getJoinChatProcessor().handleBotQuit(player);
         }
     }
 
     /**
-     * Chạy CUỐI CÙNG sau khi các plugin chat khác đã xử lý và định dạng xong xuôi tin nhắn Quit của Bot.
-     */
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onBotQuitMonitor(PlayerQuitEvent event) {
-        Player player = event.getPlayer();
-        if (isBot(player)) {
-            boolean enable = plugin.getConfigManager().isJoinLeaveMessageEnable();
-            String format = plugin.getConfigManager().getJoinLeaveFormat();
-
-            if (enable && "normal".equalsIgnoreCase(format)) {
-                String finalFormattedMsg = event.getQuitMessage();
-                if (finalFormattedMsg != null && !finalFormattedMsg.isEmpty()) {
-                    event.setQuitMessage(null);
-
-                    Bukkit.getScheduler().runTask(plugin, () -> {
-                        Bukkit.broadcastMessage(finalFormattedMsg);
-                    });
-                }
-            }
-        }
-    }
-
-    /**
-     * Cải tiến hàm kiểm tra Bot để nhận diện chính xác ngay cả khi sự kiện native chạy trước khi nạp registry.
+     * Determines if a player is a bot by checking metadata or registry.
+     *
+     * @param player the player to check
+     * @return {@code true} if the player is a fake player, {@code false} otherwise
      */
     private boolean isBot(Player player) {
-        if (player.hasMetadata("NPC") || plugin.getFakePlayerManager().isBotOnline(player.getName())) {
-            return true;
-        }
-        return plugin.getFakePlayerManager().getAllDatabaseBots().stream()
-                .anyMatch(b -> b != null && b.getName() != null && b.getName().equalsIgnoreCase(player.getName()));
+        return player.hasMetadata("NPC") || plugin.getFakePlayerManager().isBotOnline(player.getName());
+    }
+
+    /**
+     * Checks if the chat system is enabled and in "normal" mode.
+     *
+     * @return {@code true} if normal mode, {@code false} otherwise
+     */
+    private boolean isChatNormalMode() {
+        ChatConfig chatConfig = plugin.getConfigManager().getChatConfig();
+        return chatConfig != null && chatConfig.isEnabled() && !"ai".equalsIgnoreCase(chatConfig.getMode());
     }
 }

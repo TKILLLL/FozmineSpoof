@@ -4,16 +4,6 @@ plugins {
     id("java-library")
     id("xyz.jpenilla.run-paper") version "3.0.2"
     id("com.gradleup.shadow") version "9.4.2"
-    id("dev.skidfuscator") version "0.1.4"
-}
-
-buildscript {
-    repositories {
-        mavenCentral()
-    }
-    dependencies {
-        classpath("com.guardsquare:proguard-gradle:7.6.1")
-    }
 }
 
 repositories {
@@ -40,15 +30,6 @@ java {
     toolchain.languageVersion.set(JavaLanguageVersion.of(17))
 }
 
-val javaToolchains = project.extensions.getByType<JavaToolchainService>()
-val java17Launcher = javaToolchains.launcherFor {
-    languageVersion.set(JavaLanguageVersion.of(17))
-}
-
-skidfuscator {
-    skidfuscatorVersion = "latest"
-}
-
 tasks {
     runServer {
         minecraftVersion("1.19.4")
@@ -65,26 +46,12 @@ tasks {
     }
 
     shadowJar {
-        archiveClassifier.set("raw")
+        archiveClassifier.set("")
         configurations.set(listOf(project.configurations.runtimeClasspath.get()))
         mergeServiceFiles()
     }
 
-    register<proguard.gradle.ProGuardTask>("obfuscate") {
-        dependsOn(shadowJar)
-
-        injars(shadowJar.get().archiveFile)
-        outjars(layout.buildDirectory.file("libs/${project.name}-${project.version}.jar"))
-
-        configuration("proguard-rules.pro")
-
-        val jdkHome = java17Launcher.get().metadata.installationPath.asFile.absolutePath
-        libraryjars("$jdkHome/jmods")
-
-        libraryjars(configurations.compileClasspath.get())
-    }
-
     build {
-        dependsOn("obfuscate")
+        dependsOn(shadowJar)
     }
 }

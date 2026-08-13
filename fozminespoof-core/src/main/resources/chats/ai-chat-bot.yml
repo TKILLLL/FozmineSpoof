@@ -6,30 +6,36 @@
 # Supports OpenAI (GPT), Google Gemini, and Local LLM Endpoints (Ollama, LM Studio).
 
 ai-settings:
-  # Master Toggle: Enable or disable the entire AI Chatbot Subsystem (true / false)
-  enabled: false
-
   # AI Provider Selection: Choose the model engine to process responses ("GPT", "GEMINI", or "CUSTOM")
   model: "GPT"
 
   # API Authentication Key: Your official API key (Leave blank if using "CUSTOM" Local LLM)
   api-key: "YOUR_API_KEY_HERE"
+  providers:
+    gpt:
+      model-name: "gpt-4o-mini"
+      max-tokens: 64
+      temperature: 0.45
+      presence-penalty: 1.2
+      frequency-penalty: 1.5
+
+    gemini:
+      model-name: "gemini-1.5-flash"
+      max-tokens: 64
+      temperature: 0.45
+
+    custom-local:
+      api-url: "http://localhost:1234/v1"
+      model-name: "your-local-model"
+      max-tokens: 64
+      temperature: 0.45
 
   # ---------------------------------------------------------------------------------- #
   # 1. MULTILINGUAL & REGIONAL SLANG SETTINGS                                         #
   # ---------------------------------------------------------------------------------- #
   language-settings:
-    # Language Detection Mode:
-    # - "auto": Dynamically detects the real player's language and replies in the same language.
-    # - "fixed": Enforces a single static language defined in `default-language`.
     mode: "auto"
-
-    # Default Language Fallback:
-    # Standard ISO code used for AI-to-AI chats or when player language is ambiguous ("en", "vi", "es", "zh", "de", "fr")
     default-language: "en"
-
-    # Regional Gamer Slang Hints:
-    # Guides the AI to use authentic local gaming terminology and tone per culture.
     language-hints:
       en: "Use casual English gamer slang (e.g., lol, bro, dia, obby, brb, ngl, smh)."
       vi: "Dùng từ ngữ chat game Tiếng Việt tự nhiên, teen-code nhẹ (VD: vcl, khoáng, acc, đi cave, farm, bro, vkl)."
@@ -41,69 +47,57 @@ ai-settings:
   # 2. SMART LOCALIZED OUTPUT SANITIZATION                                             #
   # ---------------------------------------------------------------------------------- #
   output-sanitization:
-    # Forces all standard bot outputs into lowercase for casual gamer realism
     force-lowercase: true
-
-    # Strips trailing sentence punctuation (!, ?, ., ,)
     force-no-punctuation: true
-
-    # Allows assigned bot `speaking_styles` to override formatting rules (e.g., ALL CAPS or punctuation quirks)
     override-by-speaking-style: true
-
-    # Bypasses formatting restrictions for @FozmineBot help responses for legibility
     disable-sanitization-for-help: true
-
-    # Non-ASCII / UTF-8 Character Handling:
-    # - "auto-detect": Preserves accents and characters matching the target language.
-    # - "strip-vietnamese-accent": Automatically removes diacritics for Vietnamese unaccented chat.
-    # - "keep-all": Retains all raw UTF-8 characters as generated.
     non-ascii-handling: "auto-detect"
+    # Thông báo khi AI bị timeout hoặc lỗi
+    timeout-message: "sorry bro i has to sleep now!!"
 
   # ---------------------------------------------------------------------------------- #
-  # 3. MULTILINGUAL FALLBACK SYSTEM                                                   #
+  # 3. CHAT FORMAT                                                                     #
   # ---------------------------------------------------------------------------------- #
-  fallback:
-    # Enable automatic pre-configured fallback responses if the API times out or fails
-    enabled: true
+  chat-format:
+    method: "normal" # "normal" hoặc "custom"
+    chat-format: "{bot}: &7{message}"
 
-    # Localized Quick Response Pools:
-    default-responses:
-      en:
-        - "mining rn brb"
-        - "laggy server smh"
-        - "gimme a sec fighting mob"
-        - "afk for a bit"
-        - "what bro"
-      vi:
-        - "đang đào khoáng tí rep"
-        - "lag quá không nghe rõ"
-        - "wait tui đang fight mob"
-        - "afk tí nhé"
-        - "gì đó bro"
-      es:
-        - "minando ya vuelvo"
-        - "un sec estoy luchando"
-        - "lagazo bro"
-        - "espera afk"
-      zh:
-        - "在挖矿稍等"
-        - "打怪中卡了"
-        - "挂机一会儿"
+    # Định dạng tin nhắn riêng (Private Message /msg)
+    private-message:
+      enabled: true
+      incoming-format: "&7[{bot} -> me] &f{message}"
+      outgoing-format: "&7[me -> {bot}] &f{message}"
 
   # ---------------------------------------------------------------------------------- #
-  # 4. INTERACTION MODES                                                               #
+  # 4. CONDITIONS, ROUTING & SCHEDULES                                                 #
+  # ---------------------------------------------------------------------------------- #
+  conditions:
+    answer-in-same-world: false
+    max-hearing-distance: -1
+    time-zone: "Asia/Ho_Chi_Minh"
+    active-hours: "06:00-02:00"
+
+  # ---------------------------------------------------------------------------------- #
+  # 5. TIMING, DELAYS & COOLDOWNS                                                      #
+  # ---------------------------------------------------------------------------------- #
+  timing:
+    typing-delay: "1-3"
+    cooldowns:
+      receiver: "15-30"
+      sender: "20-40"
+      conversation-expiry: "60-90"
+    max-responses-per-session: "2-3"
+    close-on-new-player-mention: true
+
+  # ---------------------------------------------------------------------------------- #
+  # 6. INTERACTION MODES                                                               #
   # ---------------------------------------------------------------------------------- #
   interaction-modes:
-    # MODE 1: Player-to-AI Natural Mentions
-    # Triggers when a real player mentions or fuzzy-matches a bot's name in public chat.
     player-to-ai:
       enabled: true
       response-chance: 0.15
-      # Fuzzy Name Matching Threshold (0.78 prevents false triggers on short names like Tom/Tim)
       name-similarity-threshold: 0.78
 
-    # MODE 2: AI-to-AI Autonomous Conversations
-    # Bots periodically initiate and respond to short casual conversations among themselves.
     ai-to-ai:
       enabled: false
       initiate-chance: 0.05
@@ -114,8 +108,6 @@ ai-settings:
         [TOPIC POOL] Mining trip, building a base, finding diamonds, fighting mobs, farming, or crafting.
         [CONSTRAINTS] Maximum 5 words. Lowercase only. No punctuation. Fast gamer style.
 
-    # MODE 3: Dedicated Server Guide Bot (@FozmineBot)
-    # Triggers when players tag the designated bot name to ask questions or request help.
     ai-help:
       enabled: true
       bot-name: "FozmineBot"
@@ -139,7 +131,7 @@ ai-settings:
             [CONSTRAINTS] Under 40 characters. Helpful, accurate, clear.
 
   # ---------------------------------------------------------------------------------- #
-  # 5. PROMPT ENGINEERING & SYSTEM RULES                                               #
+  # 7. PROMPT ENGINEERING & SYSTEM RULES                                               #
   # ---------------------------------------------------------------------------------- #
   prompt-engineering:
     system-rule: |-
@@ -162,73 +154,24 @@ ai-settings:
       - Focus: Minecraft gameplay, mining, building, trading, or survival only.
 
   # ---------------------------------------------------------------------------------- #
-  # 6. CONDITIONS, ROUTING & SCHEDULES                                                 #
-  # ---------------------------------------------------------------------------------- #
-  chat-format:
-    method: "normal" # "normal" (Passes through standard ChatEvent) or "broadcast"
-    broadcast-format: "{bot}: &7{message}"
-
-  conditions:
-    answer-in-same-world: false
-    max-hearing-distance: -1
-
-    # System Timezone for active-hours calculation (e.g., "UTC", "Asia/Ho_Chi_Minh", "America/New_York")
-    time-zone: "Asia/Ho_Chi_Minh"
-
-    # Operating Hours Schedule (24-hour format: "HH:mm-HH:mm"):
-    # Disables AI activity during late night hours to minimize API usage.
-    active-hours: "06:00-02:00"
-
-  # ---------------------------------------------------------------------------------- #
-  # 7. TIMING, DELAYS & COOLDOWNS                                                      #
-  # ---------------------------------------------------------------------------------- #
-  timing:
-    # Simulated typing delay range (in seconds) before delivering the message
-    typing-delay: "1-3"
-
-    cooldowns:
-      receiver: "15-30"       # Cooldown for receiver bot before engaging in new chats
-      sender: "20-40"         # Cooldown for sender before chatting again
-      conversation-expiry: "60-90" # Context memory expiration timer
-
-    max-responses-per-session: "2-3"
-    close-on-new-player-mention: true
-
-  # ---------------------------------------------------------------------------------- #
-  # 8. AI MODEL PROVIDER CONFIGURATIONS                                               #
-  # ---------------------------------------------------------------------------------- #
-  providers:
-    gpt:
-      model-name: "gpt-4o-mini"
-      max-tokens: 64
-      temperature: 0.45
-      presence-penalty: 1.2
-      frequency-penalty: 1.5
-
-    gemini:
-      model-name: "gemini-1.5-flash"
-      max-tokens: 64
-      temperature: 0.45
-
-    custom-local:
-      api-url: "http://localhost:1234/v1"
-      model-name: "your-local-model"
-      max-tokens: 64
-      temperature: 0.45
-
-  # ---------------------------------------------------------------------------------- #
-  # 9. SECURITY SAFEGUARDS & ANTI-JAILBREAK SHIELDS                                    #
+  # 8. SECURITY SAFEGUARDS & ANTI-JAILBREAK SHIELDS                                    #
   # ---------------------------------------------------------------------------------- #
   security-safeguards:
     abort-api-on-violation: true
     max-input-length: 80
 
-    # Anti-Spam Rate Limiting (Protects commercial API accounts from exhaustion)
     rate-limiting:
       max-requests-per-minute: 2
-      punishment-command: "kick {player} &cSpamming AI request limit exceeded!"
+      punishment:
+        command:
+          enabled: false
+          execute:
+            - "kick {player} &cSpamming AI request limit exceeded!"
+      warn:
+        enabled: true
+        message: "&e&l[AI] &cSlow down! You must wait &6{time}s &cto ask again."
+        action-bar: false
 
-    # Output Filtration Firewall (Blocks AI phrases before broadcasting to public chat)
     output-filtration:
       block-code-blocks: true
       block-sensitive-words:
@@ -241,38 +184,35 @@ ai-settings:
         - "assistant"
         - "i am an ai"
 
-    # Input Blacklist Keywords (Blocks coding requests, system commands, and prompt injection attempts)
-    input-blacklist-keywords:
-      # Coding & Scripting
-      - "code"
-      - "script"
-      - "java"
-      - "python"
-      - "c++"
-      - "html"
-      - "lap trinh"
-      - "viet code"
-
-      # Admin Commands & Server Security
-      - "op"
-      - "admin"
-      - "backdoor"
-      - "rcon"
-      - "sudo"
-      - "permission"
-      - "database"
-      - "mysql"
-      - "password"
-      - "mat khau"
-
-      # Jailbreak & Prompt Injection
-      - "system prompt"
-      - "ignore everything"
-      - "quen het"
-      - "act as"
-      - "dong vai"
-      - "you are now"
-      - "bay gio ban la"
-      - "chuyen sang che do"
-      - "bypass"
-      - "jailbreak"
+    input-blacklist:
+      message: "you cant use {word}"
+      regex: true
+      block-blacklist-words:
+        - "code"
+        - "script"
+        - "java"
+        - "python"
+        - "c\\+\\+"
+        - "html"
+        - "lap trinh"
+        - "viet code"
+        - "op"
+        - "admin"
+        - "backdoor"
+        - "rcon"
+        - "sudo"
+        - "permission"
+        - "database"
+        - "mysql"
+        - "password"
+        - "mat khau"
+        - "system prompt"
+        - "ignore everything"
+        - "quen het"
+        - "act as"
+        - "dong vai"
+        - "you are now"
+        - "bay gio ban la"
+        - "chuyen sang che do"
+        - "bypass"
+        - "jailbreak"

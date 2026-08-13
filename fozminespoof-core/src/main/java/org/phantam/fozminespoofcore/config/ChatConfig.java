@@ -24,6 +24,7 @@ public class ChatConfig {
     private final String intervalMinutesStr;
     private final String botsPerIntervalStr;
     private final String delayBetweenBotsSecondsStr;
+    private final String mode;
 
     /**
      * Constructs a ChatConfig from the given FileConfiguration.
@@ -32,6 +33,7 @@ public class ChatConfig {
      */
     public ChatConfig(FileConfiguration config) {
         this.enabled = config.getBoolean("chat-system.enable", config.getBoolean("chat-system.enabled", false));
+        this.mode = config.getString("chat-system.mode", "normal");
         this.minRealPlayers = Math.max(0, config.getInt("chat-system.min-real-players", 1));
         this.translationTarget = config.getString("chat-system.translation-target", "en");
         this.translationProvider = config.getString("chat-system.translation-provider", "google");
@@ -44,9 +46,8 @@ public class ChatConfig {
 
     // --- Getters ---
 
-    public boolean isEnabled() {
-        return enabled;
-    }
+    public boolean isEnabled() { return enabled; }
+    public String getMode() { return mode; }
 
     public int getMinRealPlayers() {
         return minRealPlayers;

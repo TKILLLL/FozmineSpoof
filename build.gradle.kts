@@ -19,6 +19,7 @@ subprojects {
     dependencies {
         implementation("com.zaxxer:HikariCP:7.1.0")
         compileOnly("net.luckperms:api:5.5")
+        compileOnly("com.google.code.gson:gson:2.11.0")
     }
 
     java {

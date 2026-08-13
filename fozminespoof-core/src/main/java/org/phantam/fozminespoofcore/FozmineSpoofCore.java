@@ -1,7 +1,5 @@
 package org.phantam.fozminespoofcore;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
@@ -19,34 +17,21 @@ import org.phantam.fozminespoofcore.config.JoinMessageConfig;
 import org.phantam.fozminespoofcore.database.DatabaseCredentialFactory;
 import org.phantam.fozminespoofcore.database.DatabaseManager;
 import org.phantam.fozminespoofcore.database.SQLiteDatabaseManager;
-import org.phantam.fozminespoofcore.listener.AiChatListener;
-import org.phantam.fozminespoofcore.listener.BotJoinQuitListener;
-import org.phantam.fozminespoofcore.listener.InteractiveChatListener;
-import org.phantam.fozminespoofcore.listener.PluginListInterceptor;
+import org.phantam.fozminespoofcore.listener.*;
+import org.phantam.fozminespoofcore.manager.AiHelperBotManager;
 import org.phantam.fozminespoofcore.manager.BotLifecycleManager;
 import org.phantam.fozminespoofcore.manager.FakePlayerManager;
 import org.phantam.fozminespoofcore.manager.RankWeightManager;
 import org.phantam.fozminespoofcore.tasks.KeepAliveTask;
 import org.phantam.fozminespoofcore.tasks.ProxySyncTask;
 import org.phantam.fozminespoofcore.utils.ColorUtils;
-import org.phantam.fozminespoofcore.utils.CryptoUtils;
 import org.phantam.fozminespoofcore.utils.NMSBridgeLoader;
-import org.phantam.fozminespoofcore.utils.RsaVerifier;
 import org.phantam.fozminespoofcore.world.VoidWorldFactory;
 
 import java.io.File;
-import java.net.URI;
-import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.logging.Level;
 
 public class FozmineSpoofCore extends JavaPlugin {
-
-    private static final String ENCRYPTED_LICENSE_URL = "LhsOHRpUSnwcBgwDPRYGXwQEIkgJWlFcQicCVBsMHAY2HEEOFiNKAgIMWygNHFFb";
 
     private ConfigManager configManager;
     private FozminespoofApi bridge;
@@ -62,10 +47,10 @@ public class FozmineSpoofCore extends JavaPlugin {
     private AiConfig aiConfig;
     private AiPersonalityManager aiPersonalityManager;
     private AiChatProcessor aiChatProcessor;
+    private AiHelperBotManager aiHelperBotManager;
 
     private BukkitTask keepAliveTaskHandle;
     private BukkitTask tabUpdateTaskHandle;
-    private BukkitTask heartbeatTaskHandle;
 
     @Override
     public void onEnable() {
@@ -79,19 +64,7 @@ public class FozmineSpoofCore extends JavaPlugin {
             DebugLogger.setDebugEnabled(configManager.isDebug());
             logConsole("&#00F2FE[1/8] &#10B981Configuration loaded! Debug Mode: " + (configManager.isDebug() ? "&#F59E0BENABLED" : "&#9CA3AFDISABLED"));
 
-            String licenseKey = getConfig().getString("license-key", "").trim();
-
-            if (licenseKey.isEmpty() || licenseKey.equalsIgnoreCase("YOUR_LICENSE_KEY_HERE")) {
-                logConsole("&#EF4444==========================================================");
-                logConsole("&#EF4444  LICENSE ERROR: License key is missing in config.yml!");
-                logConsole("&#EF4444  Please enter a valid license key and restart the server.");
-                logConsole("&#EF4444==========================================================");
-                getServer().getPluginManager().disablePlugin(this);
-                return;
-            }
-
-            logConsole("&#00F2FE[License] &#3B82F6Verifying license key...");
-            Bukkit.getScheduler().runTaskAsynchronously(this, () -> verifyLicenseAsync(licenseKey, true));
+            completePluginInitialization();
 
         } catch (Exception e) {
             DebugLogger.log(getLogger(), "FozmineSpoofCore: fatal error during enable: %s", e.getMessage());
@@ -99,154 +72,6 @@ public class FozmineSpoofCore extends JavaPlugin {
             getLogger().log(Level.SEVERE, "[FozmineSpoofCore] Details: " + e.getMessage(), e);
             getServer().getPluginManager().disablePlugin(this);
         }
-    }
-
-    private void verifyLicenseAsync(String licenseKey, boolean isInitialStart) {
-        HttpClient client = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(15))
-                .followRedirects(HttpClient.Redirect.ALWAYS)
-                .build();
-
-        try {
-            String serverIP = fetchPublicServerIp(client);
-
-            String rawUrl = CryptoUtils.decrypt(ENCRYPTED_LICENSE_URL);
-            if (rawUrl.isEmpty()) {
-                rawUrl = "https://license-api-phantam.vercel.app/api/check"; // Fallback an toàn
-            }
-
-            String encodedKey = URLEncoder.encode(licenseKey, StandardCharsets.UTF_8);
-            String encodedIp = URLEncoder.encode(serverIP, StandardCharsets.UTF_8);
-
-            String delimiter = rawUrl.contains("?") ? "&" : "?";
-            String apiUrl = rawUrl + delimiter + "key=" + encodedKey + "&ip=" + encodedIp;
-
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(apiUrl))
-                    .header("User-Agent", "FozmineSpoof-Plugin/2.0")
-                    .header("Accept", "application/json")
-                    .timeout(Duration.ofSeconds(15))
-                    .GET()
-                    .build();
-
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            int statusCode = response.statusCode();
-            String responseBody = (response.body() != null) ? response.body().trim() : "";
-
-            Bukkit.getScheduler().runTask(this, () -> processSignedLicenseResponse(statusCode, responseBody, licenseKey, isInitialStart));
-
-        } catch (Exception e) {
-            Bukkit.getScheduler().runTask(this, () -> {
-                if (isInitialStart) {
-                    logConsole("&#EF4444[License] Could not connect to verification server!");
-                    disablePluginDueToError("License server connection timed out or offline.");
-                }
-            });
-        }
-    }
-
-    private void processSignedLicenseResponse(int statusCode, String responseBody, String licenseKey, boolean isInitialStart) {
-        if (statusCode != 200 || responseBody.isEmpty()) {
-            if (isInitialStart) {
-                logConsole("&#EF4444[License] HTTP Error " + statusCode + " from License Server!");
-                disablePluginDueToError("HTTP " + statusCode + " error from license server.");
-            }
-            return;
-        }
-
-        // Kiểm tra response hợp lệ (JSON)
-        if (!responseBody.trim().startsWith("{")) {
-            logConsole("&#EF4444[License] Invalid response format from license server.");
-            disablePluginDueToError("Invalid response from license server.");
-            return;
-        }
-
-        try {
-            JsonObject json = JsonParser.parseString(responseBody).getAsJsonObject();
-            String payload = json.get("payload").getAsString();
-            String signature = json.get("signature").getAsString();
-
-            boolean isAuthentic = RsaVerifier.verify(payload, signature);
-            if (!isAuthentic) {
-                logConsole("&#EF4444[License Security] Invalid RSA signature! Tampering detected.");
-                disablePluginDueToError("Tampered or forged license response.");
-                return;
-            }
-
-            JsonObject payloadObj = JsonParser.parseString(payload).getAsJsonObject();
-            String status = payloadObj.get("status").getAsString();
-            long timestamp = payloadObj.get("timestamp").getAsLong();
-
-            if (Math.abs(System.currentTimeMillis() - timestamp) > 300000) {
-                disablePluginDueToError("License response timestamp expired (replay attack prevention).");
-                return;
-            }
-
-            if ("VALID".equalsIgnoreCase(status)) {
-                if (isInitialStart) {
-                    logConsole("&#10B981[License] ✔ RSA License verified successfully! Status: VALID");
-                    completePluginInitialization();
-                    startHeartbeatScheduler(licenseKey);
-                }
-            } else if ("INVALID".equalsIgnoreCase(status)) {
-                logConsole("Invalid License Key! Disabling plugin...");
-                disablePluginDueToError("Invalid License Key!");
-            } else if ("KEY_EXPIRED".equalsIgnoreCase(status)) {
-                logConsole("This license key has expired! Disabling plugin...");
-                disablePluginDueToError("License key expired!");
-            } else if ("KEY_SHARING_DETECTED".equalsIgnoreCase(status)) {
-                logConsole("This license key is being used on another server IP! Disabling plugin...");
-                disablePluginDueToError("This license key is being used on another server IP!");
-            } else {
-                logConsole("&#EF4444[License] Verification failed.");
-                disablePluginDueToError("License verification failed.");
-            }
-
-        } catch (Exception e) {
-            logConsole("&#EF4444[License] Failed to process license server response.");
-            disablePluginDueToError("Invalid license response payload.");
-        }
-    }
-
-    private void startHeartbeatScheduler(String licenseKey) {
-        if (heartbeatTaskHandle != null) {
-            heartbeatTaskHandle.cancel();
-        }
-
-        heartbeatTaskHandle = Bukkit.getScheduler().runTaskTimerAsynchronously(this, () -> {
-            verifyLicenseAsync(licenseKey, false);
-        }, 36000L, 36000L);
-    }
-
-    private String fetchPublicServerIp(HttpClient client) {
-        try {
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create("https://api.ipify.org"))
-                    .timeout(Duration.ofSeconds(3))
-                    .GET()
-                    .build();
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() == 200 && response.body() != null && !response.body().isBlank()) {
-                return response.body().trim();
-            }
-        } catch (Exception ignored) {
-        }
-
-        try {
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create("https://checkip.amazonaws.com"))
-                    .timeout(Duration.ofSeconds(3))
-                    .GET()
-                    .build();
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() == 200 && response.body() != null && !response.body().isBlank()) {
-                return response.body().trim();
-            }
-        } catch (Exception ignored) {
-        }
-
-        String bukkitIp = Bukkit.getIp();
-        return (bukkitIp != null && !bukkitIp.isBlank()) ? bukkitIp : "127.0.0.1";
     }
 
     private void completePluginInitialization() {
@@ -321,10 +146,6 @@ public class FozmineSpoofCore extends JavaPlugin {
             tabUpdateTaskHandle.cancel();
             tabUpdateTaskHandle = null;
         }
-        if (heartbeatTaskHandle != null) {
-            heartbeatTaskHandle.cancel();
-            heartbeatTaskHandle = null;
-        }
 
         if (this.chatScheduler != null) {
             try {
@@ -383,9 +204,12 @@ public class FozmineSpoofCore extends JavaPlugin {
         this.joinMessageConfig = new JoinMessageConfig(this);
         this.interactiveMessageConfig = new InteractiveMessageConfig(this);
 
-        this.aiConfig = new AiConfig(this);
+        this.aiConfig = new AiConfig(this, this.configManager);
         this.aiPersonalityManager = new AiPersonalityManager(this);
         this.aiChatProcessor = new AiChatProcessor(this, this.aiConfig, this.aiPersonalityManager);
+
+        this.aiHelperBotManager = new AiHelperBotManager(this, aiConfig);
+        this.aiHelperBotManager.updateHelperBot();
 
         this.chatScheduler = new ChatScheduler(
                 this,
@@ -409,6 +233,7 @@ public class FozmineSpoofCore extends JavaPlugin {
                 translator
         );
         getServer().getPluginManager().registerEvents(interactiveListener, this);
+        getServer().getPluginManager().registerEvents(new ChatTabCompleteListener(this), this);
 
         AiChatListener aiListener = new AiChatListener(
                 this,
@@ -417,6 +242,13 @@ public class FozmineSpoofCore extends JavaPlugin {
                 new BotSelector(this.fakePlayerManager, getLogger())
         );
         getServer().getPluginManager().registerEvents(aiListener, this);
+
+        PrivateMessageListener pmListener = new PrivateMessageListener(
+                this,
+                this.aiConfig,
+                this.aiChatProcessor
+        );
+        getServer().getPluginManager().registerEvents(pmListener, this);
     }
 
     private void registerExternalExtensions() {
@@ -558,4 +390,6 @@ public class FozmineSpoofCore extends JavaPlugin {
     public AiChatProcessor getAiChatProcessor() {
         return aiChatProcessor;
     }
+
+    public AiHelperBotManager getAiHelperBotManager() { return aiHelperBotManager; }
 }

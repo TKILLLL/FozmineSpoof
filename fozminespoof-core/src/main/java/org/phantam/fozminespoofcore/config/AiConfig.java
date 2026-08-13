@@ -3,11 +3,11 @@ package org.phantam.fozminespoofcore.config;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.phantam.fozminespoofapi.utils.DebugLogger;
-import org.phantam.fozminespoofcore.utils.CryptoUtils;
 
 import java.io.File;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,10 +15,10 @@ import java.util.Map;
 public class AiConfig {
 
     private final JavaPlugin plugin;
+    private final ConfigManager configManager;
     private final File file;
 
-    private boolean enabled;
-    private String modelProvider; // GPT, GEMINI, CUSTOM
+    private String modelProvider;
     private String apiKey;
 
     // Language Settings
@@ -32,10 +32,14 @@ public class AiConfig {
     private boolean overrideBySpeakingStyle;
     private boolean disableSanitizationForHelp;
     private String nonAsciiHandling;
+    private String timeoutMessage;
 
-    // Fallback
-    private boolean fallbackEnabled;
-    private Map<String, List<String>> fallbackResponses = new HashMap<>();
+    // Chat Format & PM
+    private String chatFormatMethod;
+    private String chatFormat;
+    private boolean privateMessageEnabled;
+    private String pmIncomingFormat;
+    private String pmOutgoingFormat;
 
     // Interaction Modes
     private boolean playerToAiEnabled;
@@ -80,42 +84,42 @@ public class AiConfig {
     private boolean abortApiOnViolation;
     private int maxInputLength;
     private int rateLimitMaxPerMin;
-    private String punishmentCommand;
+    private boolean rateLimitWarnEnabled;
+    private String rateLimitWarnMessage;
+    private boolean rateLimitWarnActionBar;
+    private boolean rateLimitPunishmentEnabled;
+    private List<String> rateLimitPunishmentCommands;
+
     private boolean blockCodeBlocks;
     private List<String> blockSensitiveWords;
-    private List<String> inputBlacklistKeywords;
 
-    /**
-     * Constructs a new AiConfig and loads the configuration.
-     *
-     * @param plugin the plugin instance
-     */
-    public AiConfig(JavaPlugin plugin) {
+    // Input Blacklist
+    private String inputBlacklistMessage;
+    private boolean inputBlacklistRegex;
+    private List<String> inputBlacklistWords;
+
+    public AiConfig(JavaPlugin plugin, ConfigManager configManager) {
         this.plugin = plugin;
+        this.configManager = configManager;
         this.file = new File(plugin.getDataFolder(), "chats/ai-chat-bot.yml");
         this.reload();
     }
 
-    /**
-     * Reloads the configuration from disk.
-     * <p>
-     * This method clears all cached values and re-parses the YAML file.
-     * The API key is automatically decrypted if encrypted.
-     * </p>
-     */
     public void reload() {
         try {
             ensureDefaultFileExists();
             YamlConfiguration config = YamlConfiguration.loadConfiguration(file);
 
-            enabled = config.getBoolean("ai-settings.enabled", false);
             modelProvider = config.getString("ai-settings.model", "GPT").toUpperCase();
-            String rawApiKey = config.getString("ai-settings.api-key", "");
-            apiKey = decryptApiKey(rawApiKey);
+            apiKey = config.getString("ai-settings.api-key", "");
 
-            // Language
+            // Language Settings
             langMode = config.getString("ai-settings.language-settings.mode", "auto");
+            if (langMode == null || langMode.isBlank()) langMode = "auto";
+
             defaultLanguage = config.getString("ai-settings.language-settings.default-language", "en");
+            if (defaultLanguage == null || defaultLanguage.isBlank()) defaultLanguage = "en";
+
             languageHints.clear();
             if (config.isConfigurationSection("ai-settings.language-settings.language-hints")) {
                 var sec = config.getConfigurationSection("ai-settings.language-settings.language-hints");
@@ -130,16 +134,14 @@ public class AiConfig {
             overrideBySpeakingStyle = config.getBoolean("ai-settings.output-sanitization.override-by-speaking-style", true);
             disableSanitizationForHelp = config.getBoolean("ai-settings.output-sanitization.disable-sanitization-for-help", true);
             nonAsciiHandling = config.getString("ai-settings.output-sanitization.non-ascii-handling", "auto-detect");
+            timeoutMessage = config.getString("ai-settings.output-sanitization.timeout-message", "sorry bro i has to sleep now!!");
 
-            // Fallback
-            fallbackEnabled = config.getBoolean("ai-settings.fallback.enabled", true);
-            fallbackResponses.clear();
-            if (config.isConfigurationSection("ai-settings.fallback.default-responses")) {
-                var sec = config.getConfigurationSection("ai-settings.fallback.default-responses");
-                for (String k : sec.getKeys(false)) {
-                    fallbackResponses.put(k, sec.getStringList(k));
-                }
-            }
+            // Chat Format & PM Settings
+            chatFormatMethod = config.getString("ai-settings.chat-format.method", "normal");
+            chatFormat = config.getString("ai-settings.chat-format.chat-format", "{bot}: &7{message}");
+            privateMessageEnabled = config.getBoolean("ai-settings.chat-format.private-message.enabled", true);
+            pmIncomingFormat = config.getString("ai-settings.chat-format.private-message.incoming-format", "&7[{bot} -> me] &f{message}");
+            pmOutgoingFormat = config.getString("ai-settings.chat-format.private-message.outgoing-format", "&7[me -> {bot}] &f{message}");
 
             // Interaction Modes
             playerToAiEnabled = config.getBoolean("ai-settings.interaction-modes.player-to-ai.enabled", true);
@@ -202,12 +204,22 @@ public class AiConfig {
             abortApiOnViolation = config.getBoolean("ai-settings.security-safeguards.abort-api-on-violation", true);
             maxInputLength = config.getInt("ai-settings.security-safeguards.max-input-length", 80);
             rateLimitMaxPerMin = config.getInt("ai-settings.security-safeguards.rate-limiting.max-requests-per-minute", 2);
-            punishmentCommand = config.getString("ai-settings.security-safeguards.rate-limiting.punishment-command", "kick {player} &cSpam AI!");
+
+            rateLimitWarnEnabled = config.getBoolean("ai-settings.security-safeguards.rate-limiting.warn.enabled", true);
+            rateLimitWarnMessage = config.getString("ai-settings.security-safeguards.rate-limiting.warn.message", "&e&l[AI] &cSlow down!");
+            rateLimitWarnActionBar = config.getBoolean("ai-settings.security-safeguards.rate-limiting.warn.action-bar", false);
+
+            rateLimitPunishmentEnabled = config.getBoolean("ai-settings.security-safeguards.rate-limiting.punishment.command.enabled", false);
+            rateLimitPunishmentCommands = config.getStringList("ai-settings.security-safeguards.rate-limiting.punishment.command.execute");
+
             blockCodeBlocks = config.getBoolean("ai-settings.security-safeguards.output-filtration.block-code-blocks", true);
             blockSensitiveWords = config.getStringList("ai-settings.security-safeguards.output-filtration.block-sensitive-words");
-            inputBlacklistKeywords = config.getStringList("ai-settings.security-safeguards.input-blacklist-keywords");
 
-            DebugLogger.log(plugin.getLogger(), "AiConfig: reloaded. Enabled=%s, Model=%s", enabled, modelProvider);
+            inputBlacklistMessage = config.getString("ai-settings.security-safeguards.input-blacklist.message", "you cant use {word}");
+            inputBlacklistRegex = config.getBoolean("ai-settings.security-safeguards.input-blacklist.regex", true);
+            inputBlacklistWords = config.getStringList("ai-settings.security-safeguards.input-blacklist.block-blacklist-words");
+
+            DebugLogger.log(plugin.getLogger(), "AiConfig: reloaded. Model=%s, PM Enabled=%b", modelProvider, privateMessageEnabled);
 
         } catch (Exception e) {
             plugin.getLogger().severe("[AiConfig] Failed to load chats/ai-chat-bot.yml: " + e.getMessage());
@@ -224,15 +236,9 @@ public class AiConfig {
     private int parseRangeMin(String path, YamlConfiguration config, int def) {
         String val = config.getString(path, String.valueOf(def));
         if (val.contains("-")) {
-            try {
-                return Integer.parseInt(val.split("-")[0].trim());
-            } catch (Exception ignored) {
-            }
+            try { return Integer.parseInt(val.split("-")[0].trim()); } catch (Exception ignored) {}
         } else {
-            try {
-                return Integer.parseInt(val.trim());
-            } catch (Exception ignored) {
-            }
+            try { return Integer.parseInt(val.trim()); } catch (Exception ignored) {}
         }
         return def;
     }
@@ -253,205 +259,84 @@ public class AiConfig {
         }
     }
 
-    /**
-     * Decrypts the API key if it is encrypted; otherwise returns the original value.
-     * <p>
-     * This method attempts to decrypt the key using AES. If decryption succeeds,
-     * the plaintext key is used. If it fails, the raw value is assumed to be plaintext
-     * and is returned as-is (backward compatibility).
-     * </p>
-     *
-     * @param rawKey the raw key from config (may be plaintext or encrypted)
-     * @return the decrypted key, or the original if decryption fails
-     */
-    private String decryptApiKey(String rawKey) {
-        if (rawKey == null || rawKey.isEmpty()) {
-            return rawKey;
-        }
-        String decrypted = CryptoUtils.decrypt(rawKey);
-        if (!decrypted.isEmpty()) {
-            // Successfully decrypted
-            return decrypted;
-        }
-        // Decryption failed – treat as plaintext
-        plugin.getLogger().info("[AiConfig] API key appears to be plaintext. "
-                + "For security, consider encrypting it using CryptoUtils.encrypt() and updating config.");
-        return rawKey;
+    public boolean isEnabled() {
+        if (configManager == null) return false;
+        ChatConfig chatConfig = configManager.getChatConfig();
+        if (chatConfig == null || !chatConfig.isEnabled()) return false;
+        return "ai".equalsIgnoreCase(chatConfig.getMode());
     }
 
     // Getters
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    public String getModelProvider() {
-        return modelProvider;
-    }
-
-    public String getApiKey() {
-        return apiKey;
-    }
-
-    public String getLangMode() {
-        return langMode;
-    }
-
-    public String getDefaultLanguage() {
-        return defaultLanguage;
-    }
-
+    public String getModelProvider() { return modelProvider; }
+    public String getApiKey() { return apiKey; }
+    public String getLangMode() { return langMode != null ? langMode : "auto"; }
+    public String getDefaultLanguage() { return defaultLanguage != null ? defaultLanguage : "en"; }
     public String getLanguageHint(String lang) {
+        if (languageHints == null || languageHints.isEmpty()) return "Use casual gamer slang.";
         return languageHints.getOrDefault(lang, languageHints.getOrDefault("en", "Use casual gamer slang."));
     }
 
-    public boolean isForceLowercase() {
-        return forceLowercase;
-    }
+    public boolean isForceLowercase() { return forceLowercase; }
+    public boolean isForceNoPunctuation() { return forceNoPunctuation; }
+    public boolean isOverrideBySpeakingStyle() { return overrideBySpeakingStyle; }
+    public boolean isDisableSanitizationForHelp() { return disableSanitizationForHelp; }
+    public String getNonAsciiHandling() { return nonAsciiHandling; }
+    public String getTimeoutMessage() { return timeoutMessage; }
 
-    public boolean isForceNoPunctuation() {
-        return forceNoPunctuation;
-    }
+    public String getChatFormatMethod() { return chatFormatMethod; }
+    public String getChatFormat() { return chatFormat; }
+    public boolean isPrivateMessageEnabled() { return privateMessageEnabled; }
+    public String getPmIncomingFormat() { return pmIncomingFormat; }
+    public String getPmOutgoingFormat() { return pmOutgoingFormat; }
 
-    public boolean isOverrideBySpeakingStyle() {
-        return overrideBySpeakingStyle;
-    }
+    public boolean isPlayerToAiEnabled() { return playerToAiEnabled; }
+    public double getPlayerToAiChance() { return playerToAiChance; }
+    public double getNameSimilarityThreshold() { return nameSimilarityThreshold; }
 
-    public boolean isDisableSanitizationForHelp() {
-        return disableSanitizationForHelp;
-    }
+    public boolean isAiToAiEnabled() { return aiToAiEnabled; }
+    public double getAiToAiInitiateChance() { return aiToAiInitiateChance; }
+    public double getAiToAiResponseChance() { return aiToAiResponseChance; }
+    public String getAiToAiInitiationPrompt() { return aiToAiInitiationPrompt; }
 
-    public String getNonAsciiHandling() {
-        return nonAsciiHandling;
-    }
+    public boolean isAiHelpEnabled() { return aiHelpEnabled; }
+    public String getAiHelpBotName() { return aiHelpBotName; }
+    public double getAiHelpResponseChance() { return aiHelpResponseChance; }
+    public String getAiHelpTagPrefix() { return aiHelpTagPrefix; }
+    public String getAiHelpMinecraftPrompt() { return aiHelpMinecraftPrompt; }
+    public String getAiHelpPluginPrompt() { return aiHelpPluginPrompt; }
 
-    public boolean isFallbackEnabled() {
-        return fallbackEnabled;
-    }
+    public String getSystemRule() { return systemRule; }
+    public boolean isAnswerInSameWorld() { return answerInSameWorld; }
+    public int getMaxHearingDistance() { return maxHearingDistance; }
+    public String getTypingDelayStr() { return typingDelayStr; }
+    public int getCooldownReceiverSec() { return cooldownReceiverSec; }
+    public int getCooldownSenderSec() { return cooldownSenderSec; }
+    public int getConversationExpirySec() { return conversationExpirySec; }
+    public int getMaxResponsesPerSession() { return maxResponsesPerSession; }
+    public boolean isCloseOnNewPlayerMention() { return closeOnNewPlayerMention; }
 
-    public List<String> getFallbackResponses(String lang) {
-        return fallbackResponses.getOrDefault(lang, fallbackResponses.getOrDefault("en", List.of("brb mining")));
-    }
+    public ProviderConfig getGptConfig() { return gptConfig; }
+    public ProviderConfig getGeminiConfig() { return geminiConfig; }
+    public CustomProviderConfig getCustomConfig() { return customConfig; }
 
-    public boolean isPlayerToAiEnabled() {
-        return playerToAiEnabled;
-    }
+    public boolean isAbortApiOnViolation() { return abortApiOnViolation; }
+    public int getMaxInputLength() { return maxInputLength; }
+    public int getRateLimitMaxPerMin() { return rateLimitMaxPerMin; }
 
-    public double getPlayerToAiChance() {
-        return playerToAiChance;
-    }
+    public boolean isRateLimitWarnEnabled() { return rateLimitWarnEnabled; }
+    public String getRateLimitWarnMessage() { return rateLimitWarnMessage; }
+    public boolean isRateLimitWarnActionBar() { return rateLimitWarnActionBar; }
 
-    public double getNameSimilarityThreshold() {
-        return nameSimilarityThreshold;
-    }
+    public boolean isRateLimitPunishmentEnabled() { return rateLimitPunishmentEnabled; }
+    public List<String> getRateLimitPunishmentCommands() { return rateLimitPunishmentCommands; }
 
-    public boolean isAiToAiEnabled() {
-        return aiToAiEnabled;
-    }
+    public boolean isBlockCodeBlocks() { return blockCodeBlocks; }
+    public List<String> getBlockSensitiveWords() { return Collections.unmodifiableList(blockSensitiveWords); }
 
-    public boolean isAiHelpEnabled() {
-        return aiHelpEnabled;
-    }
+    public String getInputBlacklistMessage() { return inputBlacklistMessage; }
+    public boolean isInputBlacklistRegex() { return inputBlacklistRegex; }
+    public List<String> getInputBlacklistWords() { return Collections.unmodifiableList(inputBlacklistWords); }
 
-    public String getAiHelpBotName() {
-        return aiHelpBotName;
-    }
-
-    public double getAiHelpResponseChance() {
-        return aiHelpResponseChance;
-    }
-
-    public String getAiHelpTagPrefix() {
-        return aiHelpTagPrefix;
-    }
-
-    public String getAiHelpMinecraftPrompt() {
-        return aiHelpMinecraftPrompt;
-    }
-
-    public String getAiHelpPluginPrompt() {
-        return aiHelpPluginPrompt;
-    }
-
-    public String getSystemRule() {
-        return systemRule;
-    }
-
-    public boolean isAnswerInSameWorld() {
-        return answerInSameWorld;
-    }
-
-    public int getMaxHearingDistance() {
-        return maxHearingDistance;
-    }
-
-    public String getTypingDelayStr() {
-        return typingDelayStr;
-    }
-
-    public int getCooldownReceiverSec() {
-        return cooldownReceiverSec;
-    }
-
-    public int getCooldownSenderSec() {
-        return cooldownSenderSec;
-    }
-
-    public int getConversationExpirySec() {
-        return conversationExpirySec;
-    }
-
-    public int getMaxResponsesPerSession() {
-        return maxResponsesPerSession;
-    }
-
-    public boolean isCloseOnNewPlayerMention() {
-        return closeOnNewPlayerMention;
-    }
-
-    public ProviderConfig getGptConfig() {
-        return gptConfig;
-    }
-
-    public ProviderConfig getGeminiConfig() {
-        return geminiConfig;
-    }
-
-    public CustomProviderConfig getCustomConfig() {
-        return customConfig;
-    }
-
-    public boolean isAbortApiOnViolation() {
-        return abortApiOnViolation;
-    }
-
-    public int getMaxInputLength() {
-        return maxInputLength;
-    }
-
-    public int getRateLimitMaxPerMin() {
-        return rateLimitMaxPerMin;
-    }
-
-    public String getPunishmentCommand() {
-        return punishmentCommand;
-    }
-
-    public boolean isBlockCodeBlocks() {
-        return blockCodeBlocks;
-    }
-
-    public List<String> getBlockSensitiveWords() {
-        return blockSensitiveWords;
-    }
-
-    public List<String> getInputBlacklistKeywords() {
-        return inputBlacklistKeywords;
-    }
-
-    public record ProviderConfig(String modelName, int maxTokens, double temperature, double presencePenalty,
-                                 double frequencyPenalty) {
-    }
-
-    public record CustomProviderConfig(String apiUrl, String modelName, int maxTokens, double temperature) {
-    }
+    public record ProviderConfig(String modelName, int maxTokens, double temperature, double presencePenalty, double frequencyPenalty) {}
+    public record CustomProviderConfig(String apiUrl, String modelName, int maxTokens, double temperature) {}
 }

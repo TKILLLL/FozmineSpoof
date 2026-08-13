@@ -14,12 +14,6 @@
 #########################################################################################
 
 # ==================================================================================== #
-#                          0. LICENSE KEY VERIFICATION                                 #
-# ==================================================================================== #
-# Enter your official license key provided upon purchase.
-license-key: "YOUR_LICENSE_KEY_HERE"
-
-# ==================================================================================== #
 #                          1. DATABASE & PROXY BRIDGING                                #
 # ==================================================================================== #
 Database:
@@ -165,6 +159,11 @@ fluctuations:
 chat-system:
   # Master Toggle for the Intelligent Bot Chat Simulation System
   enable: true
+
+  # Chế độ chat:
+  #   "ai"     - Sử dụng AI Chat (cấu hình trong ai-chat-bot.yml)
+  #   "normal" - Sử dụng hệ thống chat thông thường (interactive, join, random-messages)
+  mode: "normal"
 
   # Minimum number of REAL human players required online for bots to chat.
   min-real-players: 1
