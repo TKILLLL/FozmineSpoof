@@ -58,9 +58,27 @@ public class AiPersonalityManager {
         }
     }
 
+    /**
+     * Tự động gán Tính cách & Phong cách nói riêng biệt khi Bot Join.
+     */
+    public BotProfile assignProfile(String botName) {
+        if (botName == null) return generateRandomProfile();
+        BotProfile profile = generateRandomProfile();
+        botProfiles.put(botName.toLowerCase(), profile);
+        DebugLogger.log(plugin.getLogger(), "AiPersonalityManager: assigned unique profile to %s: [%s] | [%s]",
+                botName, profile.personality(), profile.speakingStyle());
+        return profile;
+    }
+
     public BotProfile getProfile(String botName) {
         if (botName == null) return generateRandomProfile();
         return botProfiles.computeIfAbsent(botName.toLowerCase(), k -> generateRandomProfile());
+    }
+
+    public void removeProfile(String botName) {
+        if (botName != null) {
+            botProfiles.remove(botName.toLowerCase());
+        }
     }
 
     private BotProfile generateRandomProfile() {

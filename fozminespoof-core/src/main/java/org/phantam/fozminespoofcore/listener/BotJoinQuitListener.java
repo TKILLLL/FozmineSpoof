@@ -9,14 +9,6 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.phantam.fozminespoofcore.FozmineSpoofCore;
 import org.phantam.fozminespoofcore.config.ChatConfig;
 
-/**
- * Listener for bot join and quit events, handling message suppression and custom broadcasts.
- * <p>
- * This listener controls whether default join/quit messages are suppressed based on the
- * {@code join-leave-message-enable} and {@code join-leave-format} configuration.
- * Additionally, it triggers join chat messages only when chat system is enabled and mode is "normal".
- * </p>
- */
 public class BotJoinQuitListener implements Listener {
 
     private final FozmineSpoofCore plugin;
@@ -36,6 +28,13 @@ public class BotJoinQuitListener implements Listener {
 
             if (!enable || "custom".equalsIgnoreCase(format)) {
                 event.setJoinMessage(null);
+            }
+
+            // Gán Tính cách riêng khi Bot Join ở chế độ AI
+            if ("ai".equalsIgnoreCase(plugin.getConfigManager().getChatConfig().getMode())) {
+                if (plugin.getAiPersonalityManager() != null) {
+                    plugin.getAiPersonalityManager().assignProfile(name);
+                }
             }
 
             if (plugin.getJoinChatProcessor() != null && isChatNormalMode()) {
@@ -66,25 +65,18 @@ public class BotJoinQuitListener implements Listener {
                 event.setQuitMessage(null);
             }
 
+            if (plugin.getAiPersonalityManager() != null) {
+                plugin.getAiPersonalityManager().removeProfile(player.getName());
+            }
+
             plugin.getFakePlayerManager().handleExternalQuit(player.getName());
         }
     }
 
-    /**
-     * Determines if a player is a bot by checking metadata or registry.
-     *
-     * @param player the player to check
-     * @return {@code true} if the player is a fake player, {@code false} otherwise
-     */
     private boolean isBot(Player player) {
         return player.hasMetadata("NPC") || plugin.getFakePlayerManager().isBotOnline(player.getName());
     }
 
-    /**
-     * Checks if the chat system is enabled and in "normal" mode.
-     *
-     * @return {@code true} if normal mode, {@code false} otherwise
-     */
     private boolean isChatNormalMode() {
         ChatConfig chatConfig = plugin.getConfigManager().getChatConfig();
         return chatConfig != null && chatConfig.isEnabled() && !"ai".equalsIgnoreCase(chatConfig.getMode());

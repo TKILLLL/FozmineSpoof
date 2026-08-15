@@ -9,14 +9,12 @@ import org.phantam.fozminespoofcore.chat.BotChatProcessor;
 import org.phantam.fozminespoofcore.chat.BotSelector;
 import org.phantam.fozminespoofcore.chat.ChatScheduler;
 import org.phantam.fozminespoofcore.chat.MessageLoader;
+import org.phantam.fozminespoofcore.config.AiConfig;
 import org.phantam.fozminespoofcore.config.ChatConfig;
 
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
-/**
- * Executes the bot chat cycle instantly when called.
- * Re-engineered to run exactly on target ticks rather than continuously ticking.
- */
 public class ChatTickerTask extends BukkitRunnable {
 
     private final FozmineSpoofCore plugin;
@@ -42,13 +40,58 @@ public class ChatTickerTask extends BukkitRunnable {
             if (!chatConfig.isEnabled()) {
                 return;
             }
-            executeChatCycle();
+
+            if ("ai".equalsIgnoreCase(chatConfig.getMode())) {
+                executeAiToAiCycle();
+            } else {
+                executeNormalChatCycle();
+            }
         } finally {
             scheduler.scheduleNextCycle();
         }
     }
 
-    private void executeChatCycle() {
+    private void executeAiToAiCycle() {
+        int totalOnline = Bukkit.getOnlinePlayers().size();
+        int botOnline = plugin.getFakePlayerManager().getOnlineBotsData().size();
+        int realPlayers = Math.max(0, totalOnline - botOnline);
+
+        // KIỂM TRA ĐIỀU KIỆN MIN REAL PLAYERS: Chống lãng phí API Token
+        if (realPlayers < chatConfig.getMinRealPlayers()) {
+            DebugLogger.log(plugin.getLogger(),
+                    "AiToAiCycle: Skipped. Real players (%d) < Required min-real-players (%d) - API Tokens Saved!",
+                    realPlayers, chatConfig.getMinRealPlayers());
+            return;
+        }
+
+        AiConfig aiConfig = plugin.getAiConfig();
+        if (aiConfig == null || !aiConfig.isAiToAiEnabled()) {
+            DebugLogger.log(plugin.getLogger(), "AiToAiCycle: Skipped. AI-to-AI mode disabled in ai-chat-bot.yml");
+            return;
+        }
+
+        // Tỉ lệ xắc xuất khởi xướng trò chuyện
+        if (ThreadLocalRandom.current().nextDouble() > aiConfig.getAiToAiInitiateChance()) {
+            DebugLogger.log(plugin.getLogger(), "AiToAiCycle: Initiate chance roll failed.");
+            return;
+        }
+
+        List<Player> speakingBots = botSelector.selectRandomBots(2);
+        if (speakingBots.size() < 2) {
+            DebugLogger.log(plugin.getLogger(), "AiToAiCycle: Need at least 2 online bots for conversation.");
+            return;
+        }
+
+        Player botA = speakingBots.get(0);
+        Player botB = speakingBots.get(1);
+
+        DebugLogger.log(plugin.getLogger(), "AiToAiCycle: Initiating conversation between %s and %s",
+                botA.getName(), botB.getName());
+
+        plugin.getAiChatProcessor().processAiToAiInitiationAsync(botA, botB);
+    }
+
+    private void executeNormalChatCycle() {
         int totalOnline = Bukkit.getOnlinePlayers().size();
         int botOnline = plugin.getFakePlayerManager().getOnlineBotsData().size();
         int realPlayers = Math.max(0, totalOnline - botOnline);

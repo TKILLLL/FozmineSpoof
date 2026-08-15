@@ -1,50 +1,83 @@
 # ==================================================================================== #
-#              FOZMINESPOOF - DYNAMIC KEYWORD CHAT RESPONDER ENGINE                    #
+#           FOZMINESPOOF - DYNAMIC KEYWORD CHAT RESPONDER ENGINE                       #
+#                       (ENTERPRISE EDITION V2.0)                                      #
 # ==================================================================================== #
-# Configure hyper-realistic, keyword-driven automated response rules for Fake Players.
-# Tối ưu: Chỉ 2 nhóm dùng wildcard, còn lại dùng regex để bắt chính xác.
+# High-performance, low-latency automated chat simulation module for fake players.
+# Features hybrid processing: Fast substring/fuzzy matching + Deterministic Regex engines.
+#
+# PLACEHOLDERS REFERENCE:
+# - [name] : Resolves to the in-game display name of the triggering player.
+# - [bot]  : Resolves to the name of the responding simulated fake player.
+# ==================================================================================== #
 
+# Master switch to enable or disable the entire keyword response engine globally.
 enable: true
 
 chat-interactions:
 
   # ---------------------------------------------------------------------------------- #
-  # Player Greetings & Welcome Automation (giữ wildcard, dễ mở rộng)
+  # 1. PLAYER GREETINGS & WELCOME AUTOMATION                                           #
   # ---------------------------------------------------------------------------------- #
+  # Triggers when players say hello or join the chat conversation.
+  # Uses fast wildcard/fuzzy matching for quick, lightweight evaluation.
   player-greeting:
+    # Trigger keywords (Matches plain text or wildcards when use-regex: false)
     triggers:
       - "hey"
       - "wassup"
       - "hi"
       - "hello"
-      - "xin chao"
-      - "chao ae"
+      - "yo"
+      - "sup all"
+
+    # Probability to trigger response (0.0 = 0% | 1.0 = 100%)
     chance: 0.7
+
+    # Cooldown matrix to prevent chat floods (Time in seconds)
     cooldowns:
-      global: 15
-      per-player: 30
+      global: 15       # Minimum delay before ANY fake player can trigger this again
+      per-player: 30   # Minimum delay before the SAME player can trigger this again
+
+    # Maximum responses allowed in a single conversation burst
     max-burst: 2
+
+    # Human reaction delay (seconds) before fake player begins typing (Format: "min-max")
     delay-range: "1.5-2.3"
+
+    # Active operational window (24h format: "HH:mm-HH:mm")
     active-hours: "08:00-23:30"
+
+    # Typing speed emulation (seconds per character/word block)
     typing-speed-range: "0.8-1.8"
+
+    # Natural pause interval between individual words to simulate typing rhythm
     pause-between-words: "2-4"
+
+    # Engine selector: false = Substring/Fuzzy matching | true = Regular Expressions
     use-regex: false
+
+    # Fuzzy string matching threshold (0.0 to 1.0). 0.85 allows minor player typos
     fuzzy-threshold: 0.85
+
+    # Randomized pool of candidate replies
     replies:
       - "welcome [name]"
       - "Hey [name]"
-      - "Hi [name] khỏe không e"
-      - "chao [name] nha"
+      - "Sup [name], how's it going?"
+      - "yo [name]!"
 
   # ---------------------------------------------------------------------------------- #
-  # Economy & Shop Helper – dùng regex để bắt chính xác câu hỏi về bán đồ
+  # 2. ECONOMY & SHOP HELPER                                                           #
   # ---------------------------------------------------------------------------------- #
+  # Detects player questions regarding item selling and economy access using Regex.
   shop-helper:
+    # Set to true for precise pattern boundaries (\b, \s+, non-capturing groups)
     use-regex: true
     triggers:
       - "\\b(?:how|where)\\s+sell\\b"
       - "sell\\s+items"
-      - "lam\\s+sao\\s+de\\s+(?:ban|sell|vut|vứt)\\s+do"
+      - "\\bhow\\s+to\\s+(?:sell|trade|make\\s+money)\\b"
+
     chance: 0.9
     cooldowns:
       global: 10
@@ -56,18 +89,21 @@ chat-interactions:
     pause-between-words: "2-5"
     fuzzy-threshold: 0.85
     replies:
-      - "Gõ lệnh /shop để bán đồ nhanh nha [name]!"
-      - "Dùng /shop nha bạn ơi"
+      - "Type /shop to sell your items quickly [name]!"
+      - "Use /shop bro"
 
   # ---------------------------------------------------------------------------------- #
-  # Store & Web Link Information
+  # 3. WEBSTORE & DONATION LINK DISPATCHER                                             #
   # ---------------------------------------------------------------------------------- #
+  # Instantly guides inquiring players to web store links and donation portals.
   server-ip-info:
     use-regex: true
     triggers:
-      - "\\bnap\\s+the\\b"
-      - "\\bcua\\s+hang\\b"
+      - "\\bbuy\\s+rank\\b"
+      - "\\bweb\\s*store\\b"
       - "\\blink\\s+store\\b"
+      - "\\bhow\\s+to\\s+donate\\b"
+
     chance: 1.0
     cooldowns:
       global: 5
@@ -79,18 +115,20 @@ chat-interactions:
     pause-between-words: "2-3"
     fuzzy-threshold: 0.85
     replies:
-      - "Ủng hộ server tại web: store.server.net nè [name]"
+      - "Support the server at our webstore: store.server.net [name]"
 
   # ---------------------------------------------------------------------------------- #
-  # Discord & Community Channel Linker
+  # 4. DISCORD & COMMUNITY CHANNEL LINKER                                              #
   # ---------------------------------------------------------------------------------- #
+  # Directs players asking for community groups, voice channels, or Discord invites.
   discord-info:
     use-regex: true
     triggers:
       - "\\bdiscord\\b"
-      - "group\\s+zolo"
-      - "kenh\\s+chat"
-      - "\\bgroup\\b"
+      - "discord\\s+link"
+      - "community\\s+chat"
+      - "\\bdc\\s+link\\b"
+
     chance: 1.0
     cooldowns:
       global: 10
@@ -102,18 +140,21 @@ chat-interactions:
     pause-between-words: "2-3"
     fuzzy-threshold: 0.85
     replies:
-      - "Tham gia Discord của server tại: discord.gg/server cua ban nha [name]"
-      - "Link discord nè [name]: discord.gg/server"
+      - "Join our official Discord community: discord.gg/yourserver [name]"
+      - "Here's the discord link [name]: discord.gg/yourserver"
 
   # ---------------------------------------------------------------------------------- #
-  # Server Rules & Moderation Helper – regex chính xác
+  # 5. SERVER RULES & MODERATION HELPER                                                #
   # ---------------------------------------------------------------------------------- #
+  # Answers questions about rules, cheats, PvP policies, and server regulations.
   rule-helper:
     use-regex: true
     triggers:
-      - "\\bluat\\s+server\\b"
-      - "\\bco\\s+duoc\\s+hack\\b"
-      - "\\bcam\\s+pvp\\b"
+      - "\\bserver\\s+rules\\b"
+      - "\\bcan\\s+i\\s+hack\\b"
+      - "\\bis\\s+pvp\\s+allowed\\b"
+      - "\\bhacking\\s+allowed\\b"
+
     chance: 0.8
     cooldowns:
       global: 15
@@ -125,20 +166,22 @@ chat-interactions:
     pause-between-words: "2-4"
     fuzzy-threshold: 0.85
     replies:
-      - "Xem luật server tại /rules nha bạn [name], cấm hack/cheat nha!"
+      - "Check our server rules via /rules [name], no cheating or hacking allowed!"
 
   # ---------------------------------------------------------------------------------- #
-  # Casual check-in (mentions bot or general) – regex bắt câu hỏi thăm
+  # 6. CASUAL PLAYER CHECK-IN & SMALL TALK                                             #
   # ---------------------------------------------------------------------------------- #
+  # Realistic human small-talk engine responding to conversational inquiries.
   casual-check-in:
     use-regex: true
     triggers:
-      - "\\bkhoe\\s+khong\\b"
-      - "\\bdao\\s+nay\\s+sao\\b"
-      - "\\ban\\s+com\\s+chua\\b"
-      - "\\bkhoe\\s+khong\\s+.*"       # bắt cả khi có tên bot sau
-      - "\\bdao\\s+nay\\s+sao\\s+.*"
-      - "\\ban\\s+com\\s+chua\\s+.*"
+      - "\\bhow\\s+are\\s+you\\b"
+      - "\\bhows\\s+it\\s+going\\b"
+      - "\\bwhats\\s+up\\b"
+      - "\\bhow\\s+are\\s+you\\s+.*"       # Catches expressions followed by bot names
+      - "\\bhows\\s+it\\s+going\\s+.*"
+      - "\\bwhats\\s+up\\s+.*"
+
     chance: 0.9
     cooldowns:
       global: 10
@@ -150,22 +193,26 @@ chat-interactions:
     pause-between-words: "2-4"
     fuzzy-threshold: 0.85
     replies:
-      - "Tui khỏe nha [name], cám ơn đã hỏi thăm kkk"
-      - "Cũng bình thường à [name] ơi"
-      - "Đang cày sấp mặt đây [name] =))"
-      - "Vẫn thở đều nha [name] :v"
+      - "I'm doing good [name], thanks for asking lol"
+      - "Just chilling here [name]"
+      - "Grinding for resources rn [name] =))"
+      - "Still alive and kicking [name] :v"
 
   # ---------------------------------------------------------------------------------- #
-  # Tag a bot directly – giữ wildcard để bắt chính xác khi có [bot] placeholder
+  # 7. DIRECT BOT MENTION / TAGGING SYSTEM                                             #
   # ---------------------------------------------------------------------------------- #
+  # Triggers when a player explicitly types out a fake player's name in chat.
   tag:
+    # Wildcard pattern dynamically matching whenever a bot's specific name is tagged
     triggers:
       - "*[bot]*"
+
     chance: 1.0
     cooldowns:
       global: 5
       per-player: 10
     max-burst: 1
+    # Ultra-fast reaction delay for high realism when directly called
     delay-range: "1.0-2.0"
     active-hours: "00:00-23:59"
     typing-speed-range: "0.5-1.0"
@@ -173,7 +220,7 @@ chat-interactions:
     use-regex: false
     fuzzy-threshold: 0.85
     replies:
-      - "tag cl"
+      - "why ping me lol"
       - "yes?"
-      - "sao đó [name]?"
-      - "có gì không [name]?"
+      - "what's up [name]?"
+      - "need something [name]?"

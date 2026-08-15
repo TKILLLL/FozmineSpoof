@@ -4,20 +4,22 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.server.TabCompleteEvent;
+import org.phantam.fozminespoofapi.model.FakePlayerData;
 import org.phantam.fozminespoofapi.utils.DebugLogger;
 import org.phantam.fozminespoofcore.FozmineSpoofCore;
+import org.phantam.fozminespoofcore.config.AiConfig;
 import org.phantam.fozminespoofcore.config.ChatConfig;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Listener for tab completion in chat.
  * <p>
- * - Suggests bot names when typing '@' followed by a partial name.
- * - When '@botname ' (with space) is typed, suggests common question starters.
+ * - Suggests bot names when typing '@' or '@partialName'.
+ * - Prioritizes the AI Help Bot (e.g., FozmineBot).
+ * - Suggests common question starters after tagging a bot and pressing space.
  * </p>
  */
 public class ChatTabCompleteListener implements Listener {
@@ -35,20 +37,25 @@ public class ChatTabCompleteListener implements Listener {
 
     @EventHandler
     public void onTabComplete(TabCompleteEvent event) {
+        if (!(event.getSender() instanceof Player)) return;
+
+        AiConfig aiConfig = plugin.getAiConfig();
         ChatConfig chatConfig = plugin.getConfigManager().getChatConfig();
-        if (chatConfig == null || !chatConfig.isEnabled()) {
+
+        boolean aiEnabled = aiConfig != null && aiConfig.isEnabled();
+        boolean chatEnabled = chatConfig != null && chatConfig.isEnabled();
+
+        // Chỉ chạy khi hệ thống Chat hoặc hệ thống AI đang hoạt động
+        if (!aiEnabled && !chatEnabled) {
             return;
         }
 
-        if (!(event.getSender() instanceof Player)) return;
-
-        Player player = (Player) event.getSender();
         String buffer = event.getBuffer();
 
-        // Ignore commands
+        // Bỏ qua nếu người chơi đang gõ lệnh (/spoof, /msg,...)
         if (buffer.startsWith("/")) return;
 
-        // Find last '@' in buffer
+        // Tìm ký tự '@' cuối cùng trong đoạn chat
         int atIndex = buffer.lastIndexOf('@');
         if (atIndex == -1) return;
 
@@ -56,48 +63,56 @@ public class ChatTabCompleteListener implements Listener {
         int spaceAfterAt = afterAt.indexOf(' ');
         String mentionPart = (spaceAfterAt == -1) ? afterAt : afterAt.substring(0, spaceAfterAt);
 
-        // Case 1: Still typing the mention (no space after @botname)
+        // Trường hợp 1: Đang gõ tên Bot (Chưa có khoảng trắng sau @botname, VD: "@", "@F", "hello @F")
         if (spaceAfterAt == -1) {
-            String partial = mentionPart.substring(1); // remove '@'
-            List<String> botNames = plugin.getFakePlayerManager().getOnlineBotsData().stream()
-                    .map(data -> data.getName())
-                    .filter(name -> name.toLowerCase().startsWith(partial.toLowerCase()))
-                    .sorted()
-                    .collect(Collectors.toList());
-
-            if (botNames.isEmpty()) return;
-
+            String partial = mentionPart.substring(1).toLowerCase(); // Ký tự phía sau dấu '@'
             List<String> completions = new ArrayList<>();
-            String prefix = buffer.substring(0, atIndex + 1);
-            for (String name : botNames) {
-                completions.add(prefix + name + " ");
+
+            // 1. Ưu tiên đưa AI Help Bot (VD: FozmineBot) lên đầu danh sách gợi ý
+            if (aiConfig != null && aiConfig.isAiHelpEnabled()) {
+                String helpBot = aiConfig.getAiHelpBotName();
+                if (helpBot != null && !helpBot.isBlank() && helpBot.toLowerCase().startsWith(partial)) {
+                    completions.add("@" + helpBot);
+                }
             }
 
-            event.setCompletions(completions);
-            DebugLogger.logFine(plugin.getLogger(), "ChatTabComplete: suggested bot names for '%s': %s", partial, completions);
+            // 2. Thêm các Bot AI / FakePlayer khác đang Online
+            if (plugin.getFakePlayerManager() != null) {
+                for (FakePlayerData botData : plugin.getFakePlayerManager().getOnlineBotsData()) {
+                    String name = botData.getName();
+                    if (name == null || name.isBlank()) continue;
+
+                    String tag = "@" + name;
+                    if (name.toLowerCase().startsWith(partial) && !completions.contains(tag)) {
+                        completions.add(tag);
+                    }
+                }
+            }
+
+            if (!completions.isEmpty()) {
+                event.setCompletions(completions);
+                DebugLogger.logFine(plugin.getLogger(), "ChatTabComplete: suggested bot mentions for '%s': %s",
+                        mentionPart, completions);
+            }
             return;
         }
 
-        // Case 2: Have space after mention → suggest question starters
-        // Only if buffer ends with a space and we are after the mention+space
-        if (buffer.endsWith(" ")) {
+        // Trường hợp 2: Đã gõ xong tên Bot + khoảng trắng -> Gợi ý các từ bắt đầu câu hỏi
+        if (buffer.endsWith(" ") || afterAt.length() > mentionPart.length()) {
             String afterSpace = buffer.substring(atIndex + mentionPart.length() + 1);
             String partialQuestion = afterSpace.toLowerCase();
 
-            List<String> suggestions = QUESTION_STARTERS.stream()
-                    .filter(s -> s.startsWith(partialQuestion))
-                    .collect(Collectors.toList());
+            List<String> suggestions = new ArrayList<>();
+            for (String starter : QUESTION_STARTERS) {
+                if (starter.startsWith(partialQuestion)) {
+                    suggestions.add(starter);
+                }
+            }
 
             if (!suggestions.isEmpty()) {
-                int tokenStart = buffer.lastIndexOf(' ') + 1;
-                String prefix = buffer.substring(0, tokenStart);
-                List<String> completions = new ArrayList<>();
-                for (String s : suggestions) {
-                    completions.add(prefix + s);
-                }
-                event.setCompletions(completions);
+                event.setCompletions(suggestions);
                 DebugLogger.logFine(plugin.getLogger(), "ChatTabComplete: suggested question starters for '%s': %s",
-                        partialQuestion, completions);
+                        partialQuestion, suggestions);
             }
         }
     }

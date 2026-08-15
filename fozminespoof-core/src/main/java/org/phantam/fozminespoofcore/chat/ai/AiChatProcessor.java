@@ -7,12 +7,12 @@ import org.phantam.fozminespoofapi.utils.DebugLogger;
 import org.phantam.fozminespoofcore.FozmineSpoofCore;
 import org.phantam.fozminespoofcore.config.AiConfig;
 import org.phantam.fozminespoofcore.utils.ColorUtils;
-import org.phantam.fozminespoofcore.utils.Range;
 import org.phantam.fozminespoofcore.utils.StringUtils;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
 
 public class AiChatProcessor {
@@ -25,6 +25,9 @@ public class AiChatProcessor {
     private final Map<UUID, Queue<Long>> rateLimits = new ConcurrentHashMap<>();
     private final Map<UUID, Long> lastRequestTime = new ConcurrentHashMap<>();
 
+    // RAM Conversation Memory: Player/Bot UUID -> List<ChatMessage>
+    private final Map<UUID, List<AiProviderService.ChatMessage>> conversationMemory = new ConcurrentHashMap<>();
+
     public AiChatProcessor(FozmineSpoofCore plugin, AiConfig aiConfig, AiPersonalityManager personalityManager) {
         this.plugin = plugin;
         this.aiConfig = aiConfig;
@@ -32,16 +35,10 @@ public class AiChatProcessor {
         this.providerService = new AiProviderService(plugin.getLogger());
     }
 
-    /**
-     * Backward-compatible overload method.
-     */
     public void processPlayerToAiChatAsync(Player sender, Player bot, String rawMessage, boolean isHelpMode) {
         processPlayerToAiChatAsync(sender, bot, rawMessage, isHelpMode, false);
     }
 
-    /**
-     * Processes player chat, queries AI engine, and delivers private or public response.
-     */
     public void processPlayerToAiChatAsync(Player sender, Player bot, String rawMessage, boolean isHelpMode, boolean isPrivateMsg) {
         DebugLogger.log(plugin.getLogger(), "AiChatProcessor: processing for %s (bot=%s, help=%b, PM=%b)",
                 sender.getName(), bot.getName(), isHelpMode, isPrivateMsg);
@@ -69,9 +66,10 @@ public class AiChatProcessor {
 
         String systemPrompt;
         if (isHelpMode) {
-            systemPrompt = aiConfig.getAiHelpMinecraftPrompt()
+            systemPrompt = aiConfig.getAiHelpServerPrompt()
                     .replace("{listener}", bot.getName())
-                    .replace("{sender}", sender.getName());
+                    .replace("{sender}", sender.getName())
+                    .replace("{server.knowledge-base}", aiConfig.getFormattedServerKnowledgeBase());
         } else {
             systemPrompt = aiConfig.getSystemRule()
                     .replace("{listener}", bot.getName())
@@ -83,7 +81,10 @@ public class AiChatProcessor {
                     .replace("{default_language}", detectedLang);
         }
 
-        providerService.fetchAiResponseAsync(aiConfig, systemPrompt, rawMessage)
+        UUID senderUuid = sender.getUniqueId();
+        List<AiProviderService.ChatMessage> history = getValidHistory(senderUuid);
+
+        providerService.fetchAiResponseAsync(aiConfig, systemPrompt, history, rawMessage)
                 .thenAccept(response -> {
                     if (response == null || response.isBlank()) {
                         sendTimeoutMessage(sender, bot, isPrivateMsg);
@@ -96,25 +97,44 @@ public class AiChatProcessor {
                         return;
                     }
 
-                    long delayTicks = Range.parse(aiConfig.getTypingDelayStr(), 1.0, 3.0).getRandomTicks();
+                    saveToMemory(senderUuid, rawMessage, sanitized);
+
+                    long delayTicks = aiConfig.getTypingDelayTicks();
                     Bukkit.getScheduler().runTaskLater(plugin, () -> {
                         if (!sender.isOnline() || !bot.isOnline() || !plugin.getFakePlayerManager().isBotOnline(bot.getName())) {
                             return;
                         }
 
                         if (isPrivateMsg) {
-                            // Phản hồi riêng tư qua /msg -> [Bot -> me] message
-                            String formattedPm = aiConfig.getPmIncomingFormat()
-                                    .replace("{bot}", bot.getName())
-                                    .replace("{message}", sanitized);
-                            sender.sendMessage(ChatColor.translateAlternateColorCodes('&', formattedPm));
+                            if ("custom".equalsIgnoreCase(aiConfig.getChatFormatMethod())) {
+                                String formattedPm = aiConfig.getPmIncomingFormat()
+                                        .replace("{bot}", bot.getName())
+                                        .replace("{message}", sanitized);
+                                sender.sendMessage(ColorUtils.colorize(formattedPm));
+                            } else {
+                                bot.chat("/msg " + sender.getName() + " " + sanitized);
+                            }
                             DebugLogger.log(plugin.getLogger(), "AiChatProcessor: sent PM reply to %s from %s", sender.getName(), bot.getName());
                         } else {
-                            // Chat công khai như người chơi bình thường
-                            if (plugin.getConfigManager().isMessageFormatEnable()) {
+                            if (isHelpMode && aiConfig.getAiHelpResponseFormat() != null && !aiConfig.getAiHelpResponseFormat().isBlank()) {
+                                String formattedHelp = aiConfig.getAiHelpResponseFormat()
+                                        .replace("{bot}", bot.getName())
+                                        .replace("{name}", bot.getName())
+                                        .replace("{message}", sanitized);
+                                plugin.getBridge().broadcastNMSChat(bot, ColorUtils.colorize(formattedHelp));
+                            } else if ("custom".equalsIgnoreCase(aiConfig.getChatFormatMethod())) {
+                                String customFormat = aiConfig.getChatFormat()
+                                        .replace("%fakeplayer_name%", bot.getName())
+                                        .replace("%fakeplayer_message%", sanitized)
+                                        .replace("{bot}", bot.getName())
+                                        .replace("{name}", bot.getName())
+                                        .replace("{message}", sanitized);
+                                plugin.getBridge().broadcastNMSChat(bot, ColorUtils.colorize(customFormat));
+                            } else if (plugin.getConfigManager().isMessageFormatEnable()) {
                                 String customFormat = plugin.getConfigManager().getChatFormat()
                                         .replace("%fakeplayer_name%", bot.getName())
                                         .replace("%fakeplayer_message%", sanitized)
+                                        .replace("{bot}", bot.getName())
                                         .replace("{name}", bot.getName())
                                         .replace("{message}", sanitized);
                                 plugin.getBridge().broadcastNMSChat(bot, ColorUtils.colorize(customFormat));
@@ -130,6 +150,149 @@ public class AiChatProcessor {
                     sendTimeoutMessage(sender, bot, isPrivateMsg);
                     return null;
                 });
+    }
+
+    // --- AI-TO-AI CONVERSATION SYSTEM ---
+
+    public void processAiToAiInitiationAsync(Player botA, Player botB) {
+        if (botA == null || botB == null || !botA.isOnline() || !botB.isOnline()) return;
+
+        var profileA = personalityManager.getProfile(botA.getName());
+        String lang = aiConfig.getDefaultLanguage();
+
+        String prompt = aiConfig.getAiToAiInitiationPrompt();
+        if (prompt == null || prompt.isBlank()) {
+            prompt = "[CONTEXT & ROLE] You are a real human Minecraft player named {listener} interacting on a live server with {selectedTarget}.\n" +
+                    "[PERSONALITY VIBE] {personality}\n" +
+                    "[SPEAKING STYLE] {speaking_style}\n" +
+                    "[SITUATION] {description}\n" +
+                    "[TASK] Initiate a short, natural in-game conversation starter with them in language: {default_language}.\n" +
+                    "[TOPIC POOL] Mining trip, building a base, finding diamonds, fighting mobs, farming, or crafting.\n" +
+                    "[CONSTRAINTS] Maximum 6 words. Lowercase only. No punctuation. Fast gamer style.";
+        }
+
+        String systemPrompt = prompt
+                .replace("{listener}", botA.getName())
+                .replace("{selectedTarget}", botB.getName())
+                .replace("{personality}", profileA.personality())
+                .replace("{speaking_style}", profileA.speakingStyle())
+                .replace("{description}", profileA.currentSituation())
+                .replace("{default_language}", lang)
+                .replace("{language_hint}", aiConfig.getLanguageHint(lang));
+
+        providerService.fetchAiResponseAsync(aiConfig, systemPrompt, Collections.emptyList(), "hey " + botB.getName())
+                .thenAccept(response -> {
+                    if (response == null || response.isBlank()) return;
+
+                    String sanitized = sanitizeOutput(response, false);
+                    if (sanitized == null || sanitized.isBlank()) return;
+
+                    long delayTicks = aiConfig.getTypingDelayTicks();
+                    Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                        if (!botA.isOnline() || !botB.isOnline()) return;
+
+                        if ("custom".equalsIgnoreCase(aiConfig.getChatFormatMethod())) {
+                            String customFormat = aiConfig.getChatFormat()
+                                    .replace("%fakeplayer_name%", botA.getName())
+                                    .replace("%fakeplayer_message%", sanitized)
+                                    .replace("{bot}", botA.getName())
+                                    .replace("{name}", botA.getName())
+                                    .replace("{message}", sanitized);
+                            plugin.getBridge().broadcastNMSChat(botA, ColorUtils.colorize(customFormat));
+                        } else {
+                            botA.chat(sanitized);
+                        }
+
+                        DebugLogger.log(plugin.getLogger(), "AiToAi: %s initiated to %s: '%s'", botA.getName(), botB.getName(), sanitized);
+
+                        // Bot B phản hồi lại Bot A
+                        if (ThreadLocalRandom.current().nextDouble() <= aiConfig.getAiToAiResponseChance()) {
+                            long responseDelay = delayTicks + ThreadLocalRandom.current().nextLong(30L, 80L);
+                            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                                processAiToAiResponseAsync(botB, botA, sanitized);
+                            }, responseDelay);
+                        }
+                    }, delayTicks);
+                });
+    }
+
+    public void processAiToAiResponseAsync(Player botB, Player botA, String incomingMsg) {
+        if (botA == null || botB == null || !botA.isOnline() || !botB.isOnline()) return;
+
+        var profileB = personalityManager.getProfile(botB.getName());
+        String lang = detectLanguage(incomingMsg);
+
+        String systemPrompt = aiConfig.getSystemRule()
+                .replace("{listener}", botB.getName())
+                .replace("{sender}", botA.getName())
+                .replace("{personality}", profileB.personality())
+                .replace("{speaking_style}", profileB.speakingStyle())
+                .replace("{description}", profileB.currentSituation())
+                .replace("{language_hint}", aiConfig.getLanguageHint(lang))
+                .replace("{default_language}", lang);
+
+        UUID botBUuid = botB.getUniqueId();
+        List<AiProviderService.ChatMessage> history = getValidHistory(botBUuid);
+
+        providerService.fetchAiResponseAsync(aiConfig, systemPrompt, history, incomingMsg)
+                .thenAccept(response -> {
+                    if (response == null || response.isBlank()) return;
+
+                    String sanitized = sanitizeOutput(response, false);
+                    if (sanitized == null || sanitized.isBlank()) return;
+
+                    saveToMemory(botBUuid, incomingMsg, sanitized);
+
+                    long delayTicks = aiConfig.getTypingDelayTicks();
+                    Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                        if (!botA.isOnline() || !botB.isOnline()) return;
+
+                        if ("custom".equalsIgnoreCase(aiConfig.getChatFormatMethod())) {
+                            String customFormat = aiConfig.getChatFormat()
+                                    .replace("%fakeplayer_name%", botB.getName())
+                                    .replace("%fakeplayer_message%", sanitized)
+                                    .replace("{bot}", botB.getName())
+                                    .replace("{name}", botB.getName())
+                                    .replace("{message}", sanitized);
+                            plugin.getBridge().broadcastNMSChat(botB, ColorUtils.colorize(customFormat));
+                        } else {
+                            botB.chat(sanitized);
+                        }
+
+                        DebugLogger.log(plugin.getLogger(), "AiToAi: %s replied to %s: '%s'", botB.getName(), botA.getName(), sanitized);
+                    }, delayTicks);
+                });
+    }
+
+    // --- RAM Memory Helper ---
+
+    private List<AiProviderService.ChatMessage> getValidHistory(UUID playerUuid) {
+        List<AiProviderService.ChatMessage> history = conversationMemory.get(playerUuid);
+        if (history == null || history.isEmpty()) return Collections.emptyList();
+
+        long now = System.currentTimeMillis();
+        long expiryMs = aiConfig.getConversationExpiryMs();
+
+        history.removeIf(msg -> (now - msg.timestamp()) > expiryMs);
+
+        int maxMessages = aiConfig.getMaxResponsesPerSession() * 2;
+        if (history.size() > maxMessages) {
+            return new ArrayList<>(history.subList(history.size() - maxMessages, history.size()));
+        }
+        return new ArrayList<>(history);
+    }
+
+    private void saveToMemory(UUID playerUuid, String userMsg, String aiReply) {
+        long now = System.currentTimeMillis();
+        List<AiProviderService.ChatMessage> history = conversationMemory.computeIfAbsent(playerUuid, k -> Collections.synchronizedList(new ArrayList<>()));
+
+        history.add(new AiProviderService.ChatMessage("user", userMsg, now));
+        history.add(new AiProviderService.ChatMessage("assistant", aiReply, now));
+
+        int maxMessages = aiConfig.getMaxResponsesPerSession() * 2;
+        while (history.size() > maxMessages) {
+            history.remove(0);
+        }
     }
 
     private boolean checkRateLimit(Player sender) {
@@ -232,17 +395,42 @@ public class AiChatProcessor {
     }
 
     private void sendTimeoutMessage(Player sender, Player bot, boolean isPrivateMsg) {
-        String msg = aiConfig.getTimeoutMessage();
-        if (msg == null || msg.isEmpty()) return;
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            String msg = aiConfig.getTimeoutMessage();
+            if (msg == null || msg.isEmpty()) return;
 
-        if (isPrivateMsg) {
-            String formattedPm = aiConfig.getPmIncomingFormat()
-                    .replace("{bot}", bot.getName())
-                    .replace("{message}", msg);
-            sender.sendMessage(ChatColor.translateAlternateColorCodes('&', formattedPm));
-        } else {
-            bot.chat(msg);
-        }
+            boolean isCustom = "custom".equalsIgnoreCase(aiConfig.getChatFormatMethod());
+            boolean isHelp = bot.getName().equalsIgnoreCase(aiConfig.getAiHelpBotName());
+
+            if (isPrivateMsg) {
+                if (isCustom) {
+                    String formattedPm = aiConfig.getPmIncomingFormat()
+                            .replace("{bot}", bot.getName())
+                            .replace("{message}", msg);
+                    sender.sendMessage(ColorUtils.colorize(formattedPm));
+                } else {
+                    bot.chat("/msg " + sender.getName() + " " + msg);
+                }
+            } else {
+                if (isHelp && aiConfig.getAiHelpResponseFormat() != null && !aiConfig.getAiHelpResponseFormat().isBlank()) {
+                    String formattedHelp = aiConfig.getAiHelpResponseFormat()
+                            .replace("{bot}", bot.getName())
+                            .replace("{name}", bot.getName())
+                            .replace("{message}", msg);
+                    plugin.getBridge().broadcastNMSChat(bot, ColorUtils.colorize(formattedHelp));
+                } else if (isCustom) {
+                    String customFormat = aiConfig.getChatFormat()
+                            .replace("%fakeplayer_name%", bot.getName())
+                            .replace("%fakeplayer_message%", msg)
+                            .replace("{bot}", bot.getName())
+                            .replace("{name}", bot.getName())
+                            .replace("{message}", msg);
+                    plugin.getBridge().broadcastNMSChat(bot, ColorUtils.colorize(customFormat));
+                } else {
+                    bot.chat(msg);
+                }
+            }
+        });
     }
 
     private String detectLanguage(String text) {

@@ -1,33 +1,62 @@
-########################################################################################
-#                                                                                      #
-#                       FOZMINESPOOF SYSTEM MESSAGES CONFIGURATION                    #
-#        Supports legacy color codes (&a, &b) and HEX RGB colors (&#RRGGBB, #RRGGBB)  #
-#                             Developer: phantam                                       #
-#                                                                                      #
-########################################################################################
+#########################################################################################
+#                                                                                       #
+#                       FOZMINESPOOF SYSTEM MESSAGES CONFIGURATION                     #
+#                             (COMMERCIAL ENTERPRISE V2.0)                              #
+#                                                                                       #
+#########################################################################################
+# Fully customizable system localization, admin responses, and interactive menus.
+#
+# COLOR & FORMATTING SUPPORT:
+# - Legacy Color Codes : &0 - &9, &a - &f, &k - &r (e.g., "&aOnline", "&cError")
+# - RGB HEX Colors     : &#RRGGBB or #RRGGBB (e.g., "&#3B82F6", "#00F2FE")
+# - Gradients/Modern   : Supports linear gradient formatting if your server engine supports it.
+# ==================================================================================== #
 
 # ==================================================================================== #
-#                          1. SYSTEM-WIDE CORE MESSAGES                                #
+# 1. SYSTEM-WIDE CORE MESSAGES & SECURITY RESPONSES                                    #
 # ==================================================================================== #
+# Core administrative notifications, permission gates, and execution feedback.
 system:
-  # Master Plugin Chat Prefix
+  # Master Plugin Chat Prefix:
+  # Prepend this to announcements and system alerts. Leave blank ("") to disable.
   prefix: "&#3B82F6&lFozmineSpoof &#00F2FE▸ &r"
 
-  # Error & Restriction Messages
+  # Insufficient Permission Notification:
+  # Triggered when a player attempts to execute commands without 'fozminespoof.admin'
   no-permission: "&#EF4444 You do not have permission to execute this command!"
+
+  # Configuration Hot-Reload Confirmation:
+  # Broadcast to the executor when `/spoof reload` completes successfully
   reload-success: "&#10B981 Configuration reloaded and fake player system synchronized successfully."
+
+  # Console Restriction Guard:
+  # Sent to the server console when executing player-only spatial commands (e.g., adding a bot at cursor location)
   only-player: "&#F59E0B This command can only be executed by in-game players!"
+
+  # Unknown Subcommand Fallback:
+  # Sent when an invalid argument is supplied to the main `/spoof` command
   unknown-command: "&#EF4444 Unknown subcommand. Use &#38BDF8/spoof &#EF4444to view command list."
 
 
 # ==================================================================================== #
-#                          2. COMMAND HELP MENU INTERFACE                              #
+# 2. COMMAND HELP MENU INTERFACE                                                       #
 # ==================================================================================== #
+# Interactive pagination and command directory displayed upon typing `/spoof help`
 commands:
   help:
+    # Header line for the command index interface
     header: "&#3B82F6&m==================&#00F2FE&l [ COMMAND HELP ] &#3B82F6&m=================="
+
+    # Row entry format for each available subcommand
+    # Placeholders:
+    #   %syntax%      - Command usage syntax (e.g., "add <name>")
+    #   %description% - Description text retrieved from the 'list' mapping below
     format: "&#38BDF8/spoof %syntax% &#94A3B8- &#FFFFFF%description%"
+
+    # Footer separator line
     footer: "&#3B82F6&m=============================================================="
+
+    # Subcommand mapping directory (Format: "<syntax> | <description>")
     list:
       add: "add <name> | Register a new fake player entry at your current location"
       spawn: "spawn <name|*|amount> | Spawn and display fake player entity models"
@@ -39,27 +68,62 @@ commands:
 
 
 # ==================================================================================== #
-#                          3. FAKE PLAYER ACTION RESPONSES                             #
+# 3. FAKE PLAYER ACTION RESPONSES & FEEDBACK MATRIX                                    #
 # ==================================================================================== #
+# Status, life-cycle, and administrative responses for fake player operations.
 bot:
-  # General Validation & Errors
+  # ---------------------------------------------------------------------------------- #
+  # General Validation & Parameter Errors                                              #
+  # ---------------------------------------------------------------------------------- #
+  # Sent when the target fake player username is not found in the active database
   not-found: "&#EF4444 Fake player &#F59E0B%fakeplayer_name% &#EF4444was not found in database!"
+
+  # Sent when attempting to register a username that is already taken
   already-exists: "&#EF4444 A fake player named &#F59E0B%fakeplayer_name% &#EF4444already exists!"
+
+  # Sent when a provided name violates standard Minecraft username conventions
   invalid-name: "&#EF4444 Invalid bot name! Name must be 3-16 characters (letters, numbers, underscores only)."
 
-  # Administrative Operations
+  # ---------------------------------------------------------------------------------- #
+  # Database & Registry Operations                                                     #
+  # ---------------------------------------------------------------------------------- #
+  # Confirmation when a new fake player profile is persisted to SQLite/MySQL
+  # Placeholders: %fakeplayer_name%, %world%
   add-success: "&#10B981 Successfully registered fake player &#F59E0B%fakeplayer_name% &#94A3B8(World: &#38BDF8%world%&#94A3B8)."
+
+  # Confirmation when a fake player is purged from the database
+  # Placeholders: %fakeplayer_name%
   remove-success: "&#EF4444 Permanently removed fake player &#F59E0B%fakeplayer_name% &#EF4444from system and database."
 
-  # Spawning Pipeline Responses
+  # ---------------------------------------------------------------------------------- #
+  # World Spawning Pipeline Responses                                                 #
+  # ---------------------------------------------------------------------------------- #
+  # Confirmation when a fake player entity is loaded and displayed in the world
   spawn-success: "&#10B981 Successfully spawned fake player &#F59E0B%fakeplayer_name%&#10B981 into world!"
+
+  # Rejection when attempting to spawn an entity that is already active
   already-spawned: "&#F59E0B Fake player &#F59E0B%fakeplayer_name% &#F59E0Bis already online and active."
 
-  # Despawning Pipeline Responses
+  # ---------------------------------------------------------------------------------- #
+  # Despawning Pipeline Responses                                                      #
+  # ---------------------------------------------------------------------------------- #
+  # Confirmation when a fake player entity is despawned from the active world
   despawn-success: "&#F59E0B Successfully despawned fake player &#F59E0B%fakeplayer_name%&#F59E0B."
+
+  # Rejection when attempting to despawn an entity that is already offline
   already-despawned: "&#F59E0B Fake player &#F59E0B%fakeplayer_name% &#F59E0Bis already offline."
 
-  # Interactive Info GUI Display
+  # ---------------------------------------------------------------------------------- #
+  # Interactive Information HUD Display (/spoof info <name>)                           #
+  # ---------------------------------------------------------------------------------- #
+  # Multi-line diagnostic view showing comprehensive metadata of a single fake player.
+  # Available Placeholders:
+  #   %fakeplayer_name%   - Registered username
+  #   %status_formatted%  - Formatted status badge (status-online / status-offline)
+  #   %uuid%              - Unique identifier
+  #   %world%             - World where the bot is registered/located
+  #   %x%, %y%, %z%       - Exact coordinate position
+  #   %yaw%, %pitch%      - Rotation and looking angles
   info-format:
     - "&#3B82F6&m------------------&#00F2FE&l [ BOT DETAILS ] &#3B82F6&m------------------"
     - " &#94A3B8▪ Username: &#38BDF8%fakeplayer_name%"
@@ -69,11 +133,18 @@ bot:
     - " &#94A3B8▪ Rotation: &#94A3B8Yaw: &#FFFFFF%yaw%&#94A3B8, Pitch: &#FFFFFF%pitch%"
     - "&#3B82F6&m--------------------------------------------------------"
 
-  # Status Formatting Badges
+  # ---------------------------------------------------------------------------------- #
+  # Dynamic Status Badges (%status_formatted%)                                         #
+  # ---------------------------------------------------------------------------------- #
+  # Live status indicators used across the info HUD and listing menus
   status-online: "&#10B981● ONLINE"
   status-offline: "&#64748B○ OFFLINE"
 
-  # Interactive List Display
+  # ---------------------------------------------------------------------------------- #
+  # Interactive Bot List Menu (/spoof list)                                            #
+  # ---------------------------------------------------------------------------------- #
+  # Overview directory of all registered fake players and their live network states.
+  # Placeholders: %online%, %total%, %fakeplayer_name%, %status_formatted%
   list-header: "&#3B82F6&lREGISTERED BOTS &#94A3B8(&#10B981%online%&#94A3B8/&#38BDF8%total%&#94A3B8 online):"
   list-item-online: " &#94A3B8- &#38BDF8%fakeplayer_name% %status_formatted%"
   list-item-offline: " &#94A3B8- &#64748B%fakeplayer_name% %status_formatted%"

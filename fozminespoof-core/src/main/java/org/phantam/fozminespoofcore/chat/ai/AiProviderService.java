@@ -11,17 +11,20 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.logging.Logger;
 
 /**
  * Service for fetching AI responses from various providers (OpenAI, Gemini, Custom).
- * Uses Gson for JSON parsing and handles errors gracefully.
+ * Supports conversation memory history.
  */
 public class AiProviderService {
 
     private final HttpClient httpClient;
     private final Logger logger;
+
+    public record ChatMessage(String role, String content, long timestamp) {}
 
     public AiProviderService(Logger logger) {
         this.logger = logger;
@@ -30,45 +33,52 @@ public class AiProviderService {
                 .build();
     }
 
-    public CompletableFuture<String> fetchAiResponseAsync(AiConfig config, String systemPrompt, String userMessage) {
+    public CompletableFuture<String> fetchAiResponseAsync(AiConfig config, String systemPrompt, List<ChatMessage> history, String userMessage) {
         String provider = config.getModelProvider();
-        DebugLogger.log(logger, "AiProviderService: fetching with provider: %s", provider);
+        DebugLogger.log(logger, "AiProviderService: fetching with provider: %s (History size: %d)", provider, history != null ? history.size() : 0);
 
         return switch (provider) {
-            case "GEMINI" -> fetchGeminiAsync(config, systemPrompt, userMessage);
-            case "CUSTOM" -> fetchCustomLocalAsync(config, systemPrompt, userMessage);
-            default -> fetchOpenAiAsync(config, systemPrompt, userMessage);
+            case "GEMINI" -> fetchGeminiAsync(config, systemPrompt, history, userMessage);
+            case "CUSTOM" -> fetchCustomLocalAsync(config, systemPrompt, history, userMessage);
+            default -> fetchOpenAiAsync(config, systemPrompt, history, userMessage);
         };
     }
 
     // --------------------- OpenAI ---------------------
 
-    private CompletableFuture<String> fetchOpenAiAsync(AiConfig config, String systemPrompt, String userMessage) {
-        DebugLogger.log(logger, "AiProviderService: fetchOpenAiAsync called");
+    private CompletableFuture<String> fetchOpenAiAsync(AiConfig config, String systemPrompt, List<ChatMessage> history, String userMessage) {
         var gpt = config.getGptConfig();
-        String jsonPayload = """
-                {
-                  "model": "%s",
-                  "messages": [
-                    {"role": "system", "content": "%s"},
-                    {"role": "user", "content": "%s"}
-                  ],
-                  "max_tokens": %d,
-                  "temperature": %.2f,
-                  "presence_penalty": %.2f,
-                  "frequency_penalty": %.2f
-                }
-                """.formatted(
-                gpt.modelName(),
-                escapeJson(systemPrompt),
-                escapeJson(userMessage),
-                gpt.maxTokens(),
-                gpt.temperature(),
-                gpt.presencePenalty(),
-                gpt.frequencyPenalty()
-        );
 
-        DebugLogger.log(logger, "AiProviderService: OpenAI request payload: %s", jsonPayload);
+        JsonArray messagesArray = new JsonArray();
+        JsonObject systemObj = new JsonObject();
+        systemObj.addProperty("role", "system");
+        systemObj.addProperty("content", systemPrompt);
+        messagesArray.add(systemObj);
+
+        if (history != null) {
+            for (ChatMessage msg : history) {
+                JsonObject histObj = new JsonObject();
+                histObj.addProperty("role", msg.role());
+                histObj.addProperty("content", msg.content());
+                messagesArray.add(histObj);
+            }
+        }
+
+        JsonObject userObj = new JsonObject();
+        userObj.addProperty("role", "user");
+        userObj.addProperty("content", userMessage);
+        messagesArray.add(userObj);
+
+        JsonObject root = new JsonObject();
+        root.addProperty("model", gpt.modelName());
+        root.add("messages", messagesArray);
+        root.addProperty("max_tokens", gpt.maxTokens());
+        root.addProperty("temperature", gpt.temperature());
+        root.addProperty("presence_penalty", gpt.presencePenalty());
+        root.addProperty("frequency_penalty", gpt.frequencyPenalty());
+
+        String jsonPayload = root.toString();
+        DebugLogger.log(logger, "AiProviderService: OpenAI payload: %s", jsonPayload);
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create("https://api.openai.com/v1/chat/completions"))
@@ -80,13 +90,10 @@ public class AiProviderService {
 
         return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
                 .thenApply(response -> {
-                    DebugLogger.log(logger, "AiProviderService: OpenAI response status: %d", response.statusCode());
                     if (response.statusCode() == 200) {
-                        String parsed = parseOpenAIResponse(response.body());
-                        DebugLogger.log(logger, "AiProviderService: OpenAI parsed response: %s", parsed);
-                        return parsed;
+                        return parseOpenAIResponse(response.body());
                     } else {
-                        DebugLogger.log(logger, "AiProviderService: OpenAI HTTP Error %d: %s", response.statusCode(), response.body());
+                        DebugLogger.log(logger, "AiProviderService: OpenAI Error %d: %s", response.statusCode(), response.body());
                         return null;
                     }
                 })
@@ -106,40 +113,60 @@ public class AiProviderService {
             if (message == null) return null;
             return message.get("content").getAsString();
         } catch (Exception e) {
-            DebugLogger.log(logger, "AiProviderService: Failed to parse OpenAI response: %s", e.getMessage());
             return null;
         }
     }
 
     // --------------------- Gemini ---------------------
 
-    private CompletableFuture<String> fetchGeminiAsync(AiConfig config, String systemPrompt, String userMessage) {
-        DebugLogger.log(logger, "AiProviderService: fetchGeminiAsync called");
+    private CompletableFuture<String> fetchGeminiAsync(AiConfig config, String systemPrompt, List<ChatMessage> history, String userMessage) {
         var gemini = config.getGeminiConfig();
         String url = "https://generativelanguage.googleapis.com/v1beta/models/" + gemini.modelName()
                 + ":generateContent?key=" + config.getApiKey();
 
-        String jsonPayload = """
-                {
-                  "system_instruction": {
-                    "parts": [{"text": "%s"}]
-                  },
-                  "contents": [
-                    {"parts": [{"text": "%s"}]}
-                  ],
-                  "generationConfig": {
-                    "maxOutputTokens": %d,
-                    "temperature": %.2f
-                  }
-                }
-                """.formatted(
-                escapeJson(systemPrompt),
-                escapeJson(userMessage),
-                gemini.maxTokens(),
-                gemini.temperature()
-        );
+        JsonObject root = new JsonObject();
 
-        DebugLogger.log(logger, "AiProviderService: Gemini request URL: %s", url);
+        JsonObject systemInstruction = new JsonObject();
+        JsonArray sysParts = new JsonArray();
+        JsonObject sysText = new JsonObject();
+        sysText.addProperty("text", systemPrompt);
+        sysParts.add(sysText);
+        systemInstruction.add("parts", sysParts);
+        root.add("system_instruction", systemInstruction);
+
+        JsonArray contentsArray = new JsonArray();
+
+        if (history != null) {
+            for (ChatMessage msg : history) {
+                JsonObject turn = new JsonObject();
+                // Gemini dùng role "user" và "model"
+                turn.addProperty("role", "assistant".equalsIgnoreCase(msg.role()) ? "model" : "user");
+                JsonArray parts = new JsonArray();
+                JsonObject textObj = new JsonObject();
+                textObj.addProperty("text", msg.content());
+                parts.add(textObj);
+                turn.add("parts", parts);
+                contentsArray.add(turn);
+            }
+        }
+
+        JsonObject currentTurn = new JsonObject();
+        currentTurn.addProperty("role", "user");
+        JsonArray currentParts = new JsonArray();
+        JsonObject currentText = new JsonObject();
+        currentText.addProperty("text", userMessage);
+        currentParts.add(currentText);
+        currentTurn.add("parts", currentParts);
+        contentsArray.add(currentTurn);
+
+        root.add("contents", contentsArray);
+
+        JsonObject genConfig = new JsonObject();
+        genConfig.addProperty("maxOutputTokens", gemini.maxTokens());
+        genConfig.addProperty("temperature", gemini.temperature());
+        root.add("generationConfig", genConfig);
+
+        String jsonPayload = root.toString();
         DebugLogger.log(logger, "AiProviderService: Gemini payload: %s", jsonPayload);
 
         HttpRequest request = HttpRequest.newBuilder()
@@ -151,13 +178,10 @@ public class AiProviderService {
 
         return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
                 .thenApply(response -> {
-                    DebugLogger.log(logger, "AiProviderService: Gemini response status: %d", response.statusCode());
                     if (response.statusCode() == 200) {
-                        String parsed = parseGeminiResponse(response.body());
-                        DebugLogger.log(logger, "AiProviderService: Gemini parsed: %s", parsed);
-                        return parsed;
+                        return parseGeminiResponse(response.body());
                     } else {
-                        DebugLogger.log(logger, "AiProviderService: Gemini HTTP Error %d: %s", response.statusCode(), response.body());
+                        DebugLogger.log(logger, "AiProviderService: Gemini Error %d: %s", response.statusCode(), response.body());
                         return null;
                     }
                 })
@@ -179,38 +203,43 @@ public class AiProviderService {
             if (parts == null || parts.isEmpty()) return null;
             return parts.get(0).getAsJsonObject().get("text").getAsString();
         } catch (Exception e) {
-            DebugLogger.log(logger, "AiProviderService: Failed to parse Gemini response: %s", e.getMessage());
             return null;
         }
     }
 
     // --------------------- Custom Local ---------------------
 
-    private CompletableFuture<String> fetchCustomLocalAsync(AiConfig config, String systemPrompt, String userMessage) {
-        DebugLogger.log(logger, "AiProviderService: fetchCustomLocalAsync called");
+    private CompletableFuture<String> fetchCustomLocalAsync(AiConfig config, String systemPrompt, List<ChatMessage> history, String userMessage) {
         var custom = config.getCustomConfig();
         String url = custom.apiUrl().endsWith("/chat/completions") ? custom.apiUrl() : custom.apiUrl() + "/chat/completions";
 
-        String jsonPayload = """
-                {
-                  "model": "%s",
-                  "messages": [
-                    {"role": "system", "content": "%s"},
-                    {"role": "user", "content": "%s"}
-                  ],
-                  "max_tokens": %d,
-                  "temperature": %.2f
-                }
-                """.formatted(
-                custom.modelName(),
-                escapeJson(systemPrompt),
-                escapeJson(userMessage),
-                custom.maxTokens(),
-                custom.temperature()
-        );
+        JsonArray messagesArray = new JsonArray();
+        JsonObject systemObj = new JsonObject();
+        systemObj.addProperty("role", "system");
+        systemObj.addProperty("content", systemPrompt);
+        messagesArray.add(systemObj);
 
-        DebugLogger.log(logger, "AiProviderService: Custom URL: %s", url);
-        DebugLogger.log(logger, "AiProviderService: Custom payload: %s", jsonPayload);
+        if (history != null) {
+            for (ChatMessage msg : history) {
+                JsonObject histObj = new JsonObject();
+                histObj.addProperty("role", msg.role());
+                histObj.addProperty("content", msg.content());
+                messagesArray.add(histObj);
+            }
+        }
+
+        JsonObject userObj = new JsonObject();
+        userObj.addProperty("role", "user");
+        userObj.addProperty("content", userMessage);
+        messagesArray.add(userObj);
+
+        JsonObject root = new JsonObject();
+        root.addProperty("model", custom.modelName());
+        root.add("messages", messagesArray);
+        root.addProperty("max_tokens", custom.maxTokens());
+        root.addProperty("temperature", custom.temperature());
+
+        String jsonPayload = root.toString();
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
@@ -221,45 +250,12 @@ public class AiProviderService {
 
         return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
                 .thenApply(response -> {
-                    DebugLogger.log(logger, "AiProviderService: Custom response status: %d", response.statusCode());
                     if (response.statusCode() == 200) {
-                        String parsed = parseCustomResponse(response.body());
-                        DebugLogger.log(logger, "AiProviderService: Custom parsed: %s", parsed);
-                        return parsed;
+                        return parseOpenAIResponse(response.body());
                     } else {
-                        DebugLogger.log(logger, "AiProviderService: Custom API HTTP Error %d", response.statusCode());
                         return null;
                     }
                 })
-                .exceptionally(ex -> {
-                    DebugLogger.log(logger, "AiProviderService: Custom API exception: %s", ex.getMessage());
-                    return null;
-                });
-    }
-
-    private String parseCustomResponse(String json) {
-        try {
-            JsonObject root = JsonParser.parseString(json).getAsJsonObject();
-            JsonArray choices = root.getAsJsonArray("choices");
-            if (choices == null || choices.isEmpty()) return null;
-            JsonObject first = choices.get(0).getAsJsonObject();
-            JsonObject message = first.getAsJsonObject("message");
-            if (message == null) return null;
-            return message.get("content").getAsString();
-        } catch (Exception e) {
-            DebugLogger.log(logger, "AiProviderService: Failed to parse Custom response: %s", e.getMessage());
-            return null;
-        }
-    }
-
-    // --------------------- Utilities ---------------------
-
-    private String escapeJson(String input) {
-        if (input == null) return "";
-        return input.replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r")
-                .replace("\t", "\\t");
+                .exceptionally(ex -> null);
     }
 }
