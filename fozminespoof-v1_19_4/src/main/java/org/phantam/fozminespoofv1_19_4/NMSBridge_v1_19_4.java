@@ -3,6 +3,7 @@ package org.phantam.fozminespoofv1_19_4;
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
 import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -19,11 +20,16 @@ import org.phantam.fozminespoofapi.utils.DebugLogger;
 import org.phantam.fozminespoofv1_19_4.factory.FakePlayerFactory;
 import org.phantam.fozminespoofv1_19_4.network.FakePlayerPacketSender;
 
+import java.util.EnumSet;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 
+/**
+ * NMS bridge implementation for Minecraft 1.19.4.
+ */
 public class NMSBridge_v1_19_4 implements FozminespoofApi {
 
     private final Map<UUID, ServerPlayer> activeFakePlayers = new ConcurrentHashMap<>();
@@ -80,10 +86,14 @@ public class NMSBridge_v1_19_4 implements FozminespoofApi {
         FakePlayerPacketSender packetSender = new FakePlayerPacketSender(server.getPlayerList());
         packetSender.sendDespawnPackets(uuid, fakePlayer.getId());
 
+        Player bukkitPlayer = fakePlayer.getBukkitEntity();
+        if (bukkitPlayer != null) {
+            bukkitPlayer.removeMetadata("NPC", getPluginInstance());
+        }
+
         server.getPlayerList().players.remove(fakePlayer);
         ServerLevel level = fakePlayer.getLevel();
-        level.removePlayerImmediately(fakePlayer,
-                net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
+        level.removePlayerImmediately(fakePlayer, net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
         fakePlayer.discard();
 
         DebugLogger.log(Bukkit.getLogger(), "NMSBridge_v1_19_4: despawnPlayer completed for %s", uuid);
@@ -109,8 +119,7 @@ public class NMSBridge_v1_19_4 implements FozminespoofApi {
 
         packetSender.sendDespawnPackets(uuid, oldPlayer.getId());
         server.getPlayerList().players.remove(oldPlayer);
-        level.removePlayerImmediately(oldPlayer,
-                net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
+        level.removePlayerImmediately(oldPlayer, net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
         oldPlayer.discard();
 
         ServerPlayer newPlayer = FakePlayerFactory.create(server, level, name, uuid, currentLoc);
@@ -173,7 +182,6 @@ public class NMSBridge_v1_19_4 implements FozminespoofApi {
             net.minecraft.network.chat.Component[] components =
                     CraftChatMessage.fromString(message);
             if (components.length == 0) {
-                DebugLogger.logFine(Bukkit.getLogger(), "NMSBridge_v1_19_4: broadcastNMSChat - no components");
                 return;
             }
 
@@ -193,6 +201,23 @@ public class NMSBridge_v1_19_4 implements FozminespoofApi {
                             + player.getName() + ": " + e.getMessage(), e);
             DebugLogger.log(Bukkit.getLogger(), "NMSBridge_v1_19_4: broadcastNMSChat - error: %s", e.getMessage());
         }
+    }
+
+    @Override
+    public void updatePlayerLatency(UUID uuid, int latency) {
+        ServerPlayer fakePlayer = activeFakePlayers.get(uuid);
+        if (fakePlayer == null) return;
+
+        fakePlayer.latency = latency;
+
+        ClientboundPlayerInfoUpdatePacket latencyPacket = new ClientboundPlayerInfoUpdatePacket(
+                EnumSet.of(ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LATENCY),
+                List.of(fakePlayer)
+        );
+
+        MinecraftServer server = ((CraftServer) Bukkit.getServer()).getServer();
+        FakePlayerPacketSender packetSender = new FakePlayerPacketSender(server.getPlayerList());
+        packetSender.sendLatencyPacket(fakePlayer.getUUID(), latencyPacket);
     }
 
     @Override

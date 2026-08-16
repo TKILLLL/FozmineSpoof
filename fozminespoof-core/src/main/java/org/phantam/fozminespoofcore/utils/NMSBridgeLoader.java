@@ -8,6 +8,9 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ * Dynamic class loader and version resolver for NMS bridge modules across 1.19.4 to 26.x.
+ */
 public final class NMSBridgeLoader {
 
     private static final Map<String, String> VERSION_MAP = new LinkedHashMap<>();
@@ -21,6 +24,10 @@ public final class NMSBridgeLoader {
         VERSION_MAP.put("1.21.1", "1_21_1");
         VERSION_MAP.put("1.21.4", "1_21_4");
         VERSION_MAP.put("1.21.11", "1_21_11");
+        // Support for 26.x releases
+        VERSION_MAP.put("26.0", "1_21_11");
+        VERSION_MAP.put("26.1", "1_21_11");
+        VERSION_MAP.put("1.26", "1_21_11");
     }
 
     private NMSBridgeLoader() {
@@ -67,6 +74,8 @@ public final class NMSBridgeLoader {
             return "1_21_1";
         if (rawVersion.startsWith("1.21.4")) return "1_21_4";
         if (rawVersion.startsWith("1.21.")) return "1_21_11";
+        // Automatic wildcard resolver for 26.x releases
+        if (rawVersion.startsWith("26.") || rawVersion.startsWith("1.26")) return "1_21_11";
         return null;
     }
 }

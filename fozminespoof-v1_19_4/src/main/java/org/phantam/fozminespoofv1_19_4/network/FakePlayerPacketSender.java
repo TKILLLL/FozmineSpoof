@@ -7,16 +7,15 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.PlayerList;
 
 import java.util.List;
-import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * Broadcasts packets to all real players to show or hide a fake player.
- * Excludes the fake player itself to prevent recursive packet loops.
+ * Broadcasts packets to all real players to show, update, or hide a fake player in 1.19.4.
+ * Excludes simulated fake player connections to prevent recursive packet loops.
  */
 public class FakePlayerPacketSender {
 
-    private static final Random RANDOM = new Random();
     private final PlayerList playerList;
 
     public FakePlayerPacketSender(PlayerList playerList) {
@@ -24,7 +23,7 @@ public class FakePlayerPacketSender {
     }
 
     private int randomLatency() {
-        return 5 + RANDOM.nextInt(16); // 5 - 20 ms
+        return ThreadLocalRandom.current().nextInt(20, 201); // 20 - 200 ms
     }
 
     /**
@@ -32,7 +31,7 @@ public class FakePlayerPacketSender {
      * Includes tablist entry, entity spawn, and head rotation.
      *
      * @param fakePlayer the fake player to show
-     * @param name       the player name (unused but kept for clarity)
+     * @param name       the player name (kept for interface consistency)
      * @param hideTab    if true, skip sending tablist entry
      */
     public void sendSpawnPackets(ServerPlayer fakePlayer, String name, boolean hideTab) {
@@ -45,12 +44,23 @@ public class FakePlayerPacketSender {
         }
 
         ClientboundAddEntityPacket spawnPacket = new ClientboundAddEntityPacket(fakePlayer);
-        ClientboundRotateHeadPacket headPacket =
-                new ClientboundRotateHeadPacket(fakePlayer,
-                        (byte) (fakePlayer.getYRot() * 256.0F / 360.0F));
+        ClientboundRotateHeadPacket headPacket = new ClientboundRotateHeadPacket(
+                fakePlayer,
+                (byte) (fakePlayer.getYRot() * 256.0F / 360.0F)
+        );
 
         broadcastExcept(fakePlayer.getUUID(), spawnPacket);
         broadcastExcept(fakePlayer.getUUID(), headPacket);
+    }
+
+    /**
+     * Sends latency update packet to refresh player ping bars on real clients.
+     *
+     * @param excludedUuid the UUID of the fake player being updated
+     * @param packet       the packet containing the updated latency entry
+     */
+    public void sendLatencyPacket(UUID excludedUuid, ClientboundPlayerInfoUpdatePacket packet) {
+        broadcastExcept(excludedUuid, packet);
     }
 
     /**
@@ -69,22 +79,18 @@ public class FakePlayerPacketSender {
     }
 
     /**
-     * Broadcasts a packet to all real players except the one with the given UUID.
-     * Skips players whose connection uses an EmbeddedChannel (i.e., fake players).
+     * Broadcasts a packet to all real players except the specified UUID.
+     * Skips simulated bot connections using fast listener type inspection.
      *
      * @param excludedUuid the UUID to exclude
      * @param packet       the packet to send
      */
     private void broadcastExcept(UUID excludedUuid, Packet<?> packet) {
-        ServerPlayer[] playersCopy = playerList.players.toArray(new ServerPlayer[0]);
-        for (ServerPlayer player : playersCopy) {
-            if (player == null) continue;
-            if (player.getUUID().equals(excludedUuid)) continue;
+        for (ServerPlayer player : playerList.players) {
+            if (player == null || player.getUUID().equals(excludedUuid)) continue;
 
-            if (player.connection != null && player.connection.connection != null) {
-                if (!(player.connection.connection.channel instanceof EmbeddedChannel)) {
-                    player.connection.send(packet);
-                }
+            if (player.connection != null && !(player.connection instanceof FakeServerGamePacketListenerImpl)) {
+                player.connection.send(packet);
             }
         }
     }

@@ -19,11 +19,10 @@ import org.phantam.fozminespoofcore.database.DatabaseCredentialFactory;
 import org.phantam.fozminespoofcore.database.DatabaseManager;
 import org.phantam.fozminespoofcore.database.SQLiteDatabaseManager;
 import org.phantam.fozminespoofcore.listener.*;
-import org.phantam.fozminespoofcore.manager.AiHelperBotManager;
-import org.phantam.fozminespoofcore.manager.BotLifecycleManager;
-import org.phantam.fozminespoofcore.manager.FakePlayerManager;
-import org.phantam.fozminespoofcore.manager.RankWeightManager;
+import org.phantam.fozminespoofcore.manager.*;
+import org.phantam.fozminespoofcore.tasks.DeathAdvancementSimulator;
 import org.phantam.fozminespoofcore.tasks.KeepAliveTask;
+import org.phantam.fozminespoofcore.tasks.PingJitterTask;
 import org.phantam.fozminespoofcore.tasks.ProxySyncTask;
 import org.phantam.fozminespoofcore.utils.ColorUtils;
 import org.phantam.fozminespoofcore.utils.NMSBridgeLoader;
@@ -32,6 +31,10 @@ import org.phantam.fozminespoofcore.world.VoidWorldFactory;
 import java.io.File;
 import java.util.logging.Level;
 
+/**
+ * Main plugin class for FozmineSpoof Core.
+ * Orchestrates fake player lifecycle, AI chat simulation, packet bridging, and database operations.
+ */
 public class FozmineSpoofCore extends JavaPlugin {
 
     private ConfigManager configManager;
@@ -49,9 +52,12 @@ public class FozmineSpoofCore extends JavaPlugin {
     private AiPersonalityManager aiPersonalityManager;
     private AiChatProcessor aiChatProcessor;
     private AiHelperBotManager aiHelperBotManager;
+    private SkinManager skinManager;
 
     private BukkitTask keepAliveTaskHandle;
     private BukkitTask tabUpdateTaskHandle;
+    private BukkitTask pingJitterTaskHandle;
+    private BukkitTask simulatorTaskHandle;
 
     @Override
     public void onEnable() {
@@ -89,6 +95,7 @@ public class FozmineSpoofCore extends JavaPlugin {
             logConsole("&#00F2FE[3/8] &#3B82F6Connecting to storage engine...");
             this.database = createDatabase();
             this.database.setup();
+            this.skinManager = new SkinManager(this);
             logConsole("&#00F2FE[3/8] &#10B981Database storage engine initialized and ready.");
 
             logConsole("&#00F2FE[4/8] &#3B82F6Initializing FakePlayer Registry, Lifecycle & Rank Weight Manager...");
@@ -107,11 +114,13 @@ public class FozmineSpoofCore extends JavaPlugin {
             registerExternalExtensions();
             logConsole("&#00F2FE[6/8] &#10B981AI Chat Engine & Commands registered.");
 
-            logConsole("&#00F2FE[7/8] &#3B82F6Starting KeepAlive, Tablist Sync, and Proxy Schedulers...");
+            logConsole("&#00F2FE[7/8] &#3B82F6Starting KeepAlive, Tablist Sync, Ping Jitter and Proxy Schedulers...");
             startKeepAliveTask();
             startTabUpdateScheduler();
+            startPingJitterScheduler();
+            startSimulatorScheduler();
 
-            if (configManager.isDatabaseEnabled() && Boolean.TRUE.equals(configManager.isProxyEnable())) {
+            if (configManager.isDatabaseEnabled() && configManager.isProxyEnable()) {
                 startProxySyncTask();
                 logConsole("&#00F2FE[Proxy Bridge] &#10B981Proxy synchronization bridge successfully activated.");
             } else {
@@ -147,6 +156,14 @@ public class FozmineSpoofCore extends JavaPlugin {
         if (tabUpdateTaskHandle != null) {
             tabUpdateTaskHandle.cancel();
             tabUpdateTaskHandle = null;
+        }
+        if (pingJitterTaskHandle != null) {
+            pingJitterTaskHandle.cancel();
+            pingJitterTaskHandle = null;
+        }
+        if (simulatorTaskHandle != null) {
+            simulatorTaskHandle.cancel();
+            simulatorTaskHandle = null;
         }
 
         if (this.chatScheduler != null) {
@@ -236,6 +253,7 @@ public class FozmineSpoofCore extends JavaPlugin {
         );
         getServer().getPluginManager().registerEvents(interactiveListener, this);
         getServer().getPluginManager().registerEvents(new ChatTabCompleteListener(this), this);
+        getServer().getPluginManager().registerEvents(new ServerListPingListener(this), this);
 
         AiChatListener aiListener = new AiChatListener(
                 this,
@@ -303,6 +321,22 @@ public class FozmineSpoofCore extends JavaPlugin {
         }.runTaskTimerAsynchronously(this, 100L, 100L);
     }
 
+    private void startPingJitterScheduler() {
+        if (pingJitterTaskHandle != null) {
+            pingJitterTaskHandle.cancel();
+        }
+        PingJitterTask task = new PingJitterTask(this);
+        pingJitterTaskHandle = task.runTaskTimer(this, 100L, 60L);
+    }
+
+    private void startSimulatorScheduler() {
+        if (simulatorTaskHandle != null) {
+            simulatorTaskHandle.cancel();
+        }
+        DeathAdvancementSimulator simulator = new DeathAdvancementSimulator(this, new BotSelector(this.fakePlayerManager, getLogger()));
+        simulatorTaskHandle = simulator.runTaskTimer(this, 12000L, 18000L);
+    }
+
     private void startProxySyncTask() {
         if (this.configManager.isProxyEnable()) {
             int initialDelaySeconds = this.configManager.getProxyUpdateInterval();
@@ -356,4 +390,5 @@ public class FozmineSpoofCore extends JavaPlugin {
     public AiPersonalityManager getAiPersonalityManager() { return aiPersonalityManager; }
     public AiChatProcessor getAiChatProcessor() { return aiChatProcessor; }
     public AiHelperBotManager getAiHelperBotManager() { return aiHelperBotManager; }
+    public SkinManager getSkinManager() { return skinManager; }
 }

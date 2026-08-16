@@ -78,4 +78,12 @@ public interface FozminespoofApi {
      * @param message the chat message to broadcast
      */
     void broadcastNMSChat(Player player, String message);
+
+    /**
+     * Broadcasts latency update packets to refresh a fake player's ping bar on clients.
+     *
+     * @param uuid    the UUID of the fake player
+     * @param latency the new ping value in milliseconds
+     */
+    void updatePlayerLatency(UUID uuid, int latency);
 }

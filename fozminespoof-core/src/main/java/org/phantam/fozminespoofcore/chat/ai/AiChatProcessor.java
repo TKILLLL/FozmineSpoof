@@ -339,6 +339,186 @@ public class AiChatProcessor {
         return true;
     }
 
+    // =========================================================================
+    // AI-TO-AI AUTONOMOUS CONVERSATION SUBSYSTEM
+    // =========================================================================
+
+    /**
+     * Initiates an autonomous public conversation between two simulated fake players (Turn 1).
+     *
+     * @param botA the initiating speaker bot
+     * @param botB the target respondent bot
+     */
+    public void processAiToAiInitiationAsync(Player botA, Player botB) {
+        if (botA == null || botB == null || !botA.isOnline() || !botB.isOnline()) {
+            return;
+        }
+
+        if (!aiConfig.isEnabled() || !aiConfig.isInActiveHours() || !aiConfig.isAiToAiEnabled()) {
+            return;
+        }
+
+        if (aiConfig.isAnswerInSameWorld() && !botA.getWorld().equals(botB.getWorld())) {
+            return;
+        }
+
+        var profileA = personalityManager.getProfile(botA.getName());
+        String lang = aiConfig.getDefaultLanguage();
+
+        String promptTemplate = aiConfig.getAiToAiInitiationPrompt();
+        if (promptTemplate == null || promptTemplate.isBlank()) {
+            promptTemplate = "[CONTEXT & ROLE] You are a real human Minecraft player named {listener} on a multiplayer server talking to {selectedTarget}.\n" +
+                    "[PERSONALITY VIBE] {personality}\n" +
+                    "[SPEAKING STYLE] {speaking_style}\n" +
+                    "[SITUATION] {description}\n" +
+                    "[TASK] Start a very short, natural in-game chat message to {selectedTarget} in language: {default_language}.\n" +
+                    "[TOPIC POOL] Mining, diamonds, building, mob fighting, farming, exploring, crafting.\n" +
+                    "[CONSTRAINTS] Maximum 5 words. Casual gamer style. No robotic tone.";
+        }
+
+        String systemPrompt = promptTemplate
+                .replace("{listener}", botA.getName())
+                .replace("{selectedTarget}", botB.getName())
+                .replace("{personality}", profileA.personality())
+                .replace("{speaking_style}", profileA.speakingStyle())
+                .replace("{description}", profileA.currentSituation())
+                .replace("{default_language}", lang)
+                .replace("{language_hint}", aiConfig.getLanguageHint(lang));
+
+        // Ephemeral conversation history for this specific bot pair
+        List<AiProviderService.ChatMessage> pairHistory = new ArrayList<>();
+        String seedInput = "hey " + botB.getName();
+
+        providerService.fetchAiResponseAsync(aiConfig, systemPrompt, Collections.emptyList(), seedInput)
+                .thenAccept(response -> {
+                    if (response == null || response.isBlank()) return;
+
+                    String sanitized = sanitizeOutput(response, false);
+                    if (sanitized == null || sanitized.isBlank()) return;
+
+                    pairHistory.add(new AiProviderService.ChatMessage("user", seedInput, System.currentTimeMillis()));
+                    pairHistory.add(new AiProviderService.ChatMessage("assistant", sanitized, System.currentTimeMillis()));
+
+                    long delayTicks = calculateTypingDelayTicks(sanitized);
+
+                    Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                        if (!isBotActive(botA) || !isBotActive(botB)) return;
+
+                        broadcastBotMessage(botA, sanitized);
+                        DebugLogger.log(plugin.getLogger(), "AiToAi [Turn 1]: %s initiated to %s: '%s'",
+                                botA.getName(), botB.getName(), sanitized);
+
+                        // Turn 2: Bot B responds with configured probability
+                        if (ThreadLocalRandom.current().nextDouble() <= aiConfig.getAiToAiResponseChance()) {
+                            long responseDelay = delayTicks + ThreadLocalRandom.current().nextLong(30L, 70L);
+                            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                                processAiToAiResponseAsync(botB, botA, sanitized, pairHistory, 2);
+                            }, responseDelay);
+                        }
+                    }, delayTicks);
+                })
+                .exceptionally(ex -> {
+                    DebugLogger.log(plugin.getLogger(), "AiToAi: Initiation failed between %s and %s: %s",
+                            botA.getName(), botB.getName(), ex.getMessage());
+                    return null;
+                });
+    }
+
+    /**
+     * Handles sequential turns in an autonomous bot-to-bot dialogue (Turn 2 and Turn 3).
+     *
+     * @param responder   the bot currently formulating a reply
+     * @param recipient   the bot being spoken to
+     * @param incomingMsg the previous message content
+     * @param pairHistory the isolated conversation history for this pair
+     * @param currentTurn current turn index (2 = response, 3 = reaction/closing)
+     */
+    public void processAiToAiResponseAsync(Player responder, Player recipient, String incomingMsg,
+                                           List<AiProviderService.ChatMessage> pairHistory, int currentTurn) {
+        if (!isBotActive(responder) || !isBotActive(recipient)) {
+            return;
+        }
+
+        if (!aiConfig.isEnabled() || !aiConfig.isInActiveHours()) {
+            return;
+        }
+
+        var profile = personalityManager.getProfile(responder.getName());
+        String lang = detectLanguage(incomingMsg);
+
+        String systemPrompt = aiConfig.getSystemRule()
+                .replace("{listener}", responder.getName())
+                .replace("{sender}", recipient.getName())
+                .replace("{personality}", profile.personality())
+                .replace("{speaking_style}", profile.speakingStyle())
+                .replace("{description}", profile.currentSituation())
+                .replace("{language_hint}", aiConfig.getLanguageHint(lang))
+                .replace("{default_language}", lang);
+
+        providerService.fetchAiResponseAsync(aiConfig, systemPrompt, pairHistory, incomingMsg)
+                .thenAccept(response -> {
+                    if (response == null || response.isBlank()) return;
+
+                    String sanitized = sanitizeOutput(response, false);
+                    if (sanitized == null || sanitized.isBlank()) return;
+
+                    pairHistory.add(new AiProviderService.ChatMessage("user", incomingMsg, System.currentTimeMillis()));
+                    pairHistory.add(new AiProviderService.ChatMessage("assistant", sanitized, System.currentTimeMillis()));
+
+                    long delayTicks = calculateTypingDelayTicks(sanitized);
+
+                    Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                        if (!isBotActive(responder) || !isBotActive(recipient)) return;
+
+                        broadcastBotMessage(responder, sanitized);
+                        DebugLogger.log(plugin.getLogger(), "AiToAi [Turn %d]: %s replied to %s: '%s'",
+                                currentTurn, responder.getName(), recipient.getName(), sanitized);
+
+                        // Turn 3: Optional organic reaction / closure from the original initiator (35% chance)
+                        if (currentTurn == 2 && ThreadLocalRandom.current().nextDouble() <= 0.35) {
+                            long followUpDelay = delayTicks + ThreadLocalRandom.current().nextLong(30L, 60L);
+                            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                                processAiToAiResponseAsync(recipient, responder, sanitized, pairHistory, 3);
+                            }, followUpDelay);
+                        }
+                    }, delayTicks);
+                })
+                .exceptionally(ex -> {
+                    DebugLogger.log(plugin.getLogger(), "AiToAi: Turn %d failed for %s: %s",
+                            currentTurn, responder.getName(), ex.getMessage());
+                    return null;
+                });
+    }
+
+    /**
+     * Unified message dispatcher ensuring identical formatting across all interaction engines.
+     */
+    private void broadcastBotMessage(Player bot, String text) {
+        if ("custom".equalsIgnoreCase(aiConfig.getChatFormatMethod())) {
+            String customFormat = aiConfig.getChatFormat()
+                    .replace("%fakeplayer_name%", bot.getName())
+                    .replace("%fakeplayer_message%", text)
+                    .replace("{bot}", bot.getName())
+                    .replace("{name}", bot.getName())
+                    .replace("{message}", text);
+            plugin.getBridge().broadcastNMSChat(bot, ColorUtils.colorize(customFormat));
+        } else if (plugin.getConfigManager().isMessageFormatEnable()) {
+            String customFormat = plugin.getConfigManager().getChatFormat()
+                    .replace("%fakeplayer_name%", bot.getName())
+                    .replace("%fakeplayer_message%", text)
+                    .replace("{bot}", bot.getName())
+                    .replace("{name}", bot.getName())
+                    .replace("{message}", text);
+            plugin.getBridge().broadcastNMSChat(bot, ColorUtils.colorize(customFormat));
+        } else {
+            bot.chat(text);
+        }
+    }
+
+    private boolean isBotActive(Player bot) {
+        return bot != null && bot.isOnline() && plugin.getFakePlayerManager().isBotOnline(bot.getName());
+    }
+
     private void handleRateLimit(Player sender) {
         long now = System.currentTimeMillis();
         UUID uuid = sender.getUniqueId();

@@ -10,16 +10,15 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * Broadcasts packets to all real players to show or hide a fake player.
+ * Broadcasts packets to all real players to show or hide a fake player in 1.21.4.
  * Excludes the fake player itself to prevent recursive packet loops.
  */
 public class FakePlayerPacketSender {
 
-    private static final Random RANDOM = new Random();
     private final PlayerList playerList;
 
     public FakePlayerPacketSender(PlayerList playerList) {
@@ -27,7 +26,7 @@ public class FakePlayerPacketSender {
     }
 
     private int randomLatency() {
-        return 20 + RANDOM.nextInt(181); // 20 - 200 ms
+        return ThreadLocalRandom.current().nextInt(20, 201); // 20 - 200 ms
     }
 
     /**
@@ -90,6 +89,13 @@ public class FakePlayerPacketSender {
     }
 
     /**
+     * Sends latency update packet to refresh player ping bars on real clients.
+     */
+    public void sendLatencyPacket(UUID excludedUuid, ClientboundPlayerInfoUpdatePacket packet) {
+        broadcastExcept(excludedUuid, packet);
+    }
+
+    /**
      * Sends packets to remove a fake player from all real players' client.
      * Cleans up both the entity and the tablist entry.
      *
@@ -112,15 +118,11 @@ public class FakePlayerPacketSender {
      * @param packet       the packet to send
      */
     private void broadcastExcept(UUID excludedUuid, Packet<?> packet) {
-        ServerPlayer[] playersCopy = playerList.players.toArray(new ServerPlayer[0]);
-        for (ServerPlayer player : playersCopy) {
-            if (player == null) continue;
-            if (player.getUUID().equals(excludedUuid)) continue;
+        for (ServerPlayer player : playerList.players) {
+            if (player == null || player.getUUID().equals(excludedUuid)) continue;
 
-            if (player.connection != null && player.connection.connection != null) {
-                if (!(player.connection.connection.channel instanceof EmbeddedChannel)) {
-                    player.connection.send(packet);
-                }
+            if (player.connection != null && !(player.connection instanceof FakeServerGamePacketListenerImpl)) {
+                player.connection.send(packet);
             }
         }
     }

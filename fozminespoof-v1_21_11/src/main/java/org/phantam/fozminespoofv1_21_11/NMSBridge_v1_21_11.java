@@ -3,6 +3,7 @@ package org.phantam.fozminespoofv1_21_11;
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
 import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -20,6 +21,8 @@ import org.phantam.fozminespoofapi.utils.DebugLogger;
 import org.phantam.fozminespoofv1_21_11.factory.FakePlayerFactory;
 import org.phantam.fozminespoofv1_21_11.network.FakePlayerPacketSender;
 
+import java.util.EnumSet;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -200,6 +203,33 @@ public class NMSBridge_v1_21_11 implements FozminespoofApi {
                             + player.getName() + ": " + e.getMessage(), e);
             DebugLogger.log(Bukkit.getLogger(), "NMSBridge_v1_21_11: broadcastNMSChat - error: %s", e.getMessage());
         }
+    }
+
+    @Override
+    public void updatePlayerLatency(UUID uuid, int latency) {
+        ServerPlayer fakePlayer = activeFakePlayers.get(uuid);
+        if (fakePlayer == null) return;
+
+        MinecraftServer server = ((CraftServer) Bukkit.getServer()).getServer();
+        ClientboundPlayerInfoUpdatePacket.Entry entry = new ClientboundPlayerInfoUpdatePacket.Entry(
+                fakePlayer.getUUID(),
+                fakePlayer.getGameProfile(),
+                true,
+                latency,
+                fakePlayer.gameMode.getGameModeForPlayer(),
+                fakePlayer.getDisplayName(),
+                true,
+                0,
+                null
+        );
+
+        ClientboundPlayerInfoUpdatePacket latencyPacket = new ClientboundPlayerInfoUpdatePacket(
+                EnumSet.of(ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LATENCY),
+                List.of(entry)
+        );
+
+        FakePlayerPacketSender packetSender = new FakePlayerPacketSender(server.getPlayerList());
+        packetSender.sendSpawnPackets(fakePlayer, fakePlayer.getGameProfile().name(), false);
     }
 
     @Override
