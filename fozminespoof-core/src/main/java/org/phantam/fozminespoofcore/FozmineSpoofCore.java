@@ -83,7 +83,8 @@ public class FozmineSpoofCore extends JavaPlugin {
                 disablePluginDueToError("Failed to initialize NMS Bridge module for this Minecraft version.");
                 return;
             }
-            logConsole("&#00F2FE[2/8] &#10B981NMS Core Bridge hooked successfully.");
+            FozmineSpoofProvider.register(this.bridge);
+            logConsole("&#00F2FE[2/8] &#10B981NMS Core Bridge hooked and provider registered.");
 
             logConsole("&#00F2FE[3/8] &#3B82F6Connecting to storage engine...");
             this.database = createDatabase();
@@ -114,7 +115,7 @@ public class FozmineSpoofCore extends JavaPlugin {
                 startProxySyncTask();
                 logConsole("&#00F2FE[Proxy Bridge] &#10B981Proxy synchronization bridge successfully activated.");
             } else {
-                logConsole("&#00F2FE[Proxy Bridge] &#9CA3AFProxy synchronization bridge is disabled (Database or Proxy bridge turned off).");
+                logConsole("&#00F2FE[Proxy Bridge] &#9CA3AFProxy synchronization bridge is disabled.");
             }
 
             logConsole("&#00F2FE[7/8] &#10B981Background schedulers started.");
@@ -123,12 +124,6 @@ public class FozmineSpoofCore extends JavaPlugin {
                 logConsole("&#00F2FE[8/8] &#3B82F6Pre-populating database & spawning baseline bot allocation...");
                 this.botLifecycleManager.initializeAndSpawn();
             }
-            this.bridge = NMSBridgeLoader.loadBridge(this.getLogger());
-            if (this.bridge == null) {
-                disablePluginDueToError("Failed to initialize NMS Bridge module for this Minecraft version.");
-                return;
-            }
-            FozmineSpoofProvider.register(this.bridge);
 
             logConsole("&#10B981✔ FozmineSpoof System successfully enabled and fully operational!");
 
@@ -167,25 +162,25 @@ public class FozmineSpoofCore extends JavaPlugin {
             try {
                 this.fakePlayerManager.despawnAllOnShutdown();
                 logConsole("&#00F2FE  ▪ &#10B981All active fake player entities despawned safely.");
-
-                if (this.database != null) {
-                    try {
-                        this.database.close();
-                        logConsole("&#00F2FE  ▪ &#10B981Database connection safely closed.");
-                    } catch (Exception ignored) {
-                    }
-                }
-                logConsole("&#EF4444✖ FozmineSpoof disabled successfully.");
             } catch (Exception e) {
-                logConsole("&#EF4444✖ Exception caught during shutdown cleanup procedure!");
-                getLogger().log(Level.SEVERE, "[FozmineSpoofCore] Details: " + e.getMessage(), e);
+                getLogger().log(Level.SEVERE, "[FozmineSpoofCore] Error despawning bots on shutdown: " + e.getMessage(), e);
             }
         }
 
+        if (this.database != null) {
+            try {
+                this.database.close();
+                logConsole("&#00F2FE  ▪ &#10B981Database connection safely closed.");
+            } catch (Exception ignored) {}
+        }
+
+        if (FozmineSpoofProvider.isRegistered()) {
+            FozmineSpoofProvider.unregister();
+        }
+
+        logConsole("&#EF4444✖ FozmineSpoof disabled successfully.");
         DebugLogger.log(getLogger(), "FozmineSpoofCore: onDisable() completed");
     }
-
-    // ---- Helper Methods ----
 
     private IFakePlayerDatabase createDatabase() {
         String tableName = DatabaseCredentialFactory.getSafeTableName(configManager.getRawDatabaseName());
@@ -287,6 +282,8 @@ public class FozmineSpoofCore extends JavaPlugin {
                     return;
                 }
 
+                boolean hideTab = configManager.isHideInTab();
+
                 fakePlayerManager.getOnlineBotsData().forEach(botData -> {
                     String botName = botData.getName();
                     org.bukkit.entity.Player botEntity = fakePlayerManager.getOnlineBotEntity(botName);
@@ -294,7 +291,11 @@ public class FozmineSpoofCore extends JavaPlugin {
 
                     Bukkit.getScheduler().runTask(FozmineSpoofCore.this, () -> {
                         if (fakePlayerManager.isBotOnline(botName)) {
-                            botEntity.setPlayerListName(ColorUtils.colorize(botName));
+                            if (hideTab) {
+                                botEntity.setPlayerListName(null);
+                            } else {
+                                botEntity.setPlayerListName(ColorUtils.colorize(botName));
+                            }
                         }
                     });
                 });
@@ -340,63 +341,19 @@ public class FozmineSpoofCore extends JavaPlugin {
         Bukkit.getConsoleSender().sendMessage(ColorUtils.colorize("&#00F2FE[FozmineSpoof] " + message));
     }
 
-    // ---- Public accessors ----
-
-    public FozminespoofApi getBridge() {
-        return this.bridge;
-    }
-
-    public ConfigManager getConfigManager() {
-        return this.configManager;
-    }
-
-    public IFakePlayerDatabase getFakePlayerDatabase() {
-        return this.database;
-    }
-
-    public FakePlayerManager getFakePlayerManager() {
-        return this.fakePlayerManager;
-    }
-
-    public MessageLoader getMessageLoader() {
-        return this.messageLoader;
-    }
-
-    public ChatScheduler getChatScheduler() {
-        return this.chatScheduler;
-    }
-
-    public BotLifecycleManager getBotLifecycleManager() {
-        return botLifecycleManager;
-    }
-
-    public RankWeightManager getRankWeightManager() {
-        return rankWeightManager;
-    }
-
-    public JoinMessageConfig getJoinMessageConfig() {
-        return joinMessageConfig;
-    }
-
-    public JoinChatProcessor getJoinChatProcessor() {
-        return joinChatProcessor;
-    }
-
-    public InteractiveMessageConfig getInteractiveMessageConfig() {
-        return interactiveMessageConfig;
-    }
-
-    public AiConfig getAiConfig() {
-        return aiConfig;
-    }
-
-    public AiPersonalityManager getAiPersonalityManager() {
-        return aiPersonalityManager;
-    }
-
-    public AiChatProcessor getAiChatProcessor() {
-        return aiChatProcessor;
-    }
-
+    public FozminespoofApi getBridge() { return this.bridge; }
+    public ConfigManager getConfigManager() { return this.configManager; }
+    public IFakePlayerDatabase getFakePlayerDatabase() { return this.database; }
+    public FakePlayerManager getFakePlayerManager() { return this.fakePlayerManager; }
+    public MessageLoader getMessageLoader() { return this.messageLoader; }
+    public ChatScheduler getChatScheduler() { return this.chatScheduler; }
+    public BotLifecycleManager getBotLifecycleManager() { return botLifecycleManager; }
+    public RankWeightManager getRankWeightManager() { return rankWeightManager; }
+    public JoinMessageConfig getJoinMessageConfig() { return joinMessageConfig; }
+    public JoinChatProcessor getJoinChatProcessor() { return joinChatProcessor; }
+    public InteractiveMessageConfig getInteractiveMessageConfig() { return interactiveMessageConfig; }
+    public AiConfig getAiConfig() { return aiConfig; }
+    public AiPersonalityManager getAiPersonalityManager() { return aiPersonalityManager; }
+    public AiChatProcessor getAiChatProcessor() { return aiChatProcessor; }
     public AiHelperBotManager getAiHelperBotManager() { return aiHelperBotManager; }
 }

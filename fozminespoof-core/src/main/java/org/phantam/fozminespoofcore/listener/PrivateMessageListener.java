@@ -11,12 +11,11 @@ import org.phantam.fozminespoofcore.chat.ai.AiChatProcessor;
 import org.phantam.fozminespoofcore.config.AiConfig;
 import org.phantam.fozminespoofcore.utils.ColorUtils;
 
-import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
 /**
- * Listens to private message commands (/msg, /tell, /w, /whisper, /pm, /m)
- * directed at AI bots and handles private response generation.
+ * Intercepts player-to-player direct messaging commands directed towards simulated AI fake players.
  */
 public class PrivateMessageListener implements Listener {
 
@@ -24,7 +23,7 @@ public class PrivateMessageListener implements Listener {
     private final AiConfig aiConfig;
     private final AiChatProcessor aiProcessor;
 
-    private static final List<String> PM_COMMANDS = Arrays.asList(
+    private static final List<String> PM_COMMANDS = List.of(
             "/msg", "/tell", "/w", "/whisper", "/pm", "/m", "/emsg", "/etell", "/ewhisper", "/t"
     );
 
@@ -40,8 +39,8 @@ public class PrivateMessageListener implements Listener {
             return;
         }
 
-        String commandLine = event.getMessage();
-        String lowerCmd = commandLine.toLowerCase();
+        String commandLine = event.getMessage().trim();
+        String lowerCmd = commandLine.toLowerCase(Locale.ROOT);
 
         String matchedPrefix = null;
         for (String cmd : PM_COMMANDS) {
@@ -79,14 +78,16 @@ public class PrivateMessageListener implements Listener {
             event.setCancelled(true);
             String outgoingFormatted = aiConfig.getPmOutgoingFormat()
                     .replace("{bot}", bot.getName())
-                    .replace("{message}", rawMessage);
+                    .replace("%fakeplayer_name%", bot.getName())
+                    .replace("{message}", rawMessage)
+                    .replace("%fakeplayer_message%", rawMessage);
             sender.sendMessage(ColorUtils.colorize(outgoingFormatted));
         }
 
-        DebugLogger.log(plugin.getLogger(), "PrivateMessageListener: PM intercepted from %s to %s: '%s'",
+        DebugLogger.log(plugin.getLogger(), "PrivateMessageListener: Intercepted PM from %s to %s: '%s'",
                 sender.getName(), bot.getName(), rawMessage);
 
-        boolean isHelpMode = bot.getName().equalsIgnoreCase(aiConfig.getAiHelpBotName());
+        boolean isHelpMode = (aiConfig.isAiHelpEnabled() && bot.getName().equalsIgnoreCase(aiConfig.getAiHelpBotName()));
 
         aiProcessor.processPlayerToAiChatAsync(sender, bot, rawMessage, isHelpMode, true);
     }

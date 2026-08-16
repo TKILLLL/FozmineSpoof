@@ -1,8 +1,12 @@
 package org.phantam.fozminespoofcore.utils;
 
 import java.text.Normalizer;
+import java.util.Locale;
 import java.util.regex.Pattern;
 
+/**
+ * String manipulation and text normalization utilities.
+ */
 public final class StringUtils {
 
     private static final Pattern DIACRITICS_PATTERN = Pattern.compile("\\p{InCombiningDiacriticalMarks}+");
@@ -10,10 +14,14 @@ public final class StringUtils {
     private static final Pattern WHITESPACE_PATTERN = Pattern.compile("\\s+");
 
     private StringUtils() {
+        throw new UnsupportedOperationException("Utility class");
     }
 
     /**
-     * Tách bỏ dấu Tiếng Việt và Latin (Ví dụ: "Xin chào các bạn!" -> "Xin chao cac ban!")
+     * Strips Latin and Vietnamese diacritical marks from the input string.
+     *
+     * @param text the raw input string
+     * @return the unaccented normalized string
      */
     public static String stripDiacritics(String text) {
         if (text == null || text.isBlank()) return "";
@@ -23,22 +31,26 @@ public final class StringUtils {
     }
 
     /**
-     * Quy trình chuẩn hóa tin nhắn:
-     * 1. Chuyển về chữ thường
-     * 2. Bỏ dấu tiếng Việt
-     * 3. Xóa dấu câu/ký tự đặc biệt
-     * 4. Thu gọn khoảng trắng thừa
+     * Normalizes message text by lowercasing, stripping diacritics, removing punctuation,
+     * and collapsing multiple whitespaces into a single space.
+     *
+     * @param raw the raw input text
+     * @return the sanitized, clean message string
      */
     public static String cleanMessage(String raw) {
         if (raw == null || raw.isBlank()) return "";
-        String lower = raw.toLowerCase(java.util.Locale.ROOT);
+        String lower = raw.toLowerCase(Locale.ROOT);
         String unaccented = stripDiacritics(lower);
         String noPunct = PUNCTUATION_PATTERN.matcher(unaccented).replaceAll("");
         return WHITESPACE_PATTERN.matcher(noPunct).replaceAll(" ").trim();
     }
 
     /**
-     * Thuật toán Levenshtein Distance đo độ sai lệch chính tả giữa 2 từ
+     * Computes the Levenshtein distance between two strings.
+     *
+     * @param s1 the first string
+     * @param s2 the second string
+     * @return the minimum edit distance
      */
     public static int levenshteinDistance(String s1, String s2) {
         if (s1 == null || s2 == null) return Integer.MAX_VALUE;

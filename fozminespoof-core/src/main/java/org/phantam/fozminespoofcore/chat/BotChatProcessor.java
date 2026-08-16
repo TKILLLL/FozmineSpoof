@@ -13,9 +13,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
 
 /**
- * Handles asynchronous processing of a bot's chat message.
+ * Handles asynchronous processing and broadcasting of simulated bot chat messages.
  */
 public class BotChatProcessor {
 
@@ -57,9 +58,8 @@ public class BotChatProcessor {
                 String targetLang = (chatConfig != null && chatConfig.getTranslationTarget() != null)
                         ? chatConfig.getTranslationTarget() : "en";
 
-                DebugLogger.logFine(logger, "BotChatProcessor: translating to %s", targetLang);
-                String provider = chatConfig.getTranslationProvider();
-                String apiKey = chatConfig.getTranslationApiKey();
+                String provider = (chatConfig != null) ? chatConfig.getTranslationProvider() : "google";
+                String apiKey = (chatConfig != null) ? chatConfig.getTranslationApiKey() : "";
 
                 DebugLogger.logFine(logger, "BotChatProcessor: translating with provider '%s' to %s", provider, targetLang);
                 String translated = translator.translate(processed, targetLang, provider, apiKey);
@@ -95,19 +95,20 @@ public class BotChatProcessor {
     }
 
     private String replaceNamePlaceholder(String message, List<Player> onlinePlayers) {
-        if (!message.contains("[name]")) {
+        if (!message.contains("[name]") && !message.contains("%name%")) {
             return message;
         }
 
         String result = message;
-        while (result.contains("[name]")) {
+        while (result.contains("[name]") || result.contains("%name%")) {
             if (onlinePlayers.isEmpty()) {
-                result = result.replaceFirst("\\[name\\]", "");
+                result = result.replaceFirst("\\[name\\]|%name%", "");
             } else {
                 int index = ThreadLocalRandom.current().nextInt(onlinePlayers.size());
                 String selected = onlinePlayers.get(index).getName();
-                result = result.replaceFirst("\\[name\\]", selected);
-                DebugLogger.logFine(logger, "BotChatProcessor: replaced [name] with %s", selected);
+                String safeReplacement = Matcher.quoteReplacement(selected);
+                result = result.replaceFirst("\\[name\\]|%name%", safeReplacement);
+                DebugLogger.logFine(logger, "BotChatProcessor: replaced name placeholder with %s", selected);
             }
         }
         return result;
@@ -115,13 +116,12 @@ public class BotChatProcessor {
 
     private String buildCustomFormatMessage(Player bot, String message) {
         String rawFormat = configManager.getChatFormat();
-        String formatted = rawFormat
+        return rawFormat
                 .replace("%fakeplayer_name%", bot.getName())
                 .replace("%fakeplayer_message%", message)
                 .replace("{name}", bot.getName())
                 .replace("{message}", message)
                 .replace("{prefix}", "")
                 .replace("&r", "");
-        return formatted;
     }
 }

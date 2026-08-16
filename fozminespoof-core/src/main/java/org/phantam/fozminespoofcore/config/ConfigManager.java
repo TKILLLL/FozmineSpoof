@@ -8,12 +8,15 @@ import org.phantam.fozminespoofcore.utils.Range;
 
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
-import java.util.Collections; // Bổ sung import này
 
+/**
+ * Central configuration manager for core settings, proxy configurations, and lifecycle parameters.
+ */
 public class ConfigManager {
 
     private static final String DEBUG = "debug";
@@ -23,7 +26,6 @@ public class ConfigManager {
     private static final String JOIN_MESSAGE = "Fakeplayer-setting.join-message";
     private static final String LEAVE_MESSAGE = "Fakeplayer-setting.leave-message";
 
-    // Đường dẫn gốc tới node cấu hình fake plugin info
     private static final String FAKE_PLUGIN_SECTION = "Plugin-settings.fake-plugin-infomation";
 
     private static final String HIDE_IN_TAB = "Fakeplayer-setting.hide-in-tab";
@@ -49,14 +51,12 @@ public class ConfigManager {
     private final MessageManager messageManager;
     private final Map<String, Integer> rankWeights = new LinkedHashMap<>();
 
-    // Core
     private List<String> targetPlaceholders;
     private String botWorldName;
     private boolean joinLeaveMessageEnable;
     private String joinMessage;
     private String leaveMessage;
 
-    // Đã nâng cấp các thuộc tính Fake Plugin Information đơn lẻ thành cấu trúc Section cụ thể
     private boolean fakePluginEnable;
     private String fakePluginName;
     private String fakePluginVersion;
@@ -66,35 +66,29 @@ public class ConfigManager {
 
     private boolean hideInTab;
     private boolean debug;
-    // Rank Weight Distribution
     private boolean rankWeightEnabled;
-    // Join actions
     private boolean fakePlayerJoinCommandsEnabled;
     private List<String> fakePlayerJoinCommands;
     private boolean consoleJoinCommandsEnabled;
     private List<String> consoleJoinCommands;
     private String joinLeaveFormat;
 
-    // Lifecycle
     private String lifetimeInterval;
     private int baseAmount;
     private int percentRate;
 
-    // Fluctuations (Peak Hours)
     private boolean fluctuationEnabled;
     private String fluctuationTimezone;
     private List<String> fluctuationActiveHours;
     private int fluctuationBaseAmount;
     private int fluctuationPercentRate;
 
-    // Chat
     private ChatConfig chatConfig;
     private String chatFormat;
     private boolean messageFormatEnable;
     private String messageChatFormat;
 
-    // Database & Proxy
-    private Boolean proxyEnable;
+    private boolean proxyEnable;
     private String bungeeName;
     private boolean databaseEnabled;
     private String rawDatabaseName;
@@ -118,7 +112,6 @@ public class ConfigManager {
                 DebugLogger.log(plugin.getLogger(), "ConfigManager: reloading configuration...");
             }
 
-            // Core
             targetPlaceholders = config.getStringList(PARSE_PAPI);
             botWorldName = config.getString(BOT_WORLD, "botworld");
             joinLeaveMessageEnable = config.getBoolean(JOIN_LEAVE_ENABLE, true);
@@ -136,7 +129,6 @@ public class ConfigManager {
                 fakePluginDescription = fakeSection.getString("description", "");
                 fakePluginCommand = fakeSection.getString("command", "abc");
             } else {
-                // Cơ chế tự động Fallback nếu cấu hình thiếu hoặc sai định dạng
                 fakePluginEnable = false;
                 fakePluginName = "FozmineSpawner";
                 fakePluginVersion = "1.0.0";
@@ -145,7 +137,6 @@ public class ConfigManager {
                 fakePluginCommand = "abc";
             }
 
-            // Rank Weight Distribution
             rankWeightEnabled = config.getBoolean("Fakeplayer-setting.rank-weight.enable", false);
             rankWeights.clear();
             if (config.isConfigurationSection("Fakeplayer-setting.rank-weight")) {
@@ -165,31 +156,26 @@ public class ConfigManager {
                 rankWeights.put("default", 50);
             }
 
-            // Join actions
             fakePlayerJoinCommandsEnabled = config.getBoolean(JOIN_ACTIONS_FAKE_ENABLED, false);
             fakePlayerJoinCommands = config.getStringList(JOIN_ACTIONS_FAKE_COMMANDS);
             consoleJoinCommandsEnabled = config.getBoolean(JOIN_ACTIONS_CONSOLE_ENABLED, false);
             consoleJoinCommands = config.getStringList(JOIN_ACTIONS_CONSOLE_COMMANDS);
 
-            // Lifecycle
             lifetimeInterval = config.getString(LIFETIME_INTERVAL, "1800-3600");
             baseAmount = config.getInt(BASE_AMOUNT, 10);
             percentRate = config.getInt(PERCENT_RATE, 10);
 
-            // Fluctuations (Peak Hours)
             fluctuationEnabled = config.getBoolean("fluctuations.enable", false);
             fluctuationTimezone = config.getString("fluctuations.timezone", "Asia/Ho_Chi_Minh");
             fluctuationActiveHours = config.getStringList("fluctuations.active-hours");
             fluctuationBaseAmount = config.getInt("fluctuations.base-amount", 10);
             fluctuationPercentRate = config.getInt("fluctuations.percent-rate", 50);
 
-            // Chat
             messageFormatEnable = config.getBoolean(MSG_FORMAT_ENABLE, false);
             messageChatFormat = config.getString(MSG_CHAT_FORMAT, "&7[&a%fakeplayer_name%&7]&f: %fakeplayer_message%");
             chatFormat = config.getString(CHAT_FORMAT, "<%fakeplayer_name%> %fakeplayer_message%");
             chatConfig = new ChatConfig(config);
 
-            // Database & Proxy
             proxyEnable = config.getBoolean(PROXY_ENABLE, false);
             bungeeName = config.getString(BUNGEE_NAME, "fozminespoof");
             databaseEnabled = config.getBoolean(DB_ENABLE, true);
@@ -203,8 +189,6 @@ public class ConfigManager {
             plugin.getLogger().log(Level.SEVERE, "[FozmineSpoof] Failed to load config.yml: " + e.getMessage(), e);
         }
     }
-
-    // ---- Peak Hours / Fluctuation Logic ----
 
     public boolean isFluctuationEnabled() {
         return fluctuationEnabled;
@@ -273,8 +257,6 @@ public class ConfigManager {
         return percentRate;
     }
 
-    // ---- Time Parsers (Milliseconds / Ticks) ----
-
     public long getJoinQuitIntervalTicks() {
         String raw = plugin.getConfig().getString("Fakeplayer-setting.join-quit-interval", "1-5");
         return Range.parse(raw, 1.0, 5.0).getRandomTicks();
@@ -284,129 +266,42 @@ public class ConfigManager {
         return Range.parse(lifetimeInterval, 1800.0, 3600.0).getRandomMillis();
     }
 
+    /**
+     * Returns the proxy synchronization update interval in seconds.
+     */
     public int getProxyUpdateInterval() {
         String value = plugin.getConfig().getString("Database.bridging-setting.update-interval", "2-3");
-        return (int) Range.parse(value, 2.0, 3.0).getRandomTicks();
+        Range range = Range.parse(value, 2.0, 3.0);
+        return (int) Math.max(1.0, range.getMin());
     }
 
-    // ---- Getters ----
-
-    public boolean isDebug() {
-        return debug;
-    }
-
-    public MessageManager getMessages() {
-        return messageManager;
-    }
-
-    public String getBotWorldName() {
-        return botWorldName;
-    }
-
-    public boolean isJoinLeaveMessageEnable() {
-        return joinLeaveMessageEnable;
-    }
-
-    public String getJoinMessage() {
-        return joinMessage;
-    }
-
-    public String getLeaveMessage() {
-        return leaveMessage;
-    }
-
-    public boolean isFakePluginEnable() {
-        return fakePluginEnable;
-    }
-
-    public String getFakePluginName() {
-        return fakePluginName;
-    }
-
-    public String getFakePluginVersion() {
-        return fakePluginVersion;
-    }
-
-    public List<String> getFakePluginAuthors() {
-        return fakePluginAuthors;
-    }
-
-    public String getFakePluginDescription() {
-        return fakePluginDescription;
-    }
-
-    public String getFakePluginCommand() {
-        return fakePluginCommand;
-    }
-
-    public boolean isHideInTab() {
-        return hideInTab;
-    }
-
-    public boolean isFakePlayerJoinCommandsEnabled() {
-        return fakePlayerJoinCommandsEnabled;
-    }
-
-    public List<String> getFakePlayerJoinCommands() {
-        return fakePlayerJoinCommands;
-    }
-
-    public boolean isConsoleJoinCommandsEnabled() {
-        return consoleJoinCommandsEnabled;
-    }
-
-    public List<String> getConsoleJoinCommands() {
-        return consoleJoinCommands;
-    }
-
-    public int getBaseAmount() {
-        return baseAmount;
-    }
-
-    public int getPercentRate() {
-        return percentRate;
-    }
-
-    public ChatConfig getChatConfig() {
-        return chatConfig;
-    }
-
-    public String getChatFormat() {
-        return messageFormatEnable ? messageChatFormat : chatFormat;
-    }
-
-    public boolean isMessageFormatEnable() {
-        return messageFormatEnable;
-    }
-
-    public Boolean isProxyEnable() {
-        if (!databaseEnabled) {
-            return false;
-        }
-        return proxyEnable;
-    }
-
-    public String getBungeeName() {
-        return bungeeName;
-    }
-
-    public String getRawDatabaseName() {
-        return rawDatabaseName;
-    }
-
-    public boolean isDatabaseEnabled() {
-        return databaseEnabled;
-    }
-
-    public boolean isRankWeightEnabled() {
-        return rankWeightEnabled;
-    }
-
-    public Map<String, Integer> getRankWeights() {
-        return rankWeights;
-    }
-
-    public String getJoinLeaveFormat() {
-        return joinLeaveFormat;
-    }
+    public boolean isDebug() { return debug; }
+    public MessageManager getMessages() { return messageManager; }
+    public String getBotWorldName() { return botWorldName; }
+    public boolean isJoinLeaveMessageEnable() { return joinLeaveMessageEnable; }
+    public String getJoinMessage() { return joinMessage; }
+    public String getLeaveMessage() { return leaveMessage; }
+    public boolean isFakePluginEnable() { return fakePluginEnable; }
+    public String getFakePluginName() { return fakePluginName; }
+    public String getFakePluginVersion() { return fakePluginVersion; }
+    public List<String> getFakePluginAuthors() { return fakePluginAuthors; }
+    public String getFakePluginDescription() { return fakePluginDescription; }
+    public String getFakePluginCommand() { return fakePluginCommand; }
+    public boolean isHideInTab() { return hideInTab; }
+    public boolean isFakePlayerJoinCommandsEnabled() { return fakePlayerJoinCommandsEnabled; }
+    public List<String> getFakePlayerJoinCommands() { return fakePlayerJoinCommands; }
+    public boolean isConsoleJoinCommandsEnabled() { return consoleJoinCommandsEnabled; }
+    public List<String> getConsoleJoinCommands() { return consoleJoinCommands; }
+    public int getBaseAmount() { return baseAmount; }
+    public int getPercentRate() { return percentRate; }
+    public ChatConfig getChatConfig() { return chatConfig; }
+    public String getChatFormat() { return messageFormatEnable ? messageChatFormat : chatFormat; }
+    public boolean isMessageFormatEnable() { return messageFormatEnable; }
+    public boolean isProxyEnable() { return databaseEnabled && proxyEnable; }
+    public String getBungeeName() { return bungeeName; }
+    public String getRawDatabaseName() { return rawDatabaseName; }
+    public boolean isDatabaseEnabled() { return databaseEnabled; }
+    public boolean isRankWeightEnabled() { return rankWeightEnabled; }
+    public Map<String, Integer> getRankWeights() { return rankWeights; }
+    public String getJoinLeaveFormat() { return joinLeaveFormat; }
 }

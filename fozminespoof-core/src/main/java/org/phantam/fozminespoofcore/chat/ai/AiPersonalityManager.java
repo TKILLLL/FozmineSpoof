@@ -11,13 +11,16 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 
+/**
+ * Manages unique personality archetypes and typing styles assigned to simulated bots.
+ */
 public class AiPersonalityManager {
 
     private final JavaPlugin plugin;
     private final List<String> personalities = new ArrayList<>();
     private final List<String> speakingStyles = new ArrayList<>();
 
-    // In-memory assignment per bot name: botName -> BotProfile
+    // In-memory assignment per bot: botNameLower -> BotProfile
     private final Map<String, BotProfile> botProfiles = new ConcurrentHashMap<>();
 
     public AiPersonalityManager(JavaPlugin plugin) {
@@ -59,7 +62,7 @@ public class AiPersonalityManager {
     }
 
     /**
-     * Tự động gán Tính cách & Phong cách nói riêng biệt khi Bot Join.
+     * Automatically assigns a randomized profile upon bot connection.
      */
     public BotProfile assignProfile(String botName) {
         if (botName == null) return generateRandomProfile();

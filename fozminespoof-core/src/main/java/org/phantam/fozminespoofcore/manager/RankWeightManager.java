@@ -17,6 +17,9 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
+/**
+ * Manages automated rank and weight distribution for simulated fake players.
+ */
 public class RankWeightManager {
 
     private final FozmineSpoofCore plugin;
@@ -56,7 +59,6 @@ public class RankWeightManager {
 
         String targetRank = (chosenRank != null && !chosenRank.isBlank()) ? chosenRank : "default";
         UUID uuid = player.getUniqueId();
-        String name = player.getName();
 
         if (Bukkit.getPluginManager().isPluginEnabled("LuckPerms")) {
             try {
@@ -66,9 +68,8 @@ public class RankWeightManager {
                     targetRank = "default";
                 }
 
-                User user = luckPerms.getUserManager().loadUser(uuid, name).join();
+                User user = luckPerms.getUserManager().getUser(uuid);
                 if (user != null) {
-
                     for (Node node : user.transientData().toCollection()) {
                         if (NodeType.INHERITANCE.matches(node)) {
                             user.transientData().remove(node);
@@ -79,18 +80,15 @@ public class RankWeightManager {
                     user.transientData().add(node);
                     return;
                 }
-            } catch (Exception ignored) {
-            }
+            } catch (Exception ignored) {}
         }
 
         try {
             resetFallbackAttachment(player);
-
             PermissionAttachment attachment = player.addAttachment(plugin);
             attachment.setPermission("group." + targetRank, true);
             fallbackAttachments.put(uuid, attachment);
-        } catch (Exception ignored) {
-        }
+        } catch (Exception ignored) {}
     }
 
     public void resetRank(String name) {
@@ -102,18 +100,15 @@ public class RankWeightManager {
         if (Bukkit.getPluginManager().isPluginEnabled("LuckPerms")) {
             try {
                 LuckPerms luckPerms = LuckPermsProvider.get();
-                User user = luckPerms.getUserManager().loadUser(uuid, name).join();
+                User user = luckPerms.getUserManager().getUser(uuid);
                 if (user != null) {
-
                     for (Node node : user.transientData().toCollection()) {
                         if (NodeType.INHERITANCE.matches(node)) {
                             user.transientData().remove(node);
                         }
                     }
-
                 }
-            } catch (Exception ignored) {
-            }
+            } catch (Exception ignored) {}
         }
 
         if (player != null) {
@@ -128,8 +123,7 @@ public class RankWeightManager {
         if (attachment != null) {
             try {
                 player.removeAttachment(attachment);
-            } catch (Exception ignored) {
-            }
+            } catch (Exception ignored) {}
         }
     }
 }
