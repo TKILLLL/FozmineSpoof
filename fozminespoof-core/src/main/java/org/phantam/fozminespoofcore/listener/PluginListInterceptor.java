@@ -1,25 +1,26 @@
 package org.phantam.fozminespoofcore.listener;
 
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.event.Cancellable;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
-import org.bukkit.event.server.ServerCommandEvent; // Lắng nghe lệnh từ Console
+import org.bukkit.event.server.ServerCommandEvent;
 import org.bukkit.plugin.Plugin;
 import org.phantam.fozminespoofapi.utils.DebugLogger;
 import org.phantam.fozminespoofcore.config.ConfigManager;
+import org.phantam.fozminespoofcore.utils.ColorUtils;
 
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.Set;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
  * Intercepts plugin-related commands from both players and console to mask plugin information.
+ * Outputs realistic, authentic Spigot/Paper formatting and color schemes.
  */
 public class PluginListInterceptor implements Listener {
 
@@ -51,7 +52,7 @@ public class PluginListInterceptor implements Listener {
     }
 
     /**
-     * Hàm xử lý tập trung logic chặn và tráo đổi gói lệnh
+     * Xử lý tập trung logic chặn và tráo đổi gói lệnh
      */
     private void processCommand(CommandSender sender, String fullCommand, Cancellable event) {
         if (!configManager.isFakePluginEnable()) {
@@ -101,28 +102,28 @@ public class PluginListInterceptor implements Listener {
     }
 
     /**
-     * Xây dựng danh sách plugin giả lập
+     * Xây dựng danh sách plugin giả lập chuẩn xác phong cách Spigot/Paper
      */
     private String buildPluginList(String fakeName) {
         Plugin[] plugins = Bukkit.getPluginManager().getPlugins();
 
         String pluginNames = Arrays.stream(plugins)
                 .map(plugin -> {
-                    String name = plugin.getName();
-                    if (plugin.equals(ownPlugin)) {
-                        return fakeName;
-                    }
-                    return name;
+                    boolean isOwn = plugin.equals(ownPlugin);
+                    String name = isOwn ? fakeName : plugin.getName();
+                    boolean isEnabled = isOwn || plugin.isEnabled();
+
+                    return (isEnabled ? "&a" : "&c") + name;
                 })
                 .sorted(String.CASE_INSENSITIVE_ORDER)
-                .collect(Collectors.joining(", "));
+                .collect(Collectors.joining("&f, "));
 
         int total = plugins.length;
-        return ChatColor.GRAY + "Plugins (" + total + "): " + ChatColor.WHITE + pluginNames;
+        return ColorUtils.colorize("&fPlugins &7(&a" + total + "&7): &r" + pluginNames);
     }
 
     /**
-     * Gửi bảng dữ liệu fake plugin siêu chân thực
+     * Gửi bảng dữ liệu fake plugin siêu chân thực chuẩn phong cách Spigot /version
      */
     private void sendFakePluginDetails(CommandSender sender) {
         String name = configManager.getFakePluginName();
@@ -132,12 +133,12 @@ public class PluginListInterceptor implements Listener {
 
         String authorsString = (authors != null && !authors.isEmpty()) ? String.join(", ", authors) : "";
 
-        sender.sendMessage(ChatColor.GREEN + name + ChatColor.WHITE + " version " + ChatColor.GREEN + version);
+        sender.sendMessage(ColorUtils.colorize("&a" + name + " &fversion &a" + version));
         if (description != null && !description.isBlank()) {
-            sender.sendMessage(ChatColor.WHITE + description);
+            sender.sendMessage(ColorUtils.colorize("&7" + description));
         }
         if (!authorsString.isBlank()) {
-            sender.sendMessage(ChatColor.WHITE + "Authors: " + ChatColor.GOLD + authorsString);
+            sender.sendMessage(ColorUtils.colorize("&fAuthors: &6" + authorsString));
         }
     }
 }
