@@ -25,6 +25,6 @@ First off, thank you for considering contributing to **FozmineSpoof**! It's cont
 Clone the repository and build the project using Gradle:
 
 ```bash
-git clone https://github.com/your-username/FozmineSpoof.git
+git clone https://github.com/TKILLLL/FozmineSpoof.git
 cd FozmineSpoof
 ./gradlew shadowJar
