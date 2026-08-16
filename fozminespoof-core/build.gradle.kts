@@ -24,6 +24,8 @@ dependencies {
     implementation(project(path = ":fozminespoof-v1_21_1", configuration = "reobf"))
     implementation(project(path = ":fozminespoof-v1_21_4", configuration = "reobf"))
     implementation(project(path = ":fozminespoof-v1_21_11", configuration = "reobf"))
+    implementation(project(path = ":fozminespoof-v26_1_1", configuration = "reobf"))
+    implementation(project(path = ":fozminespoof-v26_2", configuration = "reobf"))
 
     testImplementation(platform("org.junit:junit-bom:5.10.2"))
     testImplementation("org.junit.jupiter:junit-jupiter")
