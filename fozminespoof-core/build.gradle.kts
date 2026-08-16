@@ -8,7 +8,7 @@ plugins {
 
 repositories {
     mavenCentral()
-    maven("https://papermc.io")
+    maven("https://repo.papermc.io/repository/maven-public/")
 }
 
 dependencies {
@@ -16,6 +16,7 @@ dependencies {
 
     implementation(project(":fozminespoof-api"))
 
+    // Legacy Spigot-mapped modules (1.19.4 - 1.21.11)
     implementation(project(path = ":fozminespoof-v1_19_4", configuration = "reobf"))
     implementation(project(path = ":fozminespoof-v1_20_1", configuration = "reobf"))
     implementation(project(path = ":fozminespoof-v1_20_2", configuration = "reobf"))
@@ -24,8 +25,10 @@ dependencies {
     implementation(project(path = ":fozminespoof-v1_21_1", configuration = "reobf"))
     implementation(project(path = ":fozminespoof-v1_21_4", configuration = "reobf"))
     implementation(project(path = ":fozminespoof-v1_21_11", configuration = "reobf"))
-    implementation(project(path = ":fozminespoof-v26_1_1", configuration = "reobf"))
-    implementation(project(path = ":fozminespoof-v26_2", configuration = "reobf"))
+
+    // Modern 26.x Mojang-mapped modules (Standard dependency without reobf)
+    implementation(project(":fozminespoof-v26_1_1"))
+    implementation(project(":fozminespoof-v26_2"))
 
     testImplementation(platform("org.junit:junit-bom:5.10.2"))
     testImplementation("org.junit.jupiter:junit-jupiter")

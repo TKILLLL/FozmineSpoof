@@ -9,6 +9,10 @@ dependencies {
     paperweight.paperDevBundle("26.1.1.build.+")
 }
 
+paperweight {
+    reobfArtifactConfiguration = io.papermc.paperweight.userdev.ReobfArtifactConfiguration.MOJANG_PRODUCTION
+}
+
 java {
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(25))
@@ -16,8 +20,8 @@ java {
 }
 
 tasks {
-    assemble {
-        dependsOn("reobfJar")
+    reobfJar {
+        enabled = false
     }
 
     compileJava {
