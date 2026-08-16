@@ -19,18 +19,8 @@ import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.regex.Pattern;
 
-/**
- * Listens to player chat and triggers interactive bot responses based on keyword configuration.
- * <p>
- * This listener uses {@link InteractionConfig} to match triggers, enforce cooldowns,
- * and select random replies. Supports mentioning bots directly for targeted responses,
- * and automatically translates replies to the player's language if configured.
- * </p>
- *
- * @author Phantam
- * @version 2.1.0
- */
 public class InteractiveChatListener implements Listener {
 
     private final FozmineSpoofCore plugin;
@@ -38,19 +28,8 @@ public class InteractiveChatListener implements Listener {
     private final BotChatProcessor chatProcessor;
     private final TranslatorService translator;
 
-    /**
-     * Global cooldown per interaction key (server-wide).
-     */
     private final Map<String, Long> globalCooldowns = new ConcurrentHashMap<>();
-
-    /**
-     * Per-player cooldown map: Player UUID → (Interaction Key → Last Trigger Timestamp).
-     */
     private final Map<UUID, Map<String, Long>> playerCooldowns = new ConcurrentHashMap<>();
-
-    /**
-     * Per-player reply cache to avoid repetition (Player UUID → (reply -> timestamp)).
-     */
     private final Map<UUID, Map<String, Long>> playerReplyCache = new ConcurrentHashMap<>();
 
     public InteractiveChatListener(FozmineSpoofCore plugin, BotSelector botSelector,
@@ -77,7 +56,6 @@ public class InteractiveChatListener implements Listener {
         if (player == null) return;
 
         String name = player.getName();
-
         if (player.hasMetadata("NPC") || plugin.getFakePlayerManager().isBotOnline(name)) {
             return;
         }
@@ -88,107 +66,73 @@ public class InteractiveChatListener implements Listener {
         String cleanedMessage = StringUtils.cleanMessage(rawMessage);
         if (cleanedMessage.isBlank()) return;
 
-        DebugLogger.log(plugin.getLogger(),
-                "InteractiveChat: from %s: '%s' -> cleaned '%s'",
-                name, rawMessage, cleanedMessage);
-
         long now = System.currentTimeMillis();
         UUID playerUuid = player.getUniqueId();
         ZoneId zoneId = ZoneId.of("Asia/Ho_Chi_Minh");
 
-        // Find mentioned bot (with fuzzy matching)
-        Player targetedBot = findMentionedBot(rawMessage, cleanedMessage);
-        DebugLogger.log(plugin.getLogger(),
-                "InteractiveChat: targetedBot = %s",
-                targetedBot != null ? targetedBot.getName() : "null");
+        // Tìm bot được nhắc đến bằng Word Boundary
+        Player targetedBot = findMentionedBot(rawMessage);
 
-        // Get translation settings from chat config
         String targetLang = chatConfig.getTranslationTarget();
         String provider = chatConfig.getTranslationProvider();
         String apiKey = chatConfig.getTranslationApiKey();
 
-        boolean translateEnabled = !"none".equalsIgnoreCase(targetLang)
-                && !"none".equalsIgnoreCase(provider);
+        boolean translateEnabled = !"none".equalsIgnoreCase(targetLang) && !"none".equalsIgnoreCase(provider);
 
         for (InteractionConfig interaction : interactiveConfig.getInteractions()) {
             String interactionKey = interaction.getKey();
 
-            DebugLogger.log(plugin.getLogger(),
-                    "InteractiveChat: testing interaction '%s'", interactionKey);
-
             if (!interaction.isInActiveHours(zoneId)) {
-                DebugLogger.log(plugin.getLogger(),
-                        "InteractiveChat: %s not in active hours", interactionKey);
                 continue;
             }
 
+            // Chuẩn bị chuỗi test: thay tên bot bằng Token định danh
             String testMessage = cleanedMessage;
             if (targetedBot != null) {
                 String cleanBotName = StringUtils.cleanMessage(targetedBot.getName());
-                testMessage = testMessage.replace(cleanBotName, "[bot]");
+                testMessage = Pattern.compile("\\b" + Pattern.quote(cleanBotName) + "\\b", Pattern.CASE_INSENSITIVE)
+                        .matcher(testMessage)
+                        .replaceAll(InteractionConfig.BOT_TOKEN);
             }
 
             if (!interaction.matches(testMessage)) {
-                DebugLogger.log(plugin.getLogger(),
-                        "InteractiveChat: %s did NOT match", interactionKey);
                 continue;
             }
 
-            DebugLogger.log(plugin.getLogger(),
-                    "InteractiveChat: %s MATCHED!", interactionKey);
-
-            // --- Cooldowns ---
+            // Cooldowns
             long lastGlobal = globalCooldowns.getOrDefault(interactionKey, 0L);
             if (now - lastGlobal < interaction.getGlobalCooldownMs()) {
-                DebugLogger.log(plugin.getLogger(),
-                        "InteractiveChat: global cooldown active for %s", interactionKey);
                 continue;
             }
 
-            Map<String, Long> pCooldowns = playerCooldowns.computeIfAbsent(playerUuid,
-                    k -> new ConcurrentHashMap<>());
+            Map<String, Long> pCooldowns = playerCooldowns.computeIfAbsent(playerUuid, k -> new ConcurrentHashMap<>());
             long lastPlayer = pCooldowns.getOrDefault(interactionKey, 0L);
             if (now - lastPlayer < interaction.getPerPlayerCooldownMs()) {
-                DebugLogger.log(plugin.getLogger(),
-                        "InteractiveChat: per-player cooldown active for %s", interactionKey);
                 continue;
             }
 
-            // --- Chance roll ---
+            // Probability Chance Roll
             if (!interaction.rollsChance()) {
-                DebugLogger.log(plugin.getLogger(),
-                        "InteractiveChat: chance roll FAILED for %s", interactionKey);
                 continue;
             }
 
-            // Update cooldowns
             globalCooldowns.put(interactionKey, now);
             pCooldowns.put(interactionKey, now);
 
             List<String> replies = interaction.getReplies();
             if (replies == null || replies.isEmpty()) {
-                DebugLogger.log(plugin.getLogger(),
-                        "InteractiveChat: no replies for %s", interactionKey);
                 continue;
             }
 
-            // Select bots
             List<Player> speakingBots = new ArrayList<>();
             if (targetedBot != null) {
                 speakingBots.add(targetedBot);
-                DebugLogger.log(plugin.getLogger(),
-                        "InteractiveChat: responding with targeted bot %s", targetedBot.getName());
             } else {
                 List<Player> selected = botSelector.selectRandomBots(interaction.getMaxBurst());
                 speakingBots.addAll(selected);
-                DebugLogger.log(plugin.getLogger(),
-                        "InteractiveChat: selected %d random bots for %s",
-                        selected.size(), interactionKey);
             }
 
             if (speakingBots.isEmpty()) {
-                DebugLogger.log(plugin.getLogger(),
-                        "InteractiveChat: no bots available for %s, continuing", interactionKey);
                 continue;
             }
 
@@ -196,47 +140,30 @@ public class InteractiveChatListener implements Listener {
 
             for (Player bot : speakingBots) {
                 String reply = selectDeduplicatedReply(playerUuid, replies, now);
-                if (reply == null) {
-                    DebugLogger.log(plugin.getLogger(),
-                            "InteractiveChat: failed to select deduplicated reply for %s", interactionKey);
-                    continue;
-                }
+                if (reply == null) continue;
 
-                // --- Translate reply if enabled ---
                 String translatedReply = reply;
                 if (translateEnabled) {
                     translatedReply = translateReply(reply, targetLang, provider, apiKey);
-                    DebugLogger.log(plugin.getLogger(),
-                            "InteractiveChat: translated reply: '%s' -> '%s'", reply, translatedReply);
                 }
 
-                // Replace placeholders with the player's name
-                String formattedReply = translatedReply.replace("[name]", name).replace("%name%", name);
+                String formattedReply = translatedReply
+                        .replace("[name]", name)
+                        .replace("%name%", name)
+                        .replace("[bot]", bot.getName())
+                        .replace("%bot%", bot.getName());
 
                 long totalDelayTicks = interaction.getTypingDelayTicks(formattedReply) + baseStaggerTicks;
 
-                DebugLogger.log(plugin.getLogger(),
-                        "InteractiveChat: scheduling %s to say '%s' in %d ticks",
-                        bot.getName(), formattedReply, totalDelayTicks);
-
                 Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                    if (!player.isOnline()) {
-                        DebugLogger.log(plugin.getLogger(),
-                                "InteractiveChat: player %s left, cancelling", name);
-                        return;
-                    }
-                    if (!bot.isOnline() || !plugin.getFakePlayerManager().isBotOnline(bot.getName())) {
-                        DebugLogger.log(plugin.getLogger(),
-                                "InteractiveChat: bot %s offline, cancelling", bot.getName());
-                        return;
-                    }
+                    if (!player.isOnline()) return;
+                    if (!bot.isOnline() || !plugin.getFakePlayerManager().isBotOnline(bot.getName())) return;
                     chatProcessor.processChatAsync(bot, formattedReply, plugin.getConfigManager().getChatConfig());
                 }, totalDelayTicks);
 
-                baseStaggerTicks += ThreadLocalRandom.current().nextLong(5L, 15L);
+                baseStaggerTicks += ThreadLocalRandom.current().nextLong(10L, 25L);
             }
 
-            // Stop after first matched group
             break;
         }
     }
@@ -249,52 +176,33 @@ public class InteractiveChatListener implements Listener {
     }
 
     /**
-     * Finds a bot mentioned in the message with fuzzy (Levenshtein) matching.
+     * Tìm bot được nhắc đến chính xác 100% bằng Word Boundary (VD: "@Steve", "Steve:", "Steve")
      */
-    private Player findMentionedBot(String rawMessage, String cleanedMessage) {
+    private Player findMentionedBot(String rawMessage) {
         if (rawMessage == null || rawMessage.isBlank()) return null;
-
-        String lowerRaw = rawMessage.toLowerCase(Locale.ROOT);
-        String cleanedLower = cleanedMessage.toLowerCase(Locale.ROOT);
 
         for (Player online : Bukkit.getOnlinePlayers()) {
             if (!plugin.getFakePlayerManager().isBotOnline(online.getName())) continue;
 
             String botName = online.getName();
-            String lowerBot = botName.toLowerCase(Locale.ROOT);
 
-            // Exact match
-            if (lowerRaw.contains(lowerBot)) return online;
+            // 1. Kiểm tra tag trực tiếp: @BotName
+            if (Pattern.compile("(?:^|\\s+)@" + Pattern.quote(botName) + "(?:$|\\s+|[.,:!?])", Pattern.CASE_INSENSITIVE).matcher(rawMessage).find()) {
+                return online;
+            }
 
-            // Cleaned match
-            String cleanedBot = StringUtils.cleanMessage(botName);
-            if (cleanedLower.contains(cleanedBot)) return online;
-
-            // Fuzzy (Levenshtein) match
-            String[] words = cleanedLower.split(" ");
-            for (String word : words) {
-                if (word.length() < 3) continue;
-                int dist = StringUtils.levenshteinDistance(word, cleanedBot);
-                double maxLen = Math.max(word.length(), cleanedBot.length());
-                double similarity = 1.0 - (dist / maxLen);
-                if (similarity >= 0.85) {
-                    return online;
-                }
+            // 2. Kiểm tra tên bot đứng độc lập dưới dạng một từ riêng biệt
+            if (Pattern.compile("\\b" + Pattern.quote(botName) + "\\b", Pattern.CASE_INSENSITIVE).matcher(rawMessage).find()) {
+                return online;
             }
         }
         return null;
     }
 
-    /**
-     * Selects a reply not used recently for this specific player.
-     */
     private String selectDeduplicatedReply(UUID playerUuid, List<String> replies, long now) {
         if (replies.isEmpty()) return null;
 
-        Map<String, Long> cache = playerReplyCache.computeIfAbsent(playerUuid,
-                k -> new ConcurrentHashMap<>());
-
-        // Remove entries older than 90 seconds
+        Map<String, Long> cache = playerReplyCache.computeIfAbsent(playerUuid, k -> new ConcurrentHashMap<>());
         cache.entrySet().removeIf(e -> now - e.getValue() > 90_000L);
 
         List<String> fresh = new ArrayList<>();
@@ -312,25 +220,11 @@ public class InteractiveChatListener implements Listener {
         return chosen;
     }
 
-    /**
-     * Translates a reply to the target language while preserving placeholder tokens.
-     * <p>
-     * Placeholders {@code [name]} and {@code %name%} are temporarily replaced with
-     * a token before translation to avoid being altered, then restored after translation.
-     * </p>
-     *
-     * @param reply      the original reply (may contain placeholders)
-     * @param targetLang the target language code (e.g., "en", "vi")
-     * @param provider   the translation provider
-     * @param apiKey     the API key for the provider
-     * @return the translated reply with placeholders restored, or the original on failure
-     */
     private String translateReply(String reply, String targetLang, String provider, String apiKey) {
         if (reply == null || reply.isEmpty()) return reply;
         if (targetLang == null || targetLang.equalsIgnoreCase("none")) return reply;
         if (provider == null || provider.equalsIgnoreCase("none")) return reply;
 
-        // Replace placeholders with unique tokens
         String token = "__NAME__";
         String withToken = reply.replace("[name]", token).replace("%name%", token);
 
@@ -339,7 +233,6 @@ public class InteractiveChatListener implements Listener {
             return reply;
         }
 
-        // Restore placeholders
         return translated.replace(token, "[name]");
     }
 }

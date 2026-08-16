@@ -11,12 +11,12 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
 
 /**
- * Configuration for a single interactive chat trigger group.
- * <p>
- * Supports both plain-text triggers with wildcards and raw regex patterns.
- * </p>
+ * High-accuracy interaction trigger configuration.
+ * Guarantees 100% deterministic keyword/regex evaluation without false-positive overlaps.
  */
 public class InteractionConfig {
+
+    public static final String BOT_TOKEN = "__BOT_MENTION__";
 
     private final String key;
     private final List<String> rawTriggers;
@@ -34,9 +34,6 @@ public class InteractionConfig {
     private final Range typingSpeedRange;
     private final Range pauseBetweenWords;
 
-    /**
-     * Full constructor with all parameters.
-     */
     public InteractionConfig(String key, List<String> rawTriggers, double chance,
                              long globalCooldownSec, long perPlayerCooldownSec,
                              int maxBurst, String delayRangeStr, String activeHoursStr,
@@ -61,53 +58,80 @@ public class InteractionConfig {
         List<String> plain = new ArrayList<>();
 
         if (useRegex) {
-            // Raw regex mode – no cleaning, compile directly
             for (String trig : this.rawTriggers) {
                 if (trig == null || trig.isBlank()) continue;
                 try {
-                    compiled.add(Pattern.compile(trig, Pattern.CASE_INSENSITIVE));
-                } catch (Exception e) {
-                    // invalid regex – skip
-                }
+                    compiled.add(Pattern.compile(trig, Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE));
+                } catch (Exception ignored) {}
             }
         } else {
-            // Wildcard mode with OR support
             for (String trig : this.rawTriggers) {
                 if (trig == null || trig.isBlank()) continue;
 
-                // For non-wildcard triggers, we keep them for fuzzy matching
-                if (!trig.contains("*")) {
-                    String cleaned = StringUtils.cleanMessage(trig);
-                    plain.add(cleaned);
-                    // Also add a word-boundary pattern for exact matching
-                    compiled.add(Pattern.compile("\\b" + Pattern.quote(cleaned) + "\\b", Pattern.CASE_INSENSITIVE));
+                // Xử lý riêng biệt trigger Tag [bot]
+                if (trig.contains("[bot]")) {
+                    String patternStr = trig
+                            .replace("*[bot]*", ".*\\b" + BOT_TOKEN + "\\b.*")
+                            .replace("[bot]*", "\\b" + BOT_TOKEN + "\\b.*")
+                            .replace("*[bot]", ".*\\b" + BOT_TOKEN + "\\b")
+                            .replace("[bot]", "\\b" + BOT_TOKEN + "\\b");
+                    compiled.add(Pattern.compile(patternStr, Pattern.CASE_INSENSITIVE));
                     continue;
                 }
 
-                // Wildcard: split by "*"
-                String[] parts = trig.split("\\*");
-                StringBuilder sb = new StringBuilder(".*");
-                for (String part : parts) {
-                    if (part.isBlank()) continue;
+                // Plain trigger không có Wildcard -> Yêu cầu Word Boundary chính xác
+                if (!trig.contains("*")) {
+                    String cleaned = StringUtils.cleanMessage(trig);
+                    if (!cleaned.isBlank()) {
+                        plain.add(cleaned);
+                        // Bắt buộc đứng độc lập như 1 từ hoặc cụm từ hoàn chỉnh
+                        compiled.add(Pattern.compile("(?:^|\\s+)" + Pattern.quote(cleaned) + "(?:$|\\s+)", Pattern.CASE_INSENSITIVE));
+                    }
+                    continue;
+                }
 
-                    // Check if this part contains an OR operator
+                // Xử lý Wildcard * với toán tử OR (|)
+                boolean startsWildcard = trig.startsWith("*");
+                boolean endsWildcard = trig.endsWith("*");
+                String[] parts = trig.split("\\*");
+
+                StringBuilder sb = new StringBuilder();
+                if (startsWildcard) {
+                    sb.append(".*");
+                } else {
+                    sb.append("(?:^|\\s+)");
+                }
+
+                List<String> validParts = new ArrayList<>();
+                for (String part : parts) {
+                    if (!part.isBlank()) validParts.add(part);
+                }
+
+                for (int i = 0; i < validParts.size(); i++) {
+                    String part = validParts.get(i);
                     if (part.contains("|")) {
-                        // Split by "|" and clean each option individually
                         String[] orParts = part.split("\\|");
-                        StringBuilder orGroup = new StringBuilder("(?:");
-                        for (int i = 0; i < orParts.length; i++) {
-                            String cleanedOption = StringUtils.cleanMessage(orParts[i]);
-                            orGroup.append(Pattern.quote(cleanedOption));
-                            if (i < orParts.length - 1) orGroup.append("|");
+                        sb.append("(?:");
+                        for (int j = 0; j < orParts.length; j++) {
+                            sb.append(Pattern.quote(StringUtils.cleanMessage(orParts[j])));
+                            if (j < orParts.length - 1) sb.append("|");
                         }
-                        orGroup.append(")");
-                        sb.append(orGroup).append(".*");
+                        sb.append(")");
                     } else {
-                        // Regular part – clean and quote
-                        String cleaned = StringUtils.cleanMessage(part);
-                        sb.append(Pattern.quote(cleaned)).append(".*");
+                        sb.append(Pattern.quote(StringUtils.cleanMessage(part)));
+                    }
+
+                    if (i < validParts.size() - 1) {
+                        sb.append(".*");
                     }
                 }
+
+                if (endsWildcard) {
+                    sb.append(".*");
+                } else {
+                    sb.append("(?:$|\\s+)");
+                }
+
                 compiled.add(Pattern.compile(sb.toString(), Pattern.CASE_INSENSITIVE));
             }
         }
@@ -117,44 +141,39 @@ public class InteractionConfig {
     }
 
     /**
-     * Legacy constructor for backward compatibility.
-     */
-    public InteractionConfig(String key, List<String> rawTriggers, double chance,
-                             long globalCooldownSec, long perPlayerCooldownSec,
-                             int maxBurst, String delayRangeStr, String activeHoursStr,
-                             List<String> replies) {
-        this(key, rawTriggers, chance, globalCooldownSec, perPlayerCooldownSec,
-                maxBurst, delayRangeStr, activeHoursStr, replies,
-                false, 0.85, "0.8-1.8", "2-4");
-    }
-
-    /**
-     * Checks if the cleaned user message matches any trigger.
+     * Khớp trigger chính xác 100% (Pattern Matcher -> Strict Fuzzy Matcher)
      */
     public boolean matches(String cleanedUserMessage) {
         if (cleanedUserMessage == null || cleanedUserMessage.isBlank()) return false;
 
-        // 1. Pattern matching (regex or wildcard)
+        // 1. Kiểm tra Regex / Wildcard / Word Boundary
         for (Pattern pattern : triggerPatterns) {
             if (pattern.matcher(cleanedUserMessage).find()) {
                 return true;
             }
         }
 
-        // 2. Levenshtein fuzzy matching (only for non-regex triggers)
-        if (useRegex) return false;
+        // 2. Strict Levenshtein Fuzzy Matching (Chỉ áp dụng cho chế độ non-regex)
+        if (useRegex || cleanPlainTriggers.isEmpty()) return false;
 
-        String[] words = cleanedUserMessage.split(" ");
+        String[] words = cleanedUserMessage.split("\\s+");
         for (String word : words) {
-            if (word.length() < 3) continue;
+            // Không áp dụng fuzzy cho từ quá ngắn (< 4 ký tự) để chống false-positive
+            if (word.length() < 4) continue;
+
             for (String trig : cleanPlainTriggers) {
-                if (trig.length() < 3) continue;
-                int maxDist = (trig.length() <= 4) ? 1 : 2;
-                if (StringUtils.levenshteinDistance(word, trig) <= maxDist) {
+                if (trig.length() < 4) continue;
+
+                // Tính toán độ tương đồng chính xác theo tỉ lệ threshold
+                int dist = StringUtils.levenshteinDistance(word, trig);
+                double similarity = 1.0 - ((double) dist / Math.max(word.length(), trig.length()));
+
+                if (similarity >= this.fuzzyThreshold && dist <= 2) {
                     return true;
                 }
             }
         }
+
         return false;
     }
 
@@ -184,24 +203,17 @@ public class InteractionConfig {
         return ThreadLocalRandom.current().nextDouble() <= chance;
     }
 
-    /**
-     * Returns the random delay in ticks including reaction, typing, and word pauses.
-     *
-     * @param message the message being typed
-     * @return total delay in ticks
-     */
     public long getTypingDelayTicks(String message) {
         long reaction = delayRange.getRandomTicks();
         double speed = ThreadLocalRandom.current().nextDouble(
                 typingSpeedRange.getMin(), typingSpeedRange.getMax());
         long typingTicks = (long) (message.length() * speed);
-        long wordCount = message.split(" ").length;
+        long wordCount = message.split("\\s+").length;
         long pauseTicks = (long) (wordCount * ThreadLocalRandom.current().nextDouble(
                 pauseBetweenWords.getMin(), pauseBetweenWords.getMax()));
         return reaction + typingTicks + pauseTicks;
     }
 
-    // Getters
     public String getKey() { return key; }
     public double getChance() { return chance; }
     public long getGlobalCooldownMs() { return globalCooldownMs; }

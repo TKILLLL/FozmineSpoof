@@ -28,7 +28,8 @@ chat-interactions:
       - "hi"
       - "hello"
       - "yo"
-      - "sup all"
+      - "xin chao"
+      - "chao mn"
 
     # Probability to trigger response (0.0 = 0% | 1.0 = 100%)
     chance: 0.7
@@ -74,9 +75,9 @@ chat-interactions:
     # Set to true for precise pattern boundaries (\b, \s+, non-capturing groups)
     use-regex: true
     triggers:
-      - "\\b(?:how|where)\\s+sell\\b"
-      - "sell\\s+items"
-      - "\\bhow\\s+to\\s+(?:sell|trade|make\\s+money)\\b"
+      - "\\b(?:how|where)\\s+to?\\s*sell\\b"
+      - "\\blam\\s+sao\\s+ban\\s+do\\b"
+      - "\\bban\\s+do\\s+o\\s+dau\\b"
 
     chance: 0.9
     cooldowns:

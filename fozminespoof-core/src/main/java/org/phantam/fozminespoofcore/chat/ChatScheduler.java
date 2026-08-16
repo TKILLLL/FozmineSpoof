@@ -42,8 +42,8 @@ public class ChatScheduler {
         DebugLogger.log(logger, "ChatScheduler: start called, enabled=%s, mode=%s",
                 config.isEnabled(), config.getMode());
 
-        if (!chatConfig.isEnabled() || "ai".equalsIgnoreCase(chatConfig.getMode())) {
-            logger.info("[ChatSystem] Chat system disabled or in AI mode, skipping random chat scheduler.");
+        if (!chatConfig.isEnabled()) {
+            logger.info("[ChatSystem] Chat system disabled, skipping random chat scheduler.");
             return;
         }
 

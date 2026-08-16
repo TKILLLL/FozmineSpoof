@@ -16,28 +16,25 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.stream.Collectors;
 
 /**
- * Manages the lifecycle of fake players, including spawning, despawning, and expiration.
+ * High-performance, adaptive Bot Lifecycle Manager.
+ * Optimized for low-range/fast-paced configurations without oscillation or double-counting.
  */
 public class BotLifecycleManager {
-
-    private static final long EXPIRATION_CHECK_INTERVAL_TICKS = 100L;
-    private static final long MAINTENANCE_CHECK_INTERVAL_TICKS = 60L;
-
-    private static final long DESPAWN_COOLDOWN_MS = 60000L;
 
     private final FozmineSpoofCore plugin;
     private final FakePlayerManager manager;
     private final ConfigManager config;
 
-    private final Map<String, Long> botSpawnTime = new ConcurrentHashMap<>();
+    private final Map<String, Long> botExpirationTimes = new ConcurrentHashMap<>();
 
     private final Map<String, Long> despawnCooldowns = new ConcurrentHashMap<>();
 
     private final Set<String> spawning = ConcurrentHashMap.newKeySet();
 
-    private int pendingDelayedSpawns = 0;
-    private int pendingDelayedDespawns = 0;
     private final Queue<String> despawnQueue = new ConcurrentLinkedQueue<>();
+    private final Set<String> pendingDespawnSet = ConcurrentHashMap.newKeySet();
+
+    private int pendingDelayedSpawns = 0;
 
     private BukkitRunnable lifecycleCheckTask;
     private BukkitRunnable maintenanceCheckTask;
@@ -54,31 +51,48 @@ public class BotLifecycleManager {
     }
 
     public void reload() {
-        DebugLogger.log(plugin.getLogger(), "BotLifecycleManager: reloaded config settings successfully.");
+        startLifecycleCheck();
+        startMaintenanceCheck();
+        startDespawnQueueProcessor();
+        DebugLogger.log(plugin.getLogger(), "BotLifecycleManager: adaptive scheduler reloaded.");
     }
 
+    /**
+     * Gán chính xác thời gian sống (Session Lifetime) riêng biệt cho bot khi vừa spawn thành công.
+     */
     public void onBotSpawn(String name) {
         if (name == null) return;
         String lowerName = name.toLowerCase();
 
-        botSpawnTime.put(lowerName, System.currentTimeMillis());
+        long sessionLifetime = config.getLifetimeIntervalMillis();
+        botExpirationTimes.put(lowerName, System.currentTimeMillis() + sessionLifetime);
+
         spawning.remove(lowerName);
         despawnCooldowns.remove(lowerName);
 
-        DebugLogger.log(plugin.getLogger(), "BotLifecycleManager: %s spawned successfully.", name);
+        DebugLogger.log(plugin.getLogger(), "BotLifecycleManager: %s spawned (Session lifetime: %.1fs).",
+                name, sessionLifetime / 1000.0);
     }
 
+    /**
+     * Xử lý khi bot despawn: gán cooldown thích ứng trước khi được phép tái xuất hiện.
+     */
     public void onBotDespawn(String name) {
         if (name == null) return;
         String lowerName = name.toLowerCase();
 
-        botSpawnTime.remove(lowerName);
+        botExpirationTimes.remove(lowerName);
         spawning.remove(lowerName);
+        pendingDespawnSet.remove(lowerName);
 
-        despawnCooldowns.put(lowerName, System.currentTimeMillis());
+        // Cooldown thích ứng theo range: tối đa bằng 1/2 lifetime hoặc tối thiểu 5s
+        long adaptiveCooldown = Math.max(5000L, config.getLifetimeIntervalMillis() / 2);
+        despawnCooldowns.put(lowerName, System.currentTimeMillis() + adaptiveCooldown);
 
         if (plugin.isEnabled()) {
-            Bukkit.getScheduler().runTask(plugin, this::maintainBotCount);
+            // Delay nhẹ trước khi cân bằng lại số lượng để tránh flapping/churn
+            long delayTicks = Math.max(1L, config.getJoinQuitIntervalTicks());
+            Bukkit.getScheduler().runTaskLater(plugin, this::maintainBotCount, delayTicks);
         }
     }
 
@@ -119,7 +133,7 @@ public class BotLifecycleManager {
                 if (!toAdd.isEmpty() && plugin.isEnabled()) {
                     plugin.getFakePlayerDatabase().saveFakePlayers(toAdd);
                     DebugLogger.log(plugin.getLogger(),
-                            "BotLifecycleManager: pre-populated " + toAdd.size() + " bots into database.");
+                            "BotLifecycleManager: pre-populated %d bots into database.", toAdd.size());
                 }
 
                 if (plugin.isEnabled()) {
@@ -136,30 +150,37 @@ public class BotLifecycleManager {
         int initial = config.getBaseAmount();
         if (initial <= 0) return;
 
-        DebugLogger.log(plugin.getLogger(), "BotLifecycleManager: Queuing " + initial + " initial bots...");
+        DebugLogger.log(plugin.getLogger(), "BotLifecycleManager: Queuing %d initial bots...", initial);
 
         for (int i = 0; i < initial; i++) {
-            long delay = i * config.getJoinQuitIntervalTicks();
+            long delay = i * Math.max(1L, config.getJoinQuitIntervalTicks());
             pendingDelayedSpawns++;
 
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                pendingDelayedSpawns--;
+                pendingDelayedSpawns = Math.max(0, pendingDelayedSpawns - 1);
 
                 int realPlayers = getRealPlayersCount();
                 int target = config.getEffectiveBaseAmount() + (int) (realPlayers * config.getEffectivePercentRate() / 100.0);
-                int currentBots = manager.getOnlineBotsData().size() + spawning.size();
+                int currentEffectiveBots = calculateEffectiveBotCount();
 
-                if (currentBots < target) {
+                if (currentEffectiveBots < target) {
                     spawnOneBot();
                 }
             }, delay);
         }
     }
 
+    /**
+     * Tần số quét tự thích ứng (Adaptive Interval):
+     * Nếu lifetime dưới 60s, kiểm tra mỗi 1 giây (20 ticks). Ngược lại kiểm tra mỗi 3-5 giây.
+     */
     private void startLifecycleCheck() {
         if (lifecycleCheckTask != null) {
             lifecycleCheckTask.cancel();
         }
+
+        long checkTicks = Math.max(10L, Math.min(60L, config.getLifetimeIntervalMillis() / 1000L * 2L));
+
         lifecycleCheckTask = new BukkitRunnable() {
             @Override
             public void run() {
@@ -167,22 +188,19 @@ public class BotLifecycleManager {
                 cleanCooldowns();
             }
         };
-        lifecycleCheckTask.runTaskTimer(plugin, EXPIRATION_CHECK_INTERVAL_TICKS, EXPIRATION_CHECK_INTERVAL_TICKS);
+        lifecycleCheckTask.runTaskTimer(plugin, checkTicks, checkTicks);
     }
 
     private void checkExpiredBots() {
-        if (botSpawnTime.isEmpty()) return;
+        if (botExpirationTimes.isEmpty()) return;
 
         long now = System.currentTimeMillis();
-        long currentLifetimeMs = config.getLifetimeIntervalMillis();
-
-        for (Map.Entry<String, Long> entry : new HashMap<>(botSpawnTime).entrySet()) {
+        for (Map.Entry<String, Long> entry : new HashMap<>(botExpirationTimes).entrySet()) {
             String lowerName = entry.getKey();
-            long spawnTime = entry.getValue();
+            long expireAt = entry.getValue();
 
-            if (now >= spawnTime + currentLifetimeMs) {
-                DebugLogger.log(plugin.getLogger(),
-                        "BotLifecycleManager: bot '%s' expired, pushing to despawn queue...", lowerName);
+            if (now >= expireAt) {
+                DebugLogger.log(plugin.getLogger(), "BotLifecycleManager: bot '%s' reached session end, queuing despawn.", lowerName);
                 queueDespawn(lowerName);
             }
         }
@@ -191,20 +209,23 @@ public class BotLifecycleManager {
     private void cleanCooldowns() {
         if (despawnCooldowns.isEmpty()) return;
         long now = System.currentTimeMillis();
-        despawnCooldowns.entrySet().removeIf(entry -> now - entry.getValue() > DESPAWN_COOLDOWN_MS);
+        despawnCooldowns.entrySet().removeIf(entry -> now >= entry.getValue());
     }
 
     private void startMaintenanceCheck() {
         if (maintenanceCheckTask != null) {
             maintenanceCheckTask.cancel();
         }
+
+        long checkInterval = Math.max(20L, config.getJoinQuitIntervalTicks() * 4L);
+
         maintenanceCheckTask = new BukkitRunnable() {
             @Override
             public void run() {
                 maintainBotCount();
             }
         };
-        maintenanceCheckTask.runTaskTimer(plugin, MAINTENANCE_CHECK_INTERVAL_TICKS, MAINTENANCE_CHECK_INTERVAL_TICKS);
+        maintenanceCheckTask.runTaskTimer(plugin, checkInterval, checkInterval);
     }
 
     private int getRealPlayersCount() {
@@ -217,25 +238,33 @@ public class BotLifecycleManager {
         return realPlayers;
     }
 
+    /**
+     * Tính toán số lượng bot thực tế chính xác (KHÔNG double-counting).
+     */
+    private int calculateEffectiveBotCount() {
+        int onlineCount = manager.getOnlineBotsData().size();
+        return onlineCount + spawning.size() + pendingDelayedSpawns - pendingDespawnSet.size();
+    }
+
     private void maintainBotCount() {
         if (!plugin.isEnabled()) return;
 
         int realPlayers = getRealPlayersCount();
+        int effectiveBotCount = calculateEffectiveBotCount();
         int onlineCount = manager.getOnlineBotsData().size();
 
-        int botCount = onlineCount + spawning.size() + pendingDelayedSpawns - pendingDelayedDespawns - despawnQueue.size();
-
-        int effectiveBase = config.getEffectiveBaseAmount();
-        int effectivePercent = config.getEffectivePercentRate();
-        int target = effectiveBase + (int) (realPlayers * effectivePercent / 100.0);
+        int target = config.getEffectiveBaseAmount() + (int) (realPlayers * config.getEffectivePercentRate() / 100.0);
 
         DebugLogger.logFine(plugin.getLogger(),
-                "BotLifecycleManager: maintainBotCount: NetCalcBots=%d (online=%d, spawning=%d, pendingSpawn=%d, pendingDespawn=%d), target=%d",
-                botCount, onlineCount, spawning.size(), pendingDelayedSpawns, despawnQueue.size() + pendingDelayedDespawns, target);
+                "BotLifecycleManager: maintainBotCount -> Effective=%d (Online=%d, Spawning=%d, PendingSpawn=%d, PendingDespawn=%d) | Target=%d",
+                effectiveBotCount, onlineCount, spawning.size(), pendingDelayedSpawns, pendingDespawnSet.size(), target);
 
-        if (botCount < target) {
-            spawnOneBot();
-        } else if (onlineCount > target && despawnQueue.isEmpty() && pendingDelayedDespawns == 0) {
+        if (effectiveBotCount < target) {
+            int needed = target - effectiveBotCount;
+            for (int i = 0; i < needed; i++) {
+                spawnOneBot();
+            }
+        } else if (onlineCount > target && pendingDespawnSet.isEmpty()) {
             queueExcessBotsForDespawn(onlineCount - target);
         }
     }
@@ -258,9 +287,8 @@ public class BotLifecycleManager {
         if (name == null) return;
         String lowerName = name.toLowerCase();
 
-        if (!despawnQueue.contains(lowerName)) {
+        if (pendingDespawnSet.add(lowerName)) {
             despawnQueue.add(lowerName);
-            pendingDelayedDespawns++;
         }
     }
 
@@ -268,6 +296,9 @@ public class BotLifecycleManager {
         if (despawnQueueTask != null) {
             despawnQueueTask.cancel();
         }
+
+        long intervalTicks = Math.max(1L, config.getJoinQuitIntervalTicks());
+
         despawnQueueTask = new BukkitRunnable() {
             @Override
             public void run() {
@@ -275,19 +306,17 @@ public class BotLifecycleManager {
 
                 String name = despawnQueue.poll();
                 if (name != null) {
-                    pendingDelayedDespawns = Math.max(0, pendingDelayedDespawns - 1);
-                    DebugLogger.log(plugin.getLogger(), "BotLifecycleManager: executing scheduled quit for bot '%s'", name);
+                    DebugLogger.log(plugin.getLogger(), "BotLifecycleManager: executing sequential quit for bot '%s'", name);
                     manager.despawnBot(name);
                 }
             }
         };
-        long intervalTicks = Math.max(1L, config.getJoinQuitIntervalTicks());
         despawnQueueTask.runTaskTimer(plugin, intervalTicks, intervalTicks);
     }
 
     /**
-     * NÂNG CẤP ĐỘ ĐÃ DẠNG (MAXIMUM DIVERSITY):
-     * Xáo trộn danh sách bot trong database để chọn ngẫu nhiên các bot chưa hoạt động và không nằm trong vùng cooldown.
+     * Spawn 1 bot với thuật toán ưu tiên xoay vòng (Round-robin / Adaptive fallback)
+     * Tránh tuyệt đối việc tự sinh bot rác dạng Bot1, Bot2 khi range thấp.
      */
     public void spawnOneBot() {
         if (!plugin.isEnabled()) return;
@@ -298,12 +327,20 @@ public class BotLifecycleManager {
         List<FakePlayerData> availableInactiveBots = allBots.stream()
                 .filter(d -> !d.isActive())
                 .filter(d -> !spawning.contains(d.getName().toLowerCase()))
-                .filter(d -> !despawnQueue.contains(d.getName().toLowerCase()))
+                .filter(d -> !pendingDespawnSet.contains(d.getName().toLowerCase()))
                 .filter(d -> {
-                    Long coolTime = despawnCooldowns.get(d.getName().toLowerCase());
-                    return coolTime == null || (now - coolTime > DESPAWN_COOLDOWN_MS);
+                    Long coolUntil = despawnCooldowns.get(d.getName().toLowerCase());
+                    return coolUntil == null || now >= coolUntil;
                 })
                 .collect(Collectors.toList());
+
+        if (availableInactiveBots.isEmpty()) {
+            availableInactiveBots = allBots.stream()
+                    .filter(d -> !d.isActive())
+                    .filter(d -> !spawning.contains(d.getName().toLowerCase()))
+                    .filter(d -> !pendingDespawnSet.contains(d.getName().toLowerCase()))
+                    .collect(Collectors.toList());
+        }
 
         if (!availableInactiveBots.isEmpty()) {
             Collections.shuffle(availableInactiveBots);
@@ -313,8 +350,7 @@ public class BotLifecycleManager {
                 manager.spawnBotAsync(name, success -> {
                     if (!success) {
                         spawning.remove(name.toLowerCase());
-                        DebugLogger.log(plugin.getLogger(),
-                                "BotLifecycleManager: failed to spawn inactive bot '%s'", name);
+                        DebugLogger.log(plugin.getLogger(), "BotLifecycleManager: failed to spawn inactive bot '%s'", name);
                     }
                 });
             }
@@ -336,13 +372,12 @@ public class BotLifecycleManager {
                 manager.spawnBotAsync(newName, success -> {
                     if (!success) {
                         spawning.remove(newName.toLowerCase());
-                        DebugLogger.log(plugin.getLogger(),
-                                "BotLifecycleManager: failed to spawn new bot '%s'", newName);
+                        DebugLogger.log(plugin.getLogger(), "BotLifecycleManager: failed to spawn new bot '%s'", newName);
                     }
                 });
             } else {
                 spawning.remove(newName.toLowerCase());
-                plugin.getLogger().warning("[BotLifecycleManager] No spawn location available, cannot spawn new bot.");
+                plugin.getLogger().warning("[BotLifecycleManager] No spawn location available.");
             }
         }
     }

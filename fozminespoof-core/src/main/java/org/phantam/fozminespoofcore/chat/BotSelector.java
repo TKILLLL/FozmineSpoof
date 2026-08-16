@@ -1,5 +1,6 @@
 package org.phantam.fozminespoofcore.chat;
 
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.phantam.fozminespoofapi.model.FakePlayerData;
 import org.phantam.fozminespoofapi.utils.DebugLogger;
@@ -35,9 +36,18 @@ public class BotSelector {
         }
 
         List<Player> availableBots = onlineData.stream()
-                .map(data -> playerManager.getOnlineBotEntity(data.getName()))
+                .map(data -> {
+                    Player bot = playerManager.getOnlineBotEntity(data.getName());
+                    if (bot == null || !bot.isOnline()) {
+                        bot = Bukkit.getPlayer(data.getUuid());
+                    }
+                    if (bot == null || !bot.isOnline()) {
+                        bot = Bukkit.getPlayerExact(data.getName());
+                    }
+                    return bot;
+                })
                 .filter(Objects::nonNull)
-                .filter(Player::isValid)
+                .filter(p -> p.isOnline() && playerManager.isBotOnline(p.getName()))
                 .collect(Collectors.toList());
 
         DebugLogger.log(logger, "BotSelector: found %d valid bot entities out of %d online",
