@@ -34,6 +34,8 @@ public class AiChatProcessor {
     // Millisecond-precision cooldowns
     private final Map<UUID, Long> playerCooldowns = new ConcurrentHashMap<>();
     private final Map<String, Long> botSenderCooldowns = new ConcurrentHashMap<>();
+    // Prevents duplicate provider calls while a response for the same player/bot pair is pending.
+    private final Map<String, Boolean> inFlightRequests = new ConcurrentHashMap<>();
 
     // Active multi-turn conversation sessions: Key format "PlayerUUID:botname"
     private final Map<String, ConversationSession> activeSessions = new ConcurrentHashMap<>();
@@ -72,7 +74,8 @@ public class AiChatProcessor {
     }
 
     public void processPlayerToAiChatAsync(Player sender, Player bot, String rawMessage, boolean isHelpMode, boolean isPrivateMsg) {
-        if (sender == null || bot == null || !sender.isOnline() || !bot.isOnline()) {
+        if (sender == null || bot == null || rawMessage == null || rawMessage.isBlank()
+                || !sender.isOnline() || !bot.isOnline()) {
             return;
         }
 
@@ -135,6 +138,10 @@ public class AiChatProcessor {
             if (playerNextAvailable != null && now < playerNextAvailable) {
                 return;
             }
+        }
+
+        if (inFlightRequests.putIfAbsent(sessionKey, Boolean.TRUE) != null) {
+            return;
         }
 
         // 7. Conversation session management
@@ -262,7 +269,8 @@ public class AiChatProcessor {
                     DebugLogger.log(plugin.getLogger(), "AiChatProcessor: AI completion failed for %s: %s", bot.getName(), ex.getMessage());
                     sendTimeoutMessage(sender, bot, isPrivateMsg);
                     return null;
-                });
+                })
+                .whenComplete((ignored, error) -> inFlightRequests.remove(sessionKey));
     }
 
     /**
@@ -652,5 +660,6 @@ public class AiChatProcessor {
         playerCooldowns.entrySet().removeIf(entry -> now > entry.getValue());
         botSenderCooldowns.entrySet().removeIf(entry -> now > entry.getValue());
         lastRateLimitWarnTime.entrySet().removeIf(entry -> now - entry.getValue() > 60_000L);
+        inFlightRequests.keySet().removeIf(key -> !activeSessions.containsKey(key));
     }
 }

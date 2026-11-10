@@ -6,7 +6,10 @@ import org.phantam.fozminespoofapi.model.FakePlayerData;
 import org.phantam.fozminespoofapi.utils.DebugLogger;
 
 import java.util.Collection;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -25,10 +28,14 @@ public class FakePlayerRegistry {
      * @param entity the Bukkit Player entity
      */
     public void register(FakePlayerData data, Player entity) {
-        String key = data.getName().toLowerCase();
+        Objects.requireNonNull(data, "data");
+        String key = keyOf(data.getName());
         dataCache.put(key, data);
         if (entity != null) {
             entityCache.put(key, entity);
+        } else {
+            // A re-registration without an entity means the old entity is no longer valid.
+            entityCache.remove(key);
         }
         DebugLogger.logFine(Bukkit.getLogger(), "FakePlayerRegistry: registered %s (uuid=%s)",
                 data.getName(), data.getUuid());
@@ -40,7 +47,8 @@ public class FakePlayerRegistry {
      * @param name the player name
      */
     public void unregister(String name) {
-        String key = name.toLowerCase();
+        if (name == null) return;
+        String key = keyOf(name);
         FakePlayerData removedData = dataCache.remove(key);
         Player removedEntity = entityCache.remove(key);
         if (removedData != null) {
@@ -68,7 +76,8 @@ public class FakePlayerRegistry {
      * @return the data, or null
      */
     public FakePlayerData getData(String name) {
-        FakePlayerData data = dataCache.get(name.toLowerCase());
+        if (name == null) return null;
+        FakePlayerData data = dataCache.get(keyOf(name));
         DebugLogger.logFine(Bukkit.getLogger(), "FakePlayerRegistry: getData %s -> %s",
                 name, data != null ? "found" : "null");
         return data;
@@ -81,7 +90,8 @@ public class FakePlayerRegistry {
      * @return the Player, or null
      */
     public Player getEntity(String name) {
-        Player player = entityCache.get(name.toLowerCase());
+        if (name == null) return null;
+        Player player = entityCache.get(keyOf(name));
         DebugLogger.logFine(Bukkit.getLogger(), "FakePlayerRegistry: getEntity %s -> %s",
                 name, player != null ? "found" : "null");
         return player;
@@ -93,7 +103,7 @@ public class FakePlayerRegistry {
      * @return collection of names
      */
     public Collection<String> getOnlineNames() {
-        Collection<String> names = dataCache.keySet();
+        Collection<String> names = new ArrayList<>(dataCache.keySet());
         DebugLogger.logFine(Bukkit.getLogger(), "FakePlayerRegistry: getOnlineNames -> %d names", names.size());
         return names;
     }
@@ -104,7 +114,7 @@ public class FakePlayerRegistry {
      * @return collection of data
      */
     public Collection<FakePlayerData> getOnlineData() {
-        Collection<FakePlayerData> data = dataCache.values();
+        Collection<FakePlayerData> data = new ArrayList<>(dataCache.values());
         DebugLogger.logFine(Bukkit.getLogger(), "FakePlayerRegistry: getOnlineData -> %d bots", data.size());
         return data;
     }
@@ -116,8 +126,12 @@ public class FakePlayerRegistry {
      * @return true if online
      */
     public boolean isOnline(String name) {
-        boolean online = dataCache.containsKey(name.toLowerCase());
+        boolean online = name != null && dataCache.containsKey(keyOf(name));
         DebugLogger.logFine(Bukkit.getLogger(), "FakePlayerRegistry: isOnline %s -> %s", name, online);
         return online;
+    }
+
+    private static String keyOf(String name) {
+        return Objects.requireNonNull(name, "name").toLowerCase(Locale.ROOT);
     }
 }

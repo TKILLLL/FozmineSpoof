@@ -11,6 +11,7 @@ import java.time.ZoneId;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class AiConfig {
@@ -111,7 +112,7 @@ public class AiConfig {
             ensureDefaultFileExists();
             YamlConfiguration config = YamlConfiguration.loadConfiguration(file);
 
-            modelProvider = config.getString("ai-settings.model", "GPT").toUpperCase();
+            modelProvider = config.getString("ai-settings.model", "GPT").toUpperCase(Locale.ROOT);
             apiKey = config.getString("ai-settings.api-key", "");
 
             // Language Settings

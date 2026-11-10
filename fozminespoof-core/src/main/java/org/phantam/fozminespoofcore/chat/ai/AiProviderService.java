@@ -12,6 +12,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import java.util.logging.Logger;
 
@@ -34,7 +35,12 @@ public class AiProviderService {
     }
 
     public CompletableFuture<String> fetchAiResponseAsync(AiConfig config, String systemPrompt, List<ChatMessage> history, String userMessage) {
-        String provider = config.getModelProvider();
+        if (config == null || userMessage == null || userMessage.isBlank()) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        String provider = config.getModelProvider() == null
+                ? "GPT" : config.getModelProvider().toUpperCase(Locale.ROOT);
         DebugLogger.log(logger, "AiProviderService: fetching with provider: %s (History size: %d)", provider, history != null ? history.size() : 0);
 
         return switch (provider) {
@@ -78,7 +84,8 @@ public class AiProviderService {
         root.addProperty("frequency_penalty", gpt.frequencyPenalty());
 
         String jsonPayload = root.toString();
-        DebugLogger.log(logger, "AiProviderService: OpenAI payload: %s", jsonPayload);
+        DebugLogger.logFine(logger, "AiProviderService: OpenAI request prepared (history=%d, promptLength=%d)",
+                history != null ? history.size() : 0, userMessage.length());
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create("https://api.openai.com/v1/chat/completions"))
@@ -167,7 +174,8 @@ public class AiProviderService {
         root.add("generationConfig", genConfig);
 
         String jsonPayload = root.toString();
-        DebugLogger.log(logger, "AiProviderService: Gemini payload: %s", jsonPayload);
+        DebugLogger.logFine(logger, "AiProviderService: Gemini request prepared (history=%d, promptLength=%d)",
+                history != null ? history.size() : 0, userMessage.length());
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))

@@ -13,6 +13,7 @@ import org.phantam.fozminespoofcore.database.executors.*;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
@@ -90,7 +91,7 @@ public class FakePlayerManager {
                 botCache.clear();
                 for (FakePlayerData data : all) {
                     if (data != null && data.getName() != null && data.getName().length() <= 16) {
-                        botCache.put(data.getName().toLowerCase(), data);
+                        botCache.put(data.getName().toLowerCase(Locale.ROOT), data);
                     }
                 }
                 plugin.getLogger().info("[FakePlayerManager] Cached " + botCache.size() + " bots into RAM.");
@@ -114,7 +115,7 @@ public class FakePlayerManager {
      */
     public void updateCache(FakePlayerData data) {
         if (data != null && data.getName() != null && data.getName().length() <= 16) {
-            botCache.put(data.getName().toLowerCase(), data);
+            botCache.put(data.getName().toLowerCase(Locale.ROOT), data);
         }
     }
 
@@ -125,7 +126,7 @@ public class FakePlayerManager {
      */
     public void removeFromCache(String name) {
         if (name != null) {
-            botCache.remove(name.toLowerCase());
+            botCache.remove(name.toLowerCase(Locale.ROOT));
         }
     }
 
@@ -184,7 +185,7 @@ public class FakePlayerManager {
 
         spawnAction.executeAsync(name, success -> {
             if (success) {
-                FakePlayerData cached = botCache.get(name.toLowerCase());
+                FakePlayerData cached = botCache.get(name.toLowerCase(Locale.ROOT));
                 if (cached != null) {
                     updateCache(cached.withActive(true));
                 }
@@ -202,7 +203,7 @@ public class FakePlayerManager {
     public boolean despawnBot(String name) {
         boolean result = despawnAction.execute(name);
         if (result) {
-            FakePlayerData cached = botCache.get(name.toLowerCase());
+            FakePlayerData cached = botCache.get(name.toLowerCase(Locale.ROOT));
             if (cached != null) {
                 updateCache(cached.withActive(false));
             }
@@ -238,7 +239,7 @@ public class FakePlayerManager {
             botCache.clear();
             for (FakePlayerData data : all) {
                 if (data != null && data.getName() != null && data.getName().length() <= 16) {
-                    botCache.put(data.getName().toLowerCase(), data);
+                    botCache.put(data.getName().toLowerCase(Locale.ROOT), data);
                 }
             }
             plugin.getLogger().info("[FakePlayerManager] Cached " + botCache.size() + " bots into RAM.");
@@ -331,7 +332,7 @@ public class FakePlayerManager {
     public void handleExternalQuit(String name) {
         if (registry.isOnline(name)) {
             registry.unregister(name);
-            FakePlayerData cached = botCache.get(name.toLowerCase());
+            FakePlayerData cached = botCache.get(name.toLowerCase(Locale.ROOT));
             if (cached != null) {
                 updateCache(cached.withActive(false));
             }
